@@ -4,6 +4,8 @@ import { ChevronRight, Calendar } from 'lucide-react';
 import HeroCarousel from '@/components/HeroCarousel';
 import { getHomePageData } from '@/lib/site-data';
 
+export const dynamic = 'force-dynamic';
+
 function formatNum(num: number): string {
   if (num >= 10000) return (num / 10000).toFixed(1) + '万';
   if (num >= 1000) return (num / 1000).toFixed(1) + 'k';
