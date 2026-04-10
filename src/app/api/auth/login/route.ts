@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { verifyPassword, signUserToken, setTokenCookie, USER_COOKIE_NAME } from '@/lib/auth';
 import { ok, fail, handleError } from '@/lib/api';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import { grantDailyLogin } from '@/lib/points';
 
 const loginSchema = z.object({
   email: z.string().email('邮箱格式不正确'),
@@ -45,6 +46,9 @@ export async function POST(req: NextRequest) {
 
     const token = signUserToken({ id: user.id, email: user.email, role: user.role });
 
+    // 每日登录积分（异步，不阻塞登录）
+    const dailyResult = await grantDailyLogin(user.id).catch(() => null);
+
     const response = ok({
       user: {
         id: user.id,
@@ -53,6 +57,8 @@ export async function POST(req: NextRequest) {
         avatar: user.avatar,
         role: user.role,
       },
+      pointsEarned: dailyResult ? dailyResult.points : 0,
+      levelUp: dailyResult?.levelUp || false,
     });
     setTokenCookie(response, token, USER_COOKIE_NAME);
     return response;

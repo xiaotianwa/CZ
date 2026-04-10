@@ -50,13 +50,13 @@ export default function SplashScreen() {
       {/* Brand - large centered */}
       <div className="flex flex-col items-center gap-2 mb-4">
         <span
-          className="text-[80px] sm:text-[100px] leading-none font-bold text-white/15"
+          className="text-[80px] sm:text-[100px] leading-none font-bold fire-text"
           style={{ fontFamily: "'Blazed', sans-serif" }}
         >
           1103
         </span>
         <span
-          className="text-[28px] sm:text-[36px] leading-none text-white/25 tracking-[0.2em]"
+          className="text-[28px] sm:text-[36px] leading-none tracking-[0.2em] fire-text fire-text-glow"
           style={{ fontFamily: "'Blazed', sans-serif" }}
         >
           ChenZe

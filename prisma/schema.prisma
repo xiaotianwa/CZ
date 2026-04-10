@@ -27,9 +27,10 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  posts     Post[]
-  comments  Comment[]
-  feedbacks Feedback[]
+  posts      Post[]
+  comments   Comment[]
+  feedbacks  Feedback[]
+  pointLogs  PointLog[]
 
   @@index([role])
   @@index([isActive])
@@ -295,6 +296,23 @@ model MusicTrack {
 
   @@index([isActive])
   @@index([sortOrder])
+}
+
+// ==================== 积分记录 ====================
+
+model PointLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String   // daily_login | post | comment | be_liked | event
+  points    Int      // 正数=获得 负数=扣除
+  detail    String?  // 可选描述，如 "发布帖子xxx"
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([userId, action, createdAt])
 }
 
 // ==================== 反馈建议 ====================

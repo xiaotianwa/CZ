@@ -6,6 +6,7 @@ import {
   Heart, MessageCircle, Pin, Send, ImagePlus, ShieldCheck,
   X, Video, AlertCircle, Loader2, Hash, ChevronDown, Check, Plus, Search,
 } from 'lucide-react';
+import Toast from '@/components/admin/Toast';
 
 interface TopicItem {
   id: string;
@@ -476,7 +477,7 @@ function PostComposer({ topics, onPostCreated, onTopicCreated }: { topics: Topic
 
 // ===== Comment Section =====
 
-function CommentSection({ postId }: { postId: string }) {
+function CommentSection({ postId, onToast }: { postId: string; onToast: (msg: string, type: 'success' | 'error') => void }) {
   const [comments, setComments] = useState<CommentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [content, setContent] = useState('');
@@ -509,8 +510,11 @@ function CommentSection({ postId }: { postId: string }) {
       if (json.code !== 0) throw new Error(json.message);
       setComments((prev) => [json.data, ...prev]);
       setContent('');
+      onToast('评论发布成功', 'success');
     } catch (err) {
-      setError(err instanceof Error ? err.message : '评论失败');
+      const msg = err instanceof Error ? err.message : '评论失败';
+      setError(msg);
+      onToast(msg, 'error');
     } finally {
       setSending(false);
     }
@@ -586,6 +590,11 @@ export default function CommunityPage() {
   const [communityStats, setCommunityStats] = useState({ totalFans: 0, todayPosts: 0, onlineNow: 0 });
   const [loading, setLoading] = useState(true);
   const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
+  const [toast, setToast] = useState<{ open: boolean; message: string; type: 'success' | 'error' }>({ open: false, message: '', type: 'success' });
+
+  const showToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ open: true, message, type });
+  }, []);
 
   // Fetch topics once
   useEffect(() => {
@@ -614,12 +623,34 @@ export default function CommunityPage() {
     }).catch(() => setLoading(false));
   }, [activeTopicId]);
 
-  const toggleLike = (postId: string) => {
+  const toggleLike = async (postId: string) => {
+    const isLiked = likedPosts.has(postId);
+    // Optimistic update
     setLikedPosts((prev) => {
       const next = new Set(prev);
-      next.has(postId) ? next.delete(postId) : next.add(postId);
+      isLiked ? next.delete(postId) : next.add(postId);
       return next;
     });
+
+    try {
+      const res = await fetch(`/api/auth/posts/${postId}/like`, {
+        method: isLiked ? 'DELETE' : 'POST',
+        credentials: 'same-origin',
+      });
+      const json = await res.json();
+      if (json.code !== 0) throw new Error(json.message);
+      // Update post likes count from server
+      setPosts((prev) => prev.map((p) => p.id === postId ? { ...p, likes: json.data.likes } : p));
+      showToast(isLiked ? '已取消点赞' : '点赞成功 ❤️', 'success');
+    } catch (err) {
+      // Rollback
+      setLikedPosts((prev) => {
+        const next = new Set(prev);
+        isLiked ? next.add(postId) : next.delete(postId);
+        return next;
+      });
+      showToast(err instanceof Error ? err.message : '操作失败，请重试', 'error');
+    }
   };
 
   const toggleComments = (postId: string) => {
@@ -632,6 +663,7 @@ export default function CommunityPage() {
 
   const handlePostCreated = (post: PostItem) => {
     setPosts((prev) => [post, ...prev]);
+    showToast('帖子发布成功 🎉', 'success');
   };
 
   const handleTopicCreated = (topic: TopicItem) => {
@@ -649,6 +681,7 @@ export default function CommunityPage() {
 
   return (
     <>
+      <Toast open={toast.open} message={toast.message} type={toast.type} onClose={() => setToast((t) => ({ ...t, open: false }))} />
       <section className="hidden sm:block px-4 sm:px-6 lg:px-8 pt-20 pb-6 animate-fade-in-up">
         <div className="container-main">
           <h1 className="section-title" style={{ fontFamily: "'Blazed', sans-serif" }}>1103</h1>
@@ -774,7 +807,7 @@ export default function CommunityPage() {
                           }`}
                         >
                           <Heart className={`w-4 h-4 ${likedPosts.has(post.id) ? 'fill-current' : ''}`} />
-                          {formatNum(post.likes + (likedPosts.has(post.id) ? 1 : 0))}
+                          {formatNum(post.likes)}
                         </button>
                         <button
                           onClick={() => toggleComments(post.id)}
@@ -787,7 +820,7 @@ export default function CommunityPage() {
                       </div>
 
                       {/* Comments */}
-                      {expandedComments.has(post.id) && <CommentSection postId={post.id} />}
+                      {expandedComments.has(post.id) && <CommentSection postId={post.id} onToast={showToast} />}
                     </div>
                   </div>
                 </article>

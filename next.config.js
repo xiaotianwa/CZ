@@ -14,6 +14,10 @@ const nextConfig = {
         protocol: 'https',
         hostname: '**.cos.*.myqcloud.com',
       },
+      {
+        protocol: 'https',
+        hostname: 'placehold.co',
+      },
       // CDN 域名（配置 COS_CDN_DOMAIN 后启用）
       ...(process.env.COS_CDN_DOMAIN ? [{
         protocol: 'https',
@@ -40,10 +44,10 @@ const nextConfig = {
             value: [
               "default-src 'self'",
               `script-src 'self' 'unsafe-inline' 'unsafe-eval'`,
-              `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`,
+              `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.cdnfonts.com`,
               `img-src 'self' data: blob: ${MEDIA_SOURCES}`,
               `media-src 'self' blob: ${MEDIA_SOURCES}`,
-              `font-src 'self' https://fonts.gstatic.com`,
+              `font-src 'self' https://fonts.gstatic.com https://fonts.cdnfonts.com`,
               `connect-src 'self' ${MEDIA_SOURCES}`,
               "frame-ancestors 'none'",
               "base-uri 'self'",

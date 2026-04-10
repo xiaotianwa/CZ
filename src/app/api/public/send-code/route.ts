@@ -1,0 +1,52 @@
+import { NextRequest } from 'next/server';
+import { z } from 'zod';
+import { ok, fail, handleError } from '@/lib/api';
+import { sendVerifyCode } from '@/lib/mail';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import { setCache } from '@/lib/cache';
+
+const schema = z.object({
+  email: z.string().email('邮箱格式不正确'),
+  type: z.enum(['register', 'reset']).optional().default('register'),
+});
+
+function generateCode(): string {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const ip = getClientIp(req);
+
+    // IP 级限流：每分钟最多 3 次
+    const wait = checkRateLimit(ip, { namespace: 'send-code-ip', windowMs: 60_000, max: 3 });
+    if (wait !== null) {
+      return fail(`发送过于频繁，请 ${wait} 秒后再试`, 429);
+    }
+
+    const body = await req.json();
+    const parsed = schema.safeParse(body);
+    if (!parsed.success) {
+      return fail(parsed.error.issues[0].message);
+    }
+
+    const { email, type } = parsed.data;
+
+    // 邮箱级限流：每分钟最多 1 次
+    const emailWait = checkRateLimit(`code:${email}`, { namespace: 'send-code-email', windowMs: 60_000, max: 1 });
+    if (emailWait !== null) {
+      return fail(`该邮箱已发送验证码，请 ${emailWait} 秒后再试`, 429);
+    }
+
+    const code = generateCode();
+
+    // 存入缓存，5 分钟过期
+    setCache(`verify-code:${email}`, code, 5 * 60 * 1000);
+
+    await sendVerifyCode(email, code, type);
+
+    return ok(null, '验证码已发送');
+  } catch (err) {
+    return handleError(err);
+  }
+}

@@ -5,6 +5,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { ok, fail, handleError } from '@/lib/api';
 import { checkBannedWords } from '@/lib/banned-words';
 import { invalidateCache } from '@/lib/cache';
+import { grantPoints } from '@/lib/points';
 
 const createPostSchema = z.object({
   content: z.string().min(1, '内容不能为空').max(2000, '内容最多2000字'),
@@ -52,6 +53,10 @@ export async function POST(req: NextRequest) {
     });
 
     invalidateCache('public:home');
+
+    // 发帖积分 +10
+    grantPoints(payload.id, 'post', `发布帖子`).catch(() => {});
+
     return ok(post, '发布成功');
   } catch (err) {
     return handleError(err);

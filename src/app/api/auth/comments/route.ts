@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { ok, fail, handleError } from '@/lib/api';
 import { checkBannedWords } from '@/lib/banned-words';
+import { grantPoints } from '@/lib/points';
 
 const createCommentSchema = z.object({
   postId: z.string().min(1, '帖子ID不能为空'),
@@ -53,6 +54,9 @@ export async function POST(req: NextRequest) {
         },
       },
     });
+
+    // 评论积分 +3
+    grantPoints(payload.id, 'comment', '发表评论').catch(() => {});
 
     return ok(comment, '评论成功');
   } catch (err) {

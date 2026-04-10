@@ -7,7 +7,7 @@ import {
   User, FileText, MessageCircle, Trophy, Lock,
   Edit3, Camera, Save, X, Heart, ChevronRight,
   Shield, Star, Award, Zap, Clock, Eye, EyeOff,
-  LogOut, AlertCircle, Check,
+  LogOut, AlertCircle, Check, Trash2, Loader2,
 } from 'lucide-react';
 
 // ===== Types =====
@@ -42,6 +42,14 @@ interface CommentItem {
   likes: number;
   createdAt: string;
   post: { id: string; content: string };
+}
+
+interface PointLogItem {
+  id: string;
+  action: string;
+  points: number;
+  detail: string | null;
+  createdAt: string;
 }
 
 type TabKey = 'profile' | 'posts' | 'comments' | 'level' | 'security';
@@ -105,6 +113,53 @@ function getLevelInfo(level: number) {
     { name: '传奇粉丝', min: 4, max: 99, color: 'bg-danger' },
   ];
   return levels.find((l) => level >= l.min && level <= l.max) || levels[0];
+}
+
+// ===== Confirm Modal =====
+
+function ConfirmModal({ open, title, message, loading, onConfirm, onCancel }: {
+  open: boolean;
+  title: string;
+  message: string;
+  loading: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onCancel} />
+      <div className="relative bg-white rounded-card shadow-dropdown border border-divider w-full max-w-sm mx-4 p-6 animate-fade-in-up">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center flex-shrink-0">
+            <Trash2 className="w-5 h-5 text-danger" />
+          </div>
+          <div>
+            <h3 className="text-body font-semibold text-text-title">{title}</h3>
+            <p className="text-caption text-text-muted mt-0.5">{message}</p>
+          </div>
+        </div>
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={onCancel}
+            disabled={loading}
+            className="btn-outline h-9 px-4 text-caption"
+          >
+            取消
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={loading}
+            className="h-9 px-4 rounded-btn text-caption font-medium text-white bg-danger hover:bg-red-600 transition-colors duration-150 cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5"
+          >
+            {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+            {loading ? '删除中...' : '确认删除'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ===== Toast Component =====
@@ -244,8 +299,8 @@ export default function MePage() {
           {/* Tab Content */}
           <div className="min-w-0">
             {activeTab === 'profile' && <ProfileTab user={user} onUpdate={setUser} showToast={showToast} />}
-            {activeTab === 'posts' && <PostsTab />}
-            {activeTab === 'comments' && <CommentsTab />}
+            {activeTab === 'posts' && <PostsTab showToast={showToast} />}
+            {activeTab === 'comments' && <CommentsTab showToast={showToast} />}
             {activeTab === 'level' && <LevelTab user={user} />}
             {activeTab === 'security' && <SecurityTab showToast={showToast} />}
           </div>
@@ -418,10 +473,27 @@ function ProfileTab({ user, onUpdate, showToast }: { user: UserProfile; onUpdate
 
 // ===== Posts Tab =====
 
-function PostsTab() {
+function PostsTab({ showToast }: { showToast: (msg: string, type: 'success' | 'error') => void }) {
   const [posts, setPosts] = useState<PostItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ total: 0, page: 1, totalPages: 0 });
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+
+  const handleDelete = async (postId: string) => {
+    setDeletingId(postId);
+    try {
+      await authFetch('/api/auth/posts/' + postId, { method: 'DELETE' });
+      setPosts((prev) => prev.filter((p) => p.id !== postId));
+      setPagination((prev) => ({ ...prev, total: prev.total - 1 }));
+      showToast('帖子已删除', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : '删除失败', 'error');
+    } finally {
+      setDeletingId(null);
+      setConfirmId(null);
+    }
+  };
 
   const fetchPosts = useCallback(async (page = 1) => {
     setLoading(true);
@@ -473,6 +545,12 @@ function PostsTab() {
                   <span className="flex items-center gap-1"><Heart className="w-3.5 h-3.5" /> {post.likes}</span>
                   <span className="flex items-center gap-1"><MessageCircle className="w-3.5 h-3.5" /> {post._count.comments}</span>
                   <span className="ml-auto">{timeAgo(post.createdAt)}</span>
+                  <button
+                    onClick={() => setConfirmId(post.id)}
+                    className="flex items-center gap-1 text-text-muted hover:text-danger transition-colors duration-150 cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> 删除
+                  </button>
                 </div>
               </div>
             );
@@ -496,16 +574,42 @@ function PostsTab() {
           )}
         </>
       )}
+
+      <ConfirmModal
+        open={!!confirmId}
+        title="删除帖子"
+        message="删除后无法恢复，帖子下的所有评论也将被删除。"
+        loading={!!deletingId}
+        onConfirm={() => confirmId && handleDelete(confirmId)}
+        onCancel={() => setConfirmId(null)}
+      />
     </div>
   );
 }
 
 // ===== Comments Tab =====
 
-function CommentsTab() {
+function CommentsTab({ showToast }: { showToast: (msg: string, type: 'success' | 'error') => void }) {
   const [comments, setComments] = useState<CommentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ total: 0, page: 1, totalPages: 0 });
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+
+  const handleDelete = async (commentId: string) => {
+    setDeletingId(commentId);
+    try {
+      await authFetch('/api/auth/comments/' + commentId, { method: 'DELETE' });
+      setComments((prev) => prev.filter((c) => c.id !== commentId));
+      setPagination((prev) => ({ ...prev, total: prev.total - 1 }));
+      showToast('评论已删除', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : '删除失败', 'error');
+    } finally {
+      setDeletingId(null);
+      setConfirmId(null);
+    }
+  };
 
   const fetchComments = useCallback(async (page = 1) => {
     setLoading(true);
@@ -548,6 +652,12 @@ function CommentsTab() {
               <div className="flex items-center gap-4 mt-3 pt-3 border-t border-divider text-caption text-text-muted">
                 <span className="flex items-center gap-1"><Heart className="w-3.5 h-3.5" /> {comment.likes}</span>
                 <span className="ml-auto">{timeAgo(comment.createdAt)}</span>
+                <button
+                  onClick={() => setConfirmId(comment.id)}
+                  className="flex items-center gap-1 text-text-muted hover:text-danger transition-colors duration-150 cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> 删除
+                </button>
               </div>
             </div>
           ))}
@@ -569,6 +679,15 @@ function CommentsTab() {
           )}
         </>
       )}
+
+      <ConfirmModal
+        open={!!confirmId}
+        title="删除评论"
+        message="删除后无法恢复，确定要删除这条评论吗？"
+        loading={!!deletingId}
+        onConfirm={() => confirmId && handleDelete(confirmId)}
+        onCancel={() => setConfirmId(null)}
+      />
     </div>
   );
 }
@@ -582,6 +701,30 @@ function LevelTab({ user }: { user: UserProfile }) {
   const currentPts = milestonePts[currentIdx - 1] || 0;
   const nextPts = milestonePts[currentIdx] || milestonePts[milestonePts.length - 1];
   const progress = nextPts > currentPts ? Math.min(100, ((user.points - currentPts) / (nextPts - currentPts)) * 100) : 100;
+
+  const [logs, setLogs] = useState<PointLogItem[]>([]);
+  const [logLoading, setLogLoading] = useState(true);
+  const [logPagination, setLogPagination] = useState({ total: 0, page: 1, totalPages: 0 });
+
+  const fetchLogs = useCallback(async (page = 1) => {
+    setLogLoading(true);
+    try {
+      const res = await authFetch<{ list: PointLogItem[]; pagination: { total: number; page: number; totalPages: number } }>(`/api/auth/point-logs?page=${page}&pageSize=15`);
+      setLogs(res.data.list);
+      setLogPagination(res.data.pagination);
+    } catch { /* ignore */ }
+    setLogLoading(false);
+  }, []);
+
+  useEffect(() => { fetchLogs(); }, [fetchLogs]);
+
+  const actionLabels: Record<string, { label: string; icon: string }> = {
+    daily_login: { label: '每日登录', icon: '🔑' },
+    post: { label: '发布帖子', icon: '📝' },
+    comment: { label: '发表评论', icon: '💬' },
+    be_liked: { label: '被点赞', icon: '❤️' },
+    event: { label: '参与活动', icon: '🎉' },
+  };
 
   const milestones = [
     { level: 1, name: '新粉', points: 100, icon: Star, color: 'text-gray-400' },
@@ -622,6 +765,58 @@ function LevelTab({ user }: { user: UserProfile }) {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Point History */}
+      <div className="card p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-body font-semibold text-text-title">积分明细</h3>
+          <span className="text-caption text-text-muted">共 {logPagination.total} 条记录</span>
+        </div>
+        {logLoading ? (
+          <div className="py-8 text-center text-caption text-text-muted">加载中...</div>
+        ) : logs.length === 0 ? (
+          <div className="py-8 text-center">
+            <Zap className="w-8 h-8 text-text-disabled mx-auto mb-2" />
+            <p className="text-caption text-text-muted">暂无积分记录</p>
+            <p className="text-caption text-text-disabled mt-0.5">去发帖、评论赚取积分吧~</p>
+          </div>
+        ) : (
+          <>
+            <div className="space-y-0 divide-y divide-divider">
+              {logs.map((log) => {
+                const info = actionLabels[log.action] || { label: log.action, icon: '⭐' };
+                return (
+                  <div key={log.id} className="flex items-center py-3 first:pt-0 last:pb-0">
+                    <span className="text-lg mr-3 flex-shrink-0">{info.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-body font-medium text-text-title">{info.label}</p>
+                      <p className="text-caption text-text-muted truncate">{log.detail || info.label} · {timeAgo(log.createdAt)}</p>
+                    </div>
+                    <span className={`text-body font-bold flex-shrink-0 ${log.points > 0 ? 'text-success' : 'text-danger'}`}>
+                      {log.points > 0 ? '+' : ''}{log.points}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            {logPagination.totalPages > 1 && (
+              <div className="flex justify-center gap-2 pt-4">
+                {Array.from({ length: logPagination.totalPages }, (_, i) => i + 1).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => fetchLogs(p)}
+                    className={`w-8 h-8 rounded-btn text-caption font-medium transition-colors duration-150 cursor-pointer ${
+                      p === logPagination.page ? 'bg-primary text-white' : 'text-text-muted hover:bg-gray-50'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* Milestones */}
