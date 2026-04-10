@@ -47,7 +47,7 @@ const nextConfig = {
               `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.cdnfonts.com`,
               `img-src 'self' data: blob: ${MEDIA_SOURCES}`,
               `media-src 'self' blob: ${MEDIA_SOURCES}`,
-              `font-src 'self' https://fonts.gstatic.com https://fonts.cdnfonts.com`,
+              `font-src 'self' https://fonts.gstatic.com https://fonts.cdnfonts.com https://db.onlinewebfonts.com`,
               `connect-src 'self' ${MEDIA_SOURCES}`,
               "frame-ancestors 'none'",
               "base-uri 'self'",
