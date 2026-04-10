@@ -1,0 +1,59 @@
+// COS 相关域名，用于 CSP 和图片优化白名单
+const COS_DOMAIN = process.env.COS_BUCKET && process.env.COS_REGION
+  ? `${process.env.COS_BUCKET}.cos.${process.env.COS_REGION}.myqcloud.com`
+  : '*.cos.*.myqcloud.com';
+const CDN_DOMAIN = process.env.COS_CDN_DOMAIN || '';
+const MEDIA_SOURCES = [COS_DOMAIN, CDN_DOMAIN].filter(Boolean).map(d => `https://${d}`).join(' ');
+
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  images: {
+    // 开启 Next.js 图片优化（自动 WebP/AVIF 转换 + 尺寸裁剪）
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**.cos.*.myqcloud.com',
+      },
+      // CDN 域名（配置 COS_CDN_DOMAIN 后启用）
+      ...(process.env.COS_CDN_DOMAIN ? [{
+        protocol: 'https',
+        hostname: process.env.COS_CDN_DOMAIN,
+      }] : []),
+    ],
+    // 限制优化图片的最大尺寸，节省服务器内存
+    deviceSizes: [640, 750, 828, 1080, 1200],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256],
+    minimumCacheTTL: 60 * 60 * 24, // 缓存 24 小时
+  },
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'X-XSS-Protection', value: '1; mode=block' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self'",
+              `script-src 'self' 'unsafe-inline' 'unsafe-eval'`,
+              `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com`,
+              `img-src 'self' data: blob: ${MEDIA_SOURCES}`,
+              `media-src 'self' blob: ${MEDIA_SOURCES}`,
+              `font-src 'self' https://fonts.gstatic.com`,
+              `connect-src 'self' ${MEDIA_SOURCES}`,
+              "frame-ancestors 'none'",
+              "base-uri 'self'",
+              "form-action 'self'",
+            ].join('; '),
+          },
+        ],
+      },
+    ];
+  },
+};
+
+module.exports = nextConfig;

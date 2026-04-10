@@ -1,0 +1,316 @@
+// Prisma Schema — 1103社区 (ChenZe Community)
+// SQLite for dev, can migrate to MySQL/PostgreSQL for production
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ==================== 用户系统 ====================
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  avatar    String?
+  role      String   @default("fan") // fan | star(董事长) | assistant(传媒成员)
+  level     Int      @default(1)
+  badge     String?
+  points    Int      @default(0)
+  bio       String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  posts     Post[]
+  comments  Comment[]
+  feedbacks Feedback[]
+
+  @@index([role])
+  @@index([isActive])
+}
+
+// ==================== 管理员系统 (独立于前台用户) ====================
+
+model Admin {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  avatar    String?
+  role      String   @default("admin") // super_admin | admin | editor
+  isActive  Boolean  @default(true)
+  lastLogin DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([role])
+}
+
+// ==================== 社区内容 ====================
+
+model Post {
+  id        String   @id @default(cuid())
+  content   String
+  images    String   @default("[]") // JSON array of COS URLs
+  isPinned  Boolean  @default(false)
+  likes     Int      @default(0)
+  status    String   @default("published") // draft | published | hidden
+  authorId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  author   User      @relation(fields: [authorId], references: [id])
+  comments Comment[]
+  postTags PostTag[]
+
+  @@index([authorId])
+  @@index([status])
+  @@index([isPinned])
+  @@index([createdAt])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  likes     Int      @default(0)
+  postId    String
+  authorId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author User @relation(fields: [authorId], references: [id])
+
+  @@index([postId])
+  @@index([authorId])
+}
+
+model Tag {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  color     String?
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+
+  postTags PostTag[]
+}
+
+model PostTag {
+  postId String
+  tagId  String
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([postId, tagId])
+}
+
+// ==================== 相册系统 ====================
+
+model Album {
+  id        String   @id @default(cuid())
+  title     String
+  category  String
+  cover     String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  photos Photo[]
+
+  @@index([category])
+}
+
+model Photo {
+  id          String   @id @default(cuid())
+  url         String
+  thumbnail   String?
+  description String?
+  albumId     String
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  album Album @relation(fields: [albumId], references: [id], onDelete: Cascade)
+
+  @@index([albumId])
+}
+
+// ==================== 活动系统 ====================
+
+model Event {
+  id           String   @id @default(cuid())
+  title        String
+  description  String
+  cover        String
+  startTime    DateTime
+  endTime      DateTime
+  location     String
+  status       String   @default("upcoming") // upcoming | ongoing | ended
+  participants Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([status])
+  @@index([startTime])
+}
+
+// ==================== 游戏推荐 ====================
+
+model Game {
+  id            String   @id @default(cuid())
+  name          String
+  cover         String
+  platform      String
+  genre         String
+  status        String   @default("playing") // playing | recent | favorite
+  lastPlayed    String
+  hours         Int      @default(0)
+  rating        Int      @default(5)
+  comment       String
+  description   String
+  downloadLinks String   @default("[]") // JSON array [{label, url}]
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([status])
+}
+
+// ==================== 时间线 ====================
+
+model TimelineEvent {
+  id          String   @id @default(cuid())
+  date        String
+  title       String
+  description String
+  type        String // debut | award | release | milestone | event
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([type])
+}
+
+// ==================== 首页轮播 ====================
+
+model HeroSlide {
+  id        String   @id @default(cuid())
+  image     String
+  alt       String
+  link      String?
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ==================== 站点配置 (KV存储, 可扩展) ====================
+
+model SiteConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String // JSON string
+  label     String? // 人类可读标签
+  group     String   @default("general") // general | profile | social | stats
+  updatedAt DateTime @updatedAt
+
+  @@index([group])
+}
+
+// ==================== 媒体库 (COS文件管理) ====================
+
+model Media {
+  id        String   @id @default(cuid())
+  filename  String
+  url       String
+  cosKey    String
+  size      Int
+  mimeType  String
+  width     Int?
+  height    Int?
+  category  String   @default("general") // avatar | post | album | cover | game | event
+  createdAt DateTime @default(now())
+
+  @@index([category])
+  @@index([createdAt])
+}
+
+// ==================== 公告弹窗 ====================
+
+model Announcement {
+  id        String    @id @default(cuid())
+  title     String
+  content   String
+  type      String    @default("info")    // info | warning | event | update
+  image     String?                        // 可选图片 URL
+  link      String?                        // 可选跳转链接
+  linkText  String?                        // 链接按钮文字
+  isActive  Boolean   @default(true)
+  startAt   DateTime? // 定时开始（null = 立即生效）
+  endAt     DateTime? // 定时结束（null = 永不过期）
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([isActive])
+  @@index([startAt])
+  @@index([endAt])
+}
+
+// ==================== 答题验证 ====================
+
+model QuizQuestion {
+  id        String   @id @default(cuid())
+  question  String
+  options   String   // JSON array of strings, e.g. ["A","B","C","D"]
+  answer    Int      // 正确选项索引 (0-based)
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+}
+
+// ==================== 音乐播放器 ====================
+
+model MusicTrack {
+  id        String   @id @default(cuid())
+  title     String
+  artist    String   @default("陈泽")
+  src       String   // COS 音频 URL
+  cover     String?  // 封面图 URL
+  duration  Int?     // 时长(秒)
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([sortOrder])
+}
+
+// ==================== 反馈建议 ====================
+
+model Feedback {
+  id        String   @id @default(cuid())
+  type      String   @default("suggestion") // suggestion | bug | other
+  content   String
+  contact   String?  // 可选联系方式(邮箱/微信等)
+  status    String   @default("pending") // pending | read | resolved
+  reply     String?
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}

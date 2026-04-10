@@ -1,0 +1,165 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@font-face {
+  font-family: 'Blazed';
+  src: url('https://db.onlinewebfonts.com/t/85e3cfdbc400fb1396120ad9973701c6.woff2') format('woff2'),
+       url('https://db.onlinewebfonts.com/t/85e3cfdbc400fb1396120ad9973701c6.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: #FAFAFA;
+  color: #1a1a1a;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@layer components {
+  .section-block {
+    @apply px-4 sm:px-6 lg:px-8 py-12 sm:py-16;
+  }
+
+  .container-main {
+    @apply max-w-6xl mx-auto;
+  }
+
+  .card {
+    @apply bg-white rounded-card p-5 shadow-card border border-divider transition-shadow duration-150 hover:shadow-card-hover;
+  }
+
+  .btn-primary {
+    @apply bg-primary text-white h-10 px-5 rounded-btn text-sm font-medium transition-colors duration-150 cursor-pointer hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-primary/30 focus:ring-offset-1 active:scale-[0.98];
+  }
+
+  .btn-outline {
+    @apply bg-white text-text-body h-10 px-5 rounded-btn text-sm font-medium border border-border transition-colors duration-150 cursor-pointer hover:border-primary hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:ring-offset-1 active:scale-[0.98];
+  }
+
+  .tag {
+    @apply inline-flex items-center h-6 px-2 rounded-tag text-caption font-medium;
+  }
+
+  .tag-primary {
+    @apply tag bg-primary-bg text-primary;
+  }
+
+  .tag-success {
+    @apply tag bg-green-50 text-success;
+  }
+
+  .tag-muted {
+    @apply tag bg-gray-100 text-text-muted;
+  }
+
+  .section-title {
+    @apply text-heading text-text-title;
+  }
+
+  .section-desc {
+    @apply text-body text-text-muted mt-1;
+  }
+
+}
+
+@keyframes slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.25s ease-out;
+}
+
+/* Entrance animations (CSS-only, SSR-friendly) */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.5s ease-out both;
+}
+
+.stagger-children > * {
+  animation: fade-in-up 0.4s ease-out both;
+}
+.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-children > *:nth-child(2) { animation-delay: 60ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 120ms; }
+.stagger-children > *:nth-child(4) { animation-delay: 180ms; }
+.stagger-children > *:nth-child(5) { animation-delay: 240ms; }
+.stagger-children > *:nth-child(6) { animation-delay: 300ms; }
+.stagger-children > *:nth-child(7) { animation-delay: 360ms; }
+.stagger-children > *:nth-child(8) { animation-delay: 420ms; }
+.stagger-children > *:nth-child(9) { animation-delay: 480ms; }
+.stagger-children > *:nth-child(10) { animation-delay: 540ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in-up,
+  .stagger-children > * {
+    animation: none !important;
+  }
+}
+
+/* Splash screen enter button animation */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Music player bar animations */
+@keyframes musicBar1 {
+  0%, 100% { height: 4px; }
+  50% { height: 12px; }
+}
+@keyframes musicBar2 {
+  0%, 100% { height: 8px; }
+  50% { height: 4px; }
+}
+@keyframes musicBar3 {
+  0%, 100% { height: 6px; }
+  50% { height: 12px; }
+}
+
+/* Hide scrollbar for horizontal scroll strips on mobile */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

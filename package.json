@@ -1,0 +1,42 @@
+{
+  "name": "star-community",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "prisma": {
+    "seed": "npx tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.17.2",
+    "@prisma/adapter-libsql": "^7.7.0",
+    "@prisma/client": "^7.7.0",
+    "bcryptjs": "^3.0.3",
+    "clsx": "^2.1.0",
+    "cos-nodejs-sdk-v5": "^2.15.4",
+    "dotenv": "^17.4.1",
+    "jsonwebtoken": "^9.0.3",
+    "lucide-react": "^0.400.0",
+    "next": "^14.2.0",
+    "prisma": "^7.7.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^20.0.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "autoprefixer": "^10.4.0",
+    "postcss": "^8.4.0",
+    "tailwindcss": "^3.4.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.4.0"
+  }
+}
