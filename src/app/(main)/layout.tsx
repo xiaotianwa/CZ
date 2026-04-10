@@ -5,6 +5,8 @@ import MusicPlayer from '@/components/MusicPlayer';
 import SplashScreen from '@/components/SplashScreen';
 import { getSiteConfig } from '@/lib/site-data';
 
+export const dynamic = 'force-dynamic';
+
 export default async function MainLayout({
   children,
 }: {
