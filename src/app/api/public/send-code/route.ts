@@ -49,7 +49,8 @@ export async function POST(req: NextRequest) {
       // 邮件发送失败，回退限流计数（不消耗用户配额）
       rollbackRateLimit(ip, 'send-code-ip');
       rollbackRateLimit(`code:${email}`, 'send-code-email');
-      throw mailErr;
+      const msg = mailErr instanceof Error ? mailErr.message : '邮件发送失败';
+      return fail(msg, 500);
     }
 
     return ok(null, '验证码已发送');
