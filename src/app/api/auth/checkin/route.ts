@@ -1,0 +1,95 @@
+import { NextRequest } from 'next/server';
+import { prisma } from '@/lib/db';
+import { getCurrentUser } from '@/lib/auth';
+import { ok, fail, handleError } from '@/lib/api';
+import { grantDailyLogin } from '@/lib/points';
+
+export const dynamic = 'force-dynamic';
+
+// GET — 查询今日签到状态 + 连续签到天数
+export async function GET(req: NextRequest) {
+  try {
+    const payload = await getCurrentUser(req);
+    if (!payload) return fail('未登录', 401);
+
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const [todayLog, user] = await Promise.all([
+      prisma.pointLog.findFirst({
+        where: {
+          userId: payload.id,
+          action: 'daily_login',
+          createdAt: { gte: todayStart },
+        },
+      }),
+      prisma.user.findUnique({
+        where: { id: payload.id },
+        select: { points: true, level: true },
+      }),
+    ]);
+
+    // 计算连续签到天数（往前查30天）
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    const logs = await prisma.pointLog.findMany({
+      where: {
+        userId: payload.id,
+        action: 'daily_login',
+        createdAt: { gte: thirtyDaysAgo },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true },
+    });
+
+    // 计算连续天数
+    let streak = 0;
+    const checkedInToday = !!todayLog;
+    const startDay = checkedInToday ? 0 : 1;
+
+    for (let i = startDay; i <= 30; i++) {
+      const day = new Date();
+      day.setDate(day.getDate() - i);
+      const dayStr = day.toDateString();
+      const hasLog = logs.some((l) => new Date(l.createdAt).toDateString() === dayStr);
+      if (hasLog) {
+        streak++;
+      } else {
+        break;
+      }
+    }
+
+    return ok({
+      checkedIn: checkedInToday,
+      streak,
+      points: user?.points || 0,
+      level: user?.level || 1,
+    });
+  } catch (err) {
+    return handleError(err);
+  }
+}
+
+// POST — 执行签到
+export async function POST(req: NextRequest) {
+  try {
+    const payload = await getCurrentUser(req);
+    if (!payload) return fail('未登录', 401);
+
+    const result = await grantDailyLogin(payload.id);
+
+    if (!result) {
+      return fail('今天已经签到过了', 400);
+    }
+
+    return ok({
+      points: result.points,
+      totalPoints: result.totalPoints,
+      level: result.level,
+      levelUp: result.levelUp,
+    }, '签到成功！获得 5 积分');
+  } catch (err) {
+    return handleError(err);
+  }
+}
