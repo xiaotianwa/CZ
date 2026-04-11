@@ -18,7 +18,7 @@ vi.mock('@/lib/db', () => ({
 
 vi.mock('@/lib/points', () => ({ grantPoints: vi.fn().mockResolvedValue({}) }));
 vi.mock('@/lib/notification', () => ({ notifyComment: vi.fn().mockResolvedValue(undefined) }));
-vi.mock('@/lib/banned-words', () => ({ checkBannedWords: vi.fn(() => null) }));
+vi.mock('@/lib/banned-words', () => ({ checkBannedWords: vi.fn().mockResolvedValue(null) }));
 
 import { POST } from '@/app/api/auth/comments/route';
 import { getCurrentUser } from '@/lib/auth';
@@ -47,7 +47,7 @@ function makeReq(body: object) {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockCheckBanned.mockReturnValue(null);
+  mockCheckBanned.mockResolvedValue(null);
 });
 
 describe('POST /api/auth/comments', () => {
@@ -86,7 +86,7 @@ describe('POST /api/auth/comments', () => {
 
   it('test_postComment_containsBannedWord_returns400', async () => {
     mockGetCurrentUser.mockResolvedValue(fakePayload);
-    mockCheckBanned.mockReturnValue('傻逼');
+    mockCheckBanned.mockResolvedValue('傻逼');
     const res = await POST(makeReq({ postId: 'post1', content: '你是傻逼' }));
     const json = await res.json();
     expect(res.status).toBe(400);

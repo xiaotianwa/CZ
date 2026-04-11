@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, FileText, Image, Calendar, Gamepad2,
   Clock, SlidersHorizontal, FolderOpen, Users, Settings,
-  LogOut, Menu, X, ChevronRight, MessageSquarePlus, HelpCircle, Megaphone, Music, Flag,
+  LogOut, Menu, X, ChevronRight, MessageSquarePlus, HelpCircle, Megaphone, Music, Flag, ShieldBan,
 } from 'lucide-react';
 
 const sidebarLinks = [
@@ -24,6 +24,7 @@ const sidebarLinks = [
   { href: '/admin/announcements', label: '公告管理', icon: Megaphone },
   { href: '/admin/feedback', label: '反馈管理', icon: MessageSquarePlus },
   { href: '/admin/reports', label: '举报管理', icon: Flag },
+  { href: '/admin/banned-words', label: '违禁词管理', icon: ShieldBan },
   { href: '/admin/settings', label: '站点设置', icon: Settings },
 ];
 

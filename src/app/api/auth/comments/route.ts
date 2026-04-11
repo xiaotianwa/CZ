@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     const { postId, content } = parsed.data;
 
     // 违禁词检测
-    const banned = checkBannedWords(content);
+    const banned = await checkBannedWords(content);
     if (banned) {
       return fail(`评论包含违禁词「${banned}」，请修改后重新发布`);
     }

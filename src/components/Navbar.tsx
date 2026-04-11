@@ -25,13 +25,7 @@ export default function Navbar({ profileName }: { profileName: string }) {
     { href: '/fan-map', label: '粉丝地图' },
   ];
   const [isOpen, setIsOpen] = useState(false);
-  const [user, setUser] = useState<UserInfo | null>(() => {
-    if (typeof window === 'undefined') return null;
-    try {
-      const cached = localStorage.getItem('user');
-      return cached ? JSON.parse(cached) : null;
-    } catch { return null; }
-  });
+  const [user, setUser] = useState<UserInfo | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -40,6 +34,12 @@ export default function Navbar({ profileName }: { profileName: string }) {
   const notifRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // 先从缓存恢复，避免闪烁
+    try {
+      const cached = localStorage.getItem('user');
+      if (cached) setUser(JSON.parse(cached));
+    } catch { /* ignore */ }
+
     fetch('/api/auth/me', { credentials: 'same-origin' })
       .then((r) => r.json())
       .then((json) => {

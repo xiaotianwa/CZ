@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     if (!name) return fail('话题名不能为空');
 
     // 违禁词检测
-    const banned = checkBannedWords(name);
+    const banned = await checkBannedWords(name);
     if (banned) {
       return fail(`话题包含违禁词「${banned}」`);
     }

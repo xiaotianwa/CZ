@@ -374,6 +374,20 @@ model Bookmark {
   @@index([userId, createdAt])
 }
 
+// ==================== 违禁词管理 ====================
+
+model BannedWord {
+  id        String   @id @default(cuid())
+  word      String   @unique
+  category  String   @default("custom") // politics | porn | gambling | violence | ad | abuse | custom
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([category])
+}
+
 // ==================== 举报系统 ====================
 
 model Report {

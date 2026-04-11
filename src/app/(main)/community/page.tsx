@@ -180,7 +180,7 @@ function TopicSelector({ topics, selected, onChange, onTopicCreated, isLoggedIn,
                 ref={inputRef}
                 value={query}
                 onChange={(e) => { setQuery(e.target.value); setCreateError(''); }}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreate(); } }}
+                onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) { e.preventDefault(); handleCreate(); } }}
                 placeholder="搜索或创建话题..."
                 maxLength={20}
                 className="flex-1 bg-transparent border-none outline-none text-caption text-text-body placeholder:text-text-disabled"
@@ -251,7 +251,96 @@ function PostComposer({ topics, onPostCreated, onTopicCreated, isLoggedIn }: { t
   const [expanded, setExpanded] = useState(false);
   const [loginModal, setLoginModal] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const isExpanded = expanded || content.length > 0 || mediaFiles.length > 0 || selectedTopics.length > 0;
+
+  // Inline # 话题提示
+  const [hashQuery, setHashQuery] = useState<string | null>(null);
+  const [hashStart, setHashStart] = useState(0);
+  const [creatingInline, setCreatingInline] = useState(false);
+
+  const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    setContent(val);
+    setError('');
+
+    // 检测光标前是否有 # 触发词
+    const pos = e.target.selectionStart ?? val.length;
+    const before = val.slice(0, pos);
+    const hashIdx = before.lastIndexOf('#');
+    if (hashIdx >= 0) {
+      const afterHash = before.slice(hashIdx + 1);
+      // 只有 # 后面没有空格且不超过20字才视为正在输入话题
+      if (!afterHash.includes(' ') && !afterHash.includes('\n') && afterHash.length <= 20) {
+        setHashQuery(afterHash);
+        setHashStart(hashIdx);
+        return;
+      }
+    }
+    setHashQuery(null);
+  };
+
+  const handleTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.nativeEvent.isComposing) return;
+    if (hashQuery !== null && (e.key === 'Escape' || e.key === 'Tab')) {
+      e.preventDefault();
+      setHashQuery(null);
+    }
+  };
+
+  const selectInlineTopic = (topic: TopicItem) => {
+    // 替换 #xxx 为 #话题名 + 空格
+    const before = content.slice(0, hashStart);
+    const cursorPos = textareaRef.current?.selectionStart ?? content.length;
+    const after = content.slice(cursorPos);
+    const newContent = `${before}#${topic.name} ${after}`;
+    setContent(newContent);
+    setHashQuery(null);
+    // 关联话题
+    if (selectedTopics.length < 5 && !selectedTopics.some((t) => t.id === topic.id)) {
+      setSelectedTopics((prev) => [...prev, topic]);
+    }
+    // 聚焦光标到插入位置后
+    setTimeout(() => {
+      const ta = textareaRef.current;
+      if (ta) {
+        const newPos = before.length + 1 + topic.name.length + 1;
+        ta.focus();
+        ta.setSelectionRange(newPos, newPos);
+      }
+    }, 0);
+  };
+
+  const createInlineTopic = async () => {
+    if (!hashQuery || creatingInline) return;
+    const name = hashQuery.replace(/^#+/, '').trim();
+    if (!name || name.length > 20) return;
+    setCreatingInline(true);
+    try {
+      const res = await fetch('/api/auth/topics', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      const json = await res.json();
+      if (json.code !== 0) throw new Error(json.message);
+      const newTopic: TopicItem = json.data;
+      onTopicCreated(newTopic);
+      selectInlineTopic(newTopic);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '创建话题失败');
+      setHashQuery(null);
+    } finally {
+      setCreatingInline(false);
+    }
+  };
+
+  const inlineFiltered = hashQuery !== null
+    ? topics.filter((t) => t.name.toLowerCase().includes(hashQuery.toLowerCase()))
+    : [];
+  const inlineExactMatch = hashQuery !== null && topics.some((t) => t.name === hashQuery.replace(/^#+/, '').trim());
+  const inlineCanCreate = hashQuery !== null && hashQuery.replace(/^#+/, '').trim().length > 0 && hashQuery.length <= 20 && !inlineExactMatch;
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -390,17 +479,59 @@ function PostComposer({ topics, onPostCreated, onTopicCreated, isLoggedIn }: { t
   return (
     <div className="bg-white rounded-card p-3 sm:p-5 shadow-card border border-divider">
       <LoginRequiredModal open={loginModal} redirectTo="/community" onCancel={() => setLoginModal(false)} />
-      <textarea
-        value={content}
-        onFocus={() => { if (!isLoggedIn) { setLoginModal(true); return; } setExpanded(true); }}
-        onChange={(e) => { setContent(e.target.value); setError(''); }}
-        placeholder="分享你的追星心情..."
-        maxLength={2000}
-        rows={isExpanded ? undefined : 1}
-        className={`w-full resize-none border-none outline-none text-body text-text-body placeholder:text-text-muted bg-transparent transition-all duration-200 ${
-          isExpanded ? 'min-h-[56px] sm:min-h-[72px]' : 'min-h-0 h-7'
-        }`}
-      />
+      <div className="relative">
+        <textarea
+          ref={textareaRef}
+          value={content}
+          onFocus={() => { if (!isLoggedIn) { setLoginModal(true); return; } setExpanded(true); }}
+          onChange={handleContentChange}
+          onKeyDown={handleTextareaKeyDown}
+          placeholder="分享你的追星心情...  输入 # 可添加话题"
+          maxLength={2000}
+          rows={isExpanded ? undefined : 1}
+          className={`w-full resize-none border-none outline-none text-body text-text-body placeholder:text-text-muted bg-transparent transition-all duration-200 ${
+            isExpanded ? 'min-h-[56px] sm:min-h-[72px]' : 'min-h-0 h-7'
+          }`}
+        />
+        {/* Inline # 话题下拉提示 */}
+        {hashQuery !== null && (inlineFiltered.length > 0 || inlineCanCreate) && (
+          <div className="absolute left-0 right-0 top-full mt-1 w-64 bg-white rounded-card shadow-lg border border-divider z-30 py-1 max-h-52 overflow-y-auto">
+            {inlineCanCreate && (
+              <button
+                onClick={createInlineTopic}
+                disabled={creatingInline}
+                className="w-full flex items-center gap-2 px-3 py-2 text-caption text-primary hover:bg-primary/5 transition-colors duration-100 cursor-pointer border-b border-divider"
+              >
+                {creatingInline ? (
+                  <Loader2 className="w-3 h-3 animate-spin flex-shrink-0" />
+                ) : (
+                  <Plus className="w-3 h-3 flex-shrink-0" />
+                )}
+                <span className="flex-1 text-left truncate">
+                  {creatingInline ? '创建中...' : `创建「${hashQuery.replace(/^#+/, '').trim()}」`}
+                </span>
+              </button>
+            )}
+            {inlineFiltered.map((topic) => {
+              const isSelected = selectedTopics.some((t) => t.id === topic.id);
+              return (
+                <button
+                  key={topic.id}
+                  onClick={() => selectInlineTopic(topic)}
+                  className={`w-full flex items-center gap-2 px-3 py-1.5 text-caption transition-colors duration-100 cursor-pointer ${
+                    isSelected ? 'bg-primary/5 text-primary' : 'text-text-body hover:bg-gray-50'
+                  }`}
+                >
+                  <Hash className="w-3 h-3 flex-shrink-0" />
+                  <span className="flex-1 text-left truncate">{topic.name}</span>
+                  <span className="text-[11px] text-text-disabled">{topic.postCount}</span>
+                  {isSelected && <Check className="w-3.5 h-3.5 text-primary flex-shrink-0" />}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       {isExpanded && (
         <>
