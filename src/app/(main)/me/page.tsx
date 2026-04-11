@@ -7,8 +7,9 @@ import {
   User, FileText, MessageCircle, Trophy, Lock,
   Edit3, Camera, Save, X, Heart, ChevronRight,
   Shield, Star, Award, Zap, Clock, Eye, EyeOff,
-  LogOut, AlertCircle, Check, Trash2, Loader2, MapPin,
+  LogOut, AlertCircle, Check, Trash2, Loader2, MapPin, Search, ChevronDown,
 } from 'lucide-react';
+import { CITY_GROUPS } from '@/data/cities';
 
 // ===== Types =====
 
@@ -449,13 +450,7 @@ function ProfileTab({ user, onUpdate, showToast }: { user: UserProfile; onUpdate
           <div className="grid sm:grid-cols-[120px_1fr] gap-2 items-start">
             <label className="text-body font-medium text-text-muted pt-2">所在城市</label>
             {editing ? (
-              <input
-                value={form.city}
-                onChange={(e) => setForm({ ...form, city: e.target.value })}
-                maxLength={20}
-                placeholder="如：北京、上海、广州"
-                className="h-10 px-3 rounded-btn border border-border bg-white text-body text-text-title focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors duration-150"
-              />
+              <CitySelect value={form.city} onChange={(v) => setForm({ ...form, city: v })} />
             ) : (
               <p className="text-body text-text-title pt-2 flex items-center gap-1.5">
                 {user.city ? (<><MapPin className="w-3.5 h-3.5 text-primary" />{user.city}</>) : <span className="text-text-muted">未设置</span>}
@@ -1087,6 +1082,105 @@ function SecurityTab({ showToast }: { showToast: (msg: string, type: 'success' |
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ===== City Select (搜索下拉) =====
+
+function CitySelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  const keyword = search.trim().toLowerCase();
+  const filtered = keyword
+    ? CITY_GROUPS
+        .map(g => ({
+          province: g.province,
+          cities: g.cities.filter(c => c.toLowerCase().includes(keyword) || g.province.toLowerCase().includes(keyword)),
+        }))
+        .filter(g => g.cities.length > 0)
+    : CITY_GROUPS;
+
+  const handleSelect = (city: string) => {
+    onChange(city);
+    setSearch('');
+    setOpen(false);
+  };
+
+  const handleClear = () => {
+    onChange('');
+    setSearch('');
+  };
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <div
+        className={`flex items-center h-10 rounded-btn border bg-white transition-colors duration-150 ${
+          open ? 'border-primary ring-2 ring-primary/20' : 'border-border'
+        }`}
+      >
+        <Search className="w-3.5 h-3.5 text-text-muted ml-3 flex-shrink-0" />
+        <input
+          value={open ? search : value}
+          onChange={(e) => { setSearch(e.target.value); if (!open) setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          placeholder="搜索城市..."
+          className="flex-1 h-full px-2 text-body text-text-title placeholder:text-text-disabled bg-transparent outline-none"
+        />
+        {value && !open && (
+          <button type="button" onClick={handleClear} className="p-1 mr-1 text-text-muted hover:text-text-body cursor-pointer">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
+        <ChevronDown className={`w-4 h-4 text-text-muted mr-2.5 flex-shrink-0 transition-transform duration-150 ${open ? 'rotate-180' : ''}`} />
+      </div>
+
+      {open && (
+        <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-divider rounded-card shadow-dropdown max-h-64 overflow-y-auto">
+          {filtered.length === 0 ? (
+            <div className="px-4 py-6 text-center">
+              <p className="text-caption text-text-muted">没有找到匹配的城市</p>
+            </div>
+          ) : (
+            filtered.map(group => (
+              <div key={group.province}>
+                <div className="sticky top-0 bg-gray-50 px-3 py-1.5 text-caption font-medium text-text-muted border-b border-divider">
+                  {group.province}
+                </div>
+                <div className="py-1">
+                  {group.cities.map(city => (
+                    <button
+                      key={city}
+                      type="button"
+                      onClick={() => handleSelect(city)}
+                      className={`w-full text-left px-4 py-2 text-body transition-colors duration-100 cursor-pointer ${
+                        city === value
+                          ? 'text-primary bg-primary/5 font-medium'
+                          : 'text-text-body hover:bg-gray-50 hover:text-primary'
+                      }`}
+                    >
+                      {city}
+                      {city === value && <Check className="w-3.5 h-3.5 inline ml-2 text-primary" />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
     </div>
   );
 }
