@@ -96,10 +96,24 @@ export default function HeroCarousel({ slides, profile, communityStats }: HeroCa
           <div>
             {/* Online badge */}
             <div className="inline-flex items-center gap-2 bg-primary/15 border border-primary/30 rounded-full px-4 py-1.5 mb-6">
-              <Gamepad2 className="w-4 h-4 text-primary" />
-              <span className="text-caption font-medium text-primary">
-                {formatNum(communityStats.onlineNow)} 老铁正在互动
-              </span>
+              {communityStats.onlineNow > 0 ? (
+                <>
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
+                  </span>
+                  <span className="text-caption font-medium text-primary">
+                    {formatNum(communityStats.onlineNow)} 老铁正在互动
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Gamepad2 className="w-4 h-4 text-primary" />
+                  <span className="text-caption font-medium text-primary">
+                    社区等你来互动
+                  </span>
+                </>
+              )}
             </div>
 
             <h1 className="text-[32px] sm:text-[44px] leading-[1.15] font-bold text-white tracking-tight">

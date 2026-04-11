@@ -41,19 +41,25 @@ export function extractProfile(cfg: Record<string, string>) {
 export async function getAutoStats() {
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const recentThreshold = new Date(now.getTime() - 30 * 60 * 1000); // 最近30分钟
 
-  const [totalFans, todayPosts, totalPostLikes, totalComments] = await Promise.all([
+  const [totalFans, todayPosts, totalPostLikes, totalComments, recentActiveLogs] = await Promise.all([
     prisma.user.count({ where: { isActive: true } }),
     prisma.post.count({ where: { status: 'published', createdAt: { gte: todayStart } } }),
     prisma.post.aggregate({ where: { status: 'published' }, _sum: { likes: true } }),
     prisma.comment.count(),
+    prisma.pointLog.findMany({
+      where: { createdAt: { gte: recentThreshold } },
+      select: { userId: true },
+      distinct: ['userId'],
+    }),
   ]);
 
   return {
     totalFans,
     todayPosts,
     totalInteractions: (totalPostLikes._sum.likes || 0) + totalComments,
-    onlineNow: 0,
+    onlineNow: recentActiveLogs.length,
   };
 }
 
