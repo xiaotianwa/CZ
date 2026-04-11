@@ -117,7 +117,7 @@ export default function JoinPage() {
 
   const pwdStrength = getPasswordStrength(password);
   const pwdMatch = confirmPwd && password === confirmPwd;
-  const canSubmit = nickname.trim() && email.trim() && verifyCode.trim() && password.length >= 8 && password === confirmPwd;
+  const canSubmit = nickname.trim() && email.trim() && verifyCode.trim() && password.length >= 6 && password === confirmPwd;
 
   const handleSendCode = async () => {
     if (!email.trim() || countdown > 0) return;
@@ -505,7 +505,7 @@ export default function JoinPage() {
                       type={showPwd ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder="至少8位，包含大小写+数字"
+                      placeholder="至少6位"
                       className="w-full h-10 pl-10 pr-10 rounded-card border border-divider text-body text-text-title placeholder:text-text-muted focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-150"
                     />
                     <button
