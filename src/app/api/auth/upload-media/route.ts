@@ -5,7 +5,7 @@ import { uploadBuffer } from '@/lib/cos';
 import { ok, fail, handleError } from '@/lib/api';
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;   // 5MB
-const MAX_VIDEO_SIZE = 10 * 1024 * 1024;   // 10MB（大文件请使用预签名直传 /api/auth/presign-upload）
+const MAX_VIDEO_SIZE = 50 * 1024 * 1024;   // 50MB
 
 // 并发保护：限制同时进行的上传数
 let activeUploads = 0;
