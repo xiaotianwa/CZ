@@ -374,25 +374,11 @@ function PostComposer({ topics, onPostCreated, onTopicCreated, isLoggedIn }: { t
       setMediaFiles((prev) => [...prev, mf]);
 
       try {
-        // 1. 获取预签名URL
-        const presignRes = await fetch('/api/auth/presign-upload', {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            filename: file.name,
-            mimeType: file.type,
-            size: file.size,
-            category: isVideo ? 'post-video' : 'post-image',
-          }),
-        });
-        const presignJson = await presignRes.json();
-        if (presignJson.code !== 0) throw new Error(presignJson.message);
+        // 通过服务端上传到 COS（避免 COS CORS 问题，同时自动记录媒体库）
+        const fd = new FormData();
+        fd.append('file', file);
 
-        const { uploadUrl, fileUrl, cosKey } = presignJson.data;
-
-        // 2. 直传COS（XHR支持进度）
-        await new Promise<void>((resolve, reject) => {
+        const uploadResult = await new Promise<{ url: string }>((resolve, reject) => {
           const xhr = new XMLHttpRequest();
           xhr.upload.onprogress = (e) => {
             if (e.lengthComputable) {
@@ -403,25 +389,25 @@ function PostComposer({ topics, onPostCreated, onTopicCreated, isLoggedIn }: { t
             }
           };
           xhr.onload = () => {
-            if (xhr.status >= 200 && xhr.status < 300) resolve();
-            else reject(new Error(`COS上传失败(${xhr.status})`));
+            try {
+              const json = JSON.parse(xhr.responseText);
+              if (xhr.status >= 200 && xhr.status < 300 && json.code === 0) {
+                resolve(json.data);
+              } else {
+                reject(new Error(json.message || `上传失败(${xhr.status})`));
+              }
+            } catch {
+              reject(new Error(`上传失败(${xhr.status})`));
+            }
           };
           xhr.onerror = () => reject(new Error('网络错误，上传失败'));
-          xhr.open('PUT', uploadUrl);
-          xhr.setRequestHeader('Content-Type', file.type);
-          xhr.send(file);
-        });
-
-        // 3. 记录到媒体库
-        await fetch('/api/auth/media-record', {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ filename: file.name, url: fileUrl, cosKey, size: file.size, mimeType: file.type, category: isVideo ? 'post-video' : 'post-image' }),
+          xhr.open('POST', '/api/auth/upload-media');
+          xhr.withCredentials = true;
+          xhr.send(fd);
         });
 
         setMediaFiles((prev) =>
-          prev.map((m) => m.id === localId ? { ...m, url: fileUrl, uploading: false, progress: 100 } : m)
+          prev.map((m) => m.id === localId ? { ...m, url: uploadResult.url, uploading: false, progress: 100 } : m)
         );
       } catch (err) {
         setMediaFiles((prev) =>
@@ -646,7 +632,7 @@ function PostComposer({ topics, onPostCreated, onTopicCreated, isLoggedIn }: { t
       <input
         ref={fileRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm"
+        accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/quicktime"
         multiple
         onChange={handleFileSelect}
         className="hidden"
