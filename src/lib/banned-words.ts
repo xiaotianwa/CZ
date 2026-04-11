@@ -44,7 +44,7 @@ async function getWordList(): Promise<string[]> {
       : [];
 
     // 合并：数据库词 + 环境变量词 + 默认兜底词，去重
-    const all = [...new Set([...dbWordList, ...extraWords, ...DEFAULT_BANNED_WORDS])];
+    const all = Array.from(new Set([...dbWordList, ...extraWords, ...DEFAULT_BANNED_WORDS]));
     cachedWords = all;
     cacheTime = now;
     return all;
