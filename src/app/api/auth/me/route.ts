@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
         badge: true,
         points: true,
         bio: true,
+        city: true,
         createdAt: true,
       },
     });

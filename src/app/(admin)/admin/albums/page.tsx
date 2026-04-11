@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Trash2, Edit2, X, ImageIcon } from 'lucide-react';
+import Link from 'next/link';
+import { Plus, Trash2, Edit2, X, ImageIcon, Images } from 'lucide-react';
 import { adminGet, adminPost, adminPut, adminDelete } from '@/lib/admin-fetch';
 import ConfirmDialog from '@/components/admin/ConfirmDialog';
 import Toast from '@/components/admin/Toast';
@@ -144,6 +145,9 @@ export default function AdminAlbumsPage() {
                 <span className="text-caption text-text-muted">{album._count.photos} 张</span>
               </div>
               <div className="flex gap-1 mt-2">
+                <Link href={`/admin/albums/${album.id}`} className="btn-primary h-7 px-3 text-[10px] flex-1 inline-flex items-center justify-center gap-1">
+                  <Images className="w-3 h-3" /> 管理照片
+                </Link>
                 <button onClick={() => openEdit(album)} className="btn-outline h-7 px-3 text-[10px] flex-1">编辑</button>
                 <button onClick={() => handleDelete(album.id)} className="h-7 px-3 rounded-btn text-[10px] border border-danger/30 text-danger hover:bg-red-50 cursor-pointer">删除</button>
               </div>

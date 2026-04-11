@@ -8,6 +8,7 @@ const updateProfileSchema = z.object({
   name: z.string().min(1, '昵称不能为空').max(20, '昵称最多20个字符').optional(),
   bio: z.string().max(200, '个性签名最多200个字符').optional(),
   avatar: z.string().url('头像地址格式不正确').optional().nullable(),
+  city: z.string().max(20, '城市名最多20个字符').optional().nullable(),
 });
 
 export async function PUT(req: NextRequest) {
@@ -27,6 +28,7 @@ export async function PUT(req: NextRequest) {
     if (parsed.data.name !== undefined) data.name = parsed.data.name;
     if (parsed.data.bio !== undefined) data.bio = parsed.data.bio;
     if (parsed.data.avatar !== undefined) data.avatar = parsed.data.avatar;
+    if (parsed.data.city !== undefined) data.city = parsed.data.city;
 
     if (Object.keys(data).length === 0) {
       return fail('没有需要更新的字段');
@@ -45,6 +47,7 @@ export async function PUT(req: NextRequest) {
         badge: true,
         points: true,
         bio: true,
+        city: true,
         createdAt: true,
       },
     });

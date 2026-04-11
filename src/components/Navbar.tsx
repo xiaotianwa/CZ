@@ -22,6 +22,7 @@ export default function Navbar({ profileName }: { profileName: string }) {
     { href: '/community', label: '社区' },
     { href: '/games', label: '最近在玩' },
     { href: '/events', label: '活动' },
+    { href: '/fan-map', label: '粉丝地图' },
   ];
   const [isOpen, setIsOpen] = useState(false);
   const [user, setUser] = useState<UserInfo | null>(null);

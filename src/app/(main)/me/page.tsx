@@ -7,7 +7,7 @@ import {
   User, FileText, MessageCircle, Trophy, Lock,
   Edit3, Camera, Save, X, Heart, ChevronRight,
   Shield, Star, Award, Zap, Clock, Eye, EyeOff,
-  LogOut, AlertCircle, Check, Trash2, Loader2,
+  LogOut, AlertCircle, Check, Trash2, Loader2, MapPin,
 } from 'lucide-react';
 
 // ===== Types =====
@@ -22,6 +22,7 @@ interface UserProfile {
   badge: string | null;
   points: number;
   bio: string | null;
+  city: string | null;
   createdAt: string;
 }
 
@@ -315,7 +316,7 @@ export default function MePage() {
 function ProfileTab({ user, onUpdate, showToast }: { user: UserProfile; onUpdate: (u: UserProfile) => void; showToast: (msg: string, type: 'success' | 'error') => void }) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ name: user.name, bio: user.bio || '' });
+  const [form, setForm] = useState({ name: user.name, bio: user.bio || '', city: user.city || '' });
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -328,7 +329,7 @@ function ProfileTab({ user, onUpdate, showToast }: { user: UserProfile; onUpdate
     try {
       const res = await authFetch<UserProfile>('/api/auth/profile', {
         method: 'PUT',
-        body: JSON.stringify({ name: form.name.trim(), bio: form.bio.trim() }),
+        body: JSON.stringify({ name: form.name.trim(), bio: form.bio.trim(), city: form.city.trim() || null }),
       });
       onUpdate(res.data);
       localStorage.setItem('user', JSON.stringify({ id: res.data.id, email: res.data.email, name: res.data.name, avatar: res.data.avatar, role: res.data.role }));
@@ -376,7 +377,7 @@ function ProfileTab({ user, onUpdate, showToast }: { user: UserProfile; onUpdate
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-heading-sm text-text-title">个人资料</h2>
           {!editing ? (
-            <button onClick={() => { setForm({ name: user.name, bio: user.bio || '' }); setEditing(true); }} className="btn-outline inline-flex items-center gap-1.5 h-8 px-3 text-caption">
+            <button onClick={() => { setForm({ name: user.name, bio: user.bio || '', city: user.city || '' }); setEditing(true); }} className="btn-outline inline-flex items-center gap-1.5 h-8 px-3 text-caption">
               <Edit3 className="w-3.5 h-3.5" /> 编辑
             </button>
           ) : (
@@ -443,6 +444,23 @@ function ProfileTab({ user, onUpdate, showToast }: { user: UserProfile; onUpdate
           <div className="grid sm:grid-cols-[120px_1fr] gap-2 items-start">
             <label className="text-body font-medium text-text-muted pt-2">角色</label>
             <p className="text-body text-text-title pt-2">{getRoleName(user.role)}</p>
+          </div>
+
+          <div className="grid sm:grid-cols-[120px_1fr] gap-2 items-start">
+            <label className="text-body font-medium text-text-muted pt-2">所在城市</label>
+            {editing ? (
+              <input
+                value={form.city}
+                onChange={(e) => setForm({ ...form, city: e.target.value })}
+                maxLength={20}
+                placeholder="如：北京、上海、广州"
+                className="h-10 px-3 rounded-btn border border-border bg-white text-body text-text-title focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors duration-150"
+              />
+            ) : (
+              <p className="text-body text-text-title pt-2 flex items-center gap-1.5">
+                {user.city ? (<><MapPin className="w-3.5 h-3.5 text-primary" />{user.city}</>) : <span className="text-text-muted">未设置</span>}
+              </p>
+            )}
           </div>
 
           <div className="grid sm:grid-cols-[120px_1fr] gap-2 items-start">
