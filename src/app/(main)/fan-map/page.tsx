@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { MapPin, Users, TrendingUp, Crown } from 'lucide-react';
+import { getCityCoord } from '@/data/city-coords';
 
 interface CityItem {
   city: string;
@@ -77,24 +78,26 @@ export default function FanMapPage() {
         <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#FAFAFA] to-transparent" />
       </section>
 
-      {/* 城市排行 */}
+      {/* 地图区域 */}
       <section className="section-block">
         <div className="container-main">
           {loading ? (
-            <div className="space-y-3">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="h-14 bg-gray-100 rounded-xl animate-pulse" />
-              ))}
-            </div>
-          ) : !data || data.cities.length === 0 ? (
-            <div className="text-center py-20">
-              <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
-                <MapPin className="w-7 h-7 text-text-disabled" />
+            <div className="aspect-[6/5] max-w-3xl mx-auto bg-gray-100 rounded-2xl animate-pulse" />
+          ) : data && data.cities.length > 0 ? (
+            <>
+              <h2 className="section-title mb-6">粉丝分布地图</h2>
+              <div className="card p-4 sm:p-6">
+                <ChinaMapBubble cities={data.cities} />
               </div>
-              <p className="text-body font-medium text-text-body">还没有老铁标记城市</p>
-              <p className="text-caption text-text-muted mt-1">去个人中心设置你的城市，成为第一个吧！</p>
-            </div>
-          ) : (
+            </>
+          ) : null}
+        </div>
+      </section>
+
+      {/* 城市排行 */}
+      <section className="section-block border-t border-divider">
+        <div className="container-main">
+          {!loading && data && data.cities.length > 0 ? (
             <>
               <h2 className="section-title mb-6">城市排行榜</h2>
               <div className="grid lg:grid-cols-2 gap-4">
@@ -112,7 +115,6 @@ export default function FanMapPage() {
                             : 'bg-white border-divider hover:border-primary/30'
                         }`}
                       >
-                        {/* 排名 */}
                         <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-caption font-bold ${
                           idx === 0 ? 'bg-amber-400 text-white' :
                           idx === 1 ? 'bg-gray-300 text-white' :
@@ -121,8 +123,6 @@ export default function FanMapPage() {
                         }`}>
                           {idx < 3 ? <Crown className="w-3.5 h-3.5" /> : idx + 1}
                         </div>
-
-                        {/* 城市名 */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between mb-1">
                             <span className={`text-body font-medium ${isTop3 ? 'text-text-title' : 'text-text-body'}`}>
@@ -132,7 +132,6 @@ export default function FanMapPage() {
                               {item.count} 人
                             </span>
                           </div>
-                          {/* 进度条 */}
                           <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                             <div
                               className={`h-full rounded-full transition-all duration-500 ${
@@ -152,14 +151,10 @@ export default function FanMapPage() {
 
                 {/* 右侧：可视化饼图 */}
                 <div className="card p-6">
-                  <h3 className="text-body font-semibold text-text-title mb-4">城市分布</h3>
-
-                  {/* 圆环图 */}
+                  <h3 className="text-body font-semibold text-text-title mb-4">城市占比</h3>
                   <div className="flex items-center justify-center py-4">
                     <CityDonut cities={data.cities.slice(0, 8)} total={data.filledCount} />
                   </div>
-
-                  {/* 图例 */}
                   <div className="grid grid-cols-2 gap-2 mt-4">
                     {data.cities.slice(0, 8).map((item, idx) => (
                       <div key={item.city} className="flex items-center gap-2">
@@ -181,7 +176,15 @@ export default function FanMapPage() {
                 </div>
               </div>
             </>
-          )}
+          ) : !loading ? (
+            <div className="text-center py-20">
+              <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
+                <MapPin className="w-7 h-7 text-text-disabled" />
+              </div>
+              <p className="text-body font-medium text-text-body">还没有老铁标记城市</p>
+              <p className="text-caption text-text-muted mt-1">去个人中心设置你的城市，成为第一个吧！</p>
+            </div>
+          ) : null}
         </div>
       </section>
 
@@ -199,6 +202,143 @@ export default function FanMapPage() {
         </div>
       </section>
     </>
+  );
+}
+
+// ===== 中国地图气泡组件 =====
+
+const CHINA_OUTLINE = "M 135 175 L 155 155 L 175 135 L 200 130 L 225 120 L 240 105 L 255 95 L 275 85 L 290 75 L 310 70 L 330 65 L 345 60 L 365 55 L 380 50 L 395 52 L 410 58 L 425 62 L 440 70 L 450 80 L 462 90 L 470 100 L 478 110 L 485 125 L 490 140 L 492 155 L 495 170 L 498 185 L 500 200 L 502 215 L 500 230 L 495 245 L 488 258 L 480 268 L 470 278 L 460 290 L 450 298 L 438 305 L 425 312 L 415 320 L 405 330 L 395 338 L 388 345 L 380 355 L 372 365 L 365 372 L 355 378 L 345 382 L 340 390 L 342 400 L 348 408 L 355 415 L 350 420 L 340 418 L 330 412 L 322 405 L 315 398 L 305 395 L 295 400 L 285 405 L 275 402 L 265 395 L 255 390 L 245 385 L 238 378 L 230 370 L 222 365 L 212 368 L 202 372 L 192 375 L 182 370 L 175 362 L 168 352 L 162 342 L 155 335 L 148 328 L 140 322 L 132 318 L 125 312 L 118 305 L 112 295 L 108 285 L 105 275 L 100 262 L 95 250 L 90 240 L 88 228 L 90 218 L 95 208 L 102 198 L 110 190 L 120 182 Z";
+
+function ChinaMapBubble({ cities }: { cities: CityItem[] }) {
+  const [hoveredCity, setHoveredCity] = useState<string | null>(null);
+
+  const bubbles = useMemo(() => {
+    const maxC = cities[0]?.count || 1;
+    return cities
+      .map(item => {
+        const coord = getCityCoord(item.city);
+        if (!coord) return null;
+        const ratio = item.count / maxC;
+        const r = 4 + ratio * 14;
+        return { ...item, x: coord[0], y: coord[1], r, ratio };
+      })
+      .filter(Boolean) as { city: string; count: number; x: number; y: number; r: number; ratio: number }[];
+  }, [cities]);
+
+  const hovered = hoveredCity ? bubbles.find(b => b.city === hoveredCity) : null;
+
+  return (
+    <div className="relative">
+      <svg viewBox="0 0 600 500" className="w-full h-auto" style={{ maxHeight: '520px' }}>
+        <defs>
+          <radialGradient id="mapBg" cx="50%" cy="40%" r="60%">
+            <stop offset="0%" stopColor="#e8f4fd" />
+            <stop offset="100%" stopColor="#f0f5fa" />
+          </radialGradient>
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+          <filter id="shadow">
+            <feDropShadow dx="0" dy="1" stdDeviation="2" floodOpacity="0.1" />
+          </filter>
+        </defs>
+
+        {/* 背景 */}
+        <rect width="600" height="500" fill="url(#mapBg)" rx="12" />
+
+        {/* 经纬网格 */}
+        {[0, 1, 2, 3, 4, 5, 6].map(i => (
+          <line key={`vg${i}`} x1={i * 100} y1="0" x2={i * 100} y2="500" stroke="#d0dbe8" strokeWidth="0.5" strokeDasharray="4 4" opacity="0.5" />
+        ))}
+        {[0, 1, 2, 3, 4, 5].map(i => (
+          <line key={`hg${i}`} x1="0" y1={i * 100} x2="600" y2={i * 100} stroke="#d0dbe8" strokeWidth="0.5" strokeDasharray="4 4" opacity="0.5" />
+        ))}
+
+        {/* 中国轮廓 */}
+        <path
+          d={CHINA_OUTLINE}
+          fill="#dce8f5"
+          stroke="#b0c4de"
+          strokeWidth="1.5"
+          opacity="0.6"
+        />
+
+        {/* 气泡 - 底层光晕 */}
+        {bubbles.map(b => (
+          <circle
+            key={`glow-${b.city}`}
+            cx={b.x} cy={b.y} r={b.r + 4}
+            fill="#1890ff"
+            opacity={0.08 + b.ratio * 0.08}
+          />
+        ))}
+
+        {/* 气泡 - 主体 */}
+        {bubbles.map(b => {
+          const isHovered = hoveredCity === b.city;
+          return (
+            <g key={b.city}>
+              <circle
+                cx={b.x} cy={b.y}
+                r={isHovered ? b.r + 3 : b.r}
+                fill={isHovered ? '#096dd9' : '#1890ff'}
+                fillOpacity={0.25 + b.ratio * 0.45}
+                stroke={isHovered ? '#096dd9' : '#1890ff'}
+                strokeWidth={isHovered ? 2 : 1.5}
+                strokeOpacity={0.6 + b.ratio * 0.3}
+                className="transition-all duration-200 cursor-pointer"
+                filter={isHovered ? 'url(#glow)' : undefined}
+                onMouseEnter={() => setHoveredCity(b.city)}
+                onMouseLeave={() => setHoveredCity(null)}
+              />
+              {/* 城市名标签（大气泡才显示） */}
+              {(b.r > 10 || isHovered) && (
+                <text
+                  x={b.x} y={b.y + b.r + 12}
+                  textAnchor="middle"
+                  className="fill-[#333] select-none pointer-events-none"
+                  style={{ fontSize: '10px', fontWeight: isHovered ? 600 : 500 }}
+                >
+                  {b.city}
+                </text>
+              )}
+            </g>
+          );
+        })}
+
+        {/* 图例 */}
+        <g transform="translate(16, 440)">
+          <rect x="0" y="0" width="130" height="48" rx="8" fill="white" fillOpacity="0.85" filter="url(#shadow)" />
+          <circle cx="20" cy="16" r="4" fill="#1890ff" fillOpacity="0.35" stroke="#1890ff" strokeWidth="1" />
+          <text x="30" y="20" className="fill-[#666]" style={{ fontSize: '10px' }}>人数少</text>
+          <circle cx="75" cy="16" r="8" fill="#1890ff" fillOpacity="0.65" stroke="#1890ff" strokeWidth="1.5" />
+          <text x="89" y="20" className="fill-[#666]" style={{ fontSize: '10px' }}>人数多</text>
+          <text x="10" y="40" className="fill-[#999]" style={{ fontSize: '9px' }}>气泡越大表示粉丝越多</text>
+        </g>
+      </svg>
+
+      {/* 悬浮信息卡 */}
+      {hovered && (
+        <div
+          className="absolute z-10 bg-white/95 backdrop-blur border border-divider rounded-lg shadow-dropdown px-4 py-3 pointer-events-none"
+          style={{
+            left: `${(hovered.x / 600) * 100}%`,
+            top: `${(hovered.y / 500) * 100}%`,
+            transform: 'translate(-50%, -120%)',
+          }}
+        >
+          <div className="flex items-center gap-2">
+            <MapPin className="w-3.5 h-3.5 text-primary" />
+            <span className="text-body font-semibold text-text-title">{hovered.city}</span>
+          </div>
+          <p className="text-caption text-primary font-medium mt-0.5">{hovered.count} 位老铁</p>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -225,12 +365,10 @@ function CityDonut({ cities, total }: { cities: CityItem[]; total: number }) {
 
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="transform -rotate-90">
-      {/* 底色环 */}
       <circle
         cx={size / 2} cy={size / 2} r={radius}
         fill="none" stroke="#f0f0f0" strokeWidth={strokeWidth}
       />
-      {/* 数据段 */}
       {segments.map((seg) => (
         <circle
           key={seg.city}
@@ -244,7 +382,6 @@ function CityDonut({ cities, total }: { cities: CityItem[]; total: number }) {
           className="transition-all duration-500"
         />
       ))}
-      {/* 中心文字 */}
       <text
         x={size / 2} y={size / 2 - 6}
         textAnchor="middle" dominantBaseline="middle"
