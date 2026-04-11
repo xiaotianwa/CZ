@@ -112,3 +112,8 @@ export function getCityCoord(cityName: string): [number, number] | null {
   const entry = CITY_COORDS.find(c => c.city === cityName);
   return entry ? entry.pos : null;
 }
+
+export function getCityLngLat(cityName: string): [number, number] | null {
+  const coord = RAW[cityName];
+  return coord ?? null;
+}

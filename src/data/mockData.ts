@@ -65,17 +65,6 @@ export interface Comment {
   createdAt: string;
 }
 
-export interface FanRanking {
-  rank: number;
-  name: string;
-  avatar: string;
-  points: number;
-  level: number;
-  badge: string;
-  postCount: number;
-  commentCount: number;
-}
-
 export interface EventItem {
   id: string;
   title: string;
@@ -233,19 +222,6 @@ export const posts: Post[] = [
     isPinned: false,
     createdAt: '8小时前',
   },
-];
-
-export const fanRankings: FanRanking[] = [
-  { rank: 1, name: '绥棱铁粉王', avatar: PLACEHOLDER(48, 48, '1st'), points: 128600, level: 10, badge: '传奇粉', postCount: 342, commentCount: 1580 },
-  { rank: 2, name: '东北铁粉', avatar: PLACEHOLDER(48, 48, '2nd'), points: 96400, level: 9, badge: '超级粉', postCount: 256, commentCount: 1230 },
-  { rank: 3, name: 'LOL小迷妹', avatar: PLACEHOLDER(48, 48, '3rd'), points: 82100, level: 9, badge: '超级粉', postCount: 198, commentCount: 980 },
-  { rank: 4, name: '画手阿泽粉', avatar: PLACEHOLDER(48, 48, '4th'), points: 67800, level: 8, badge: '真爱粉', postCount: 145, commentCount: 720 },
-  { rank: 5, name: '黑龙江老铁', avatar: PLACEHOLDER(48, 48, '5th'), points: 54200, level: 7, badge: '真爱粉', postCount: 120, commentCount: 650 },
-  { rank: 6, name: '泽子永远的家', avatar: PLACEHOLDER(48, 48, '6th'), points: 45600, level: 7, badge: '真爱粉', postCount: 98, commentCount: 540 },
-  { rank: 7, name: '哈尔滨粉丝团', avatar: PLACEHOLDER(48, 48, '7th'), points: 38900, level: 6, badge: '铁粉', postCount: 86, commentCount: 420 },
-  { rank: 8, name: '每日打卡泽', avatar: PLACEHOLDER(48, 48, '8th'), points: 32100, level: 6, badge: '铁粉', postCount: 72, commentCount: 380 },
-  { rank: 9, name: '新粉报到', avatar: PLACEHOLDER(48, 48, '9th'), points: 28400, level: 5, badge: '铁粉', postCount: 56, commentCount: 310 },
-  { rank: 10, name: '泽子铁杆迷妹', avatar: PLACEHOLDER(48, 48, '10th'), points: 21800, level: 5, badge: '铁粉', postCount: 42, commentCount: 260 },
 ];
 
 export const events: EventItem[] = [

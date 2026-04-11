@@ -28,10 +28,13 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  posts      Post[]
-  comments   Comment[]
-  feedbacks  Feedback[]
-  pointLogs  PointLog[]
+  posts         Post[]
+  comments      Comment[]
+  feedbacks     Feedback[]
+  pointLogs     PointLog[]
+  notifications Notification[]
+  reports       Report[]
+  bookmarks     Bookmark[]
 
   @@index([role])
   @@index([isActive])
@@ -67,9 +70,10 @@ model Post {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  author   User      @relation(fields: [authorId], references: [id])
-  comments Comment[]
-  postTags PostTag[]
+  author    User       @relation(fields: [authorId], references: [id])
+  comments  Comment[]
+  postTags  PostTag[]
+  bookmarks Bookmark[]
 
   @@index([authorId])
   @@index([status])
@@ -316,6 +320,27 @@ model PointLog {
   @@index([userId, action, createdAt])
 }
 
+// ==================== 通知系统 ====================
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String   // comment | like | pin | system
+  title     String
+  content   String
+  link      String?  // 跳转链接，如 /community/xxx
+  isRead    Boolean  @default(false)
+  fromId    String?  // 触发者ID（可选，系统通知无触发者）
+  fromName  String?  // 触发者名称（冗余存储，避免关联查询）
+  fromAvatar String? // 触发者头像
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+}
+
 // ==================== 反馈建议 ====================
 
 model Feedback {
@@ -331,5 +356,42 @@ model Feedback {
   updatedAt DateTime @updatedAt
 
   @@index([status])
+  @@index([createdAt])
+}
+
+// ==================== 收藏系统 ====================
+
+model Bookmark {
+  id        String   @id @default(cuid())
+  userId    String
+  postId    String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+  @@index([userId, createdAt])
+}
+
+// ==================== 举报系统 ====================
+
+model Report {
+  id          String   @id @default(cuid())
+  reporterId  String
+  targetType  String   // post | comment | user
+  targetId    String
+  reason      String   // spam | abuse | inappropriate | other
+  description String?  // 补充描述
+  status      String   @default("pending") // pending | reviewed | resolved | dismissed
+  adminNote   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  reporter User @relation(fields: [reporterId], references: [id])
+
+  @@index([status])
+  @@index([targetType, targetId])
+  @@index([reporterId])
   @@index([createdAt])
 }

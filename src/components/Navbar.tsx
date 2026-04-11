@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { Menu, X, Search, LogIn, LogOut, User as UserIcon } from 'lucide-react';
+import { Menu, X, Search, LogIn, LogOut, User as UserIcon, Bell, MessageCircle, Heart, Pin, Info } from 'lucide-react';
 
 interface UserInfo {
   id: string;
@@ -33,7 +33,11 @@ export default function Navbar({ profileName }: { profileName: string }) {
     } catch { return null; }
   });
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notifications, setNotifications] = useState<{ id: string; type: string; title: string; content: string; link?: string | null; isRead: boolean; fromAvatar?: string | null; createdAt: string }[]>([]);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const notifRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetch('/api/auth/me', { credentials: 'same-origin' })
@@ -50,15 +54,61 @@ export default function Navbar({ profileName }: { profileName: string }) {
       .catch(() => { /* ignore */ });
   }, []);
 
+  // 获取未读通知数
+  useEffect(() => {
+    if (!user) return;
+    const fetchCount = () => {
+      fetch('/api/auth/notifications?pageSize=5', { credentials: 'same-origin' })
+        .then((r) => r.json())
+        .then((json) => {
+          if (json.code === 0 && json.data) {
+            setUnreadCount(json.data.unreadCount || 0);
+            setNotifications(json.data.list || []);
+          }
+        })
+        .catch(() => {});
+    };
+    fetchCount();
+    const interval = setInterval(fetchCount, 30000);
+    return () => clearInterval(interval);
+  }, [user]);
+
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setDropdownOpen(false);
       }
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
+
+  const markAllRead = () => {
+    fetch('/api/auth/notifications', {
+      method: 'PATCH',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ all: true }),
+    })
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.code === 0) {
+          setUnreadCount(0);
+          setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+        }
+      })
+      .catch(() => {});
+  };
+
+  const notifIcon: Record<string, typeof Bell> = {
+    comment: MessageCircle,
+    like: Heart,
+    pin: Pin,
+    system: Info,
+  };
 
   const handleLogout = () => {
     fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' })
@@ -91,9 +141,77 @@ export default function Navbar({ profileName }: { profileName: string }) {
           </div>
 
           <div className="hidden md:flex items-center gap-2">
-            <button className="p-2 rounded-btn text-text-muted hover:text-text-body hover:bg-gray-50 transition-colors duration-150 cursor-pointer" aria-label="搜索">
+            <Link href="/search" className="p-2 rounded-btn text-text-muted hover:text-text-body hover:bg-gray-50 transition-colors duration-150 cursor-pointer" aria-label="搜索">
               <Search className="w-4 h-4" />
-            </button>
+            </Link>
+
+            {user && (
+              <div className="relative" ref={notifRef}>
+                <button
+                  onClick={() => { setNotifOpen(!notifOpen); setDropdownOpen(false); }}
+                  className="relative p-2 rounded-btn text-text-muted hover:text-text-body hover:bg-gray-50 transition-colors duration-150 cursor-pointer"
+                  aria-label="通知"
+                >
+                  <Bell className="w-4 h-4" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-danger text-white text-[10px] font-bold flex items-center justify-center">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+
+                {notifOpen && (
+                  <div className="absolute right-0 top-full mt-1.5 w-80 bg-white rounded-card border border-divider shadow-dropdown">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-divider">
+                      <span className="text-body font-medium text-text-title">消息通知</span>
+                      {unreadCount > 0 && (
+                        <button onClick={markAllRead} className="text-caption text-primary hover:underline cursor-pointer">全部已读</button>
+                      )}
+                    </div>
+                    <div className="max-h-80 overflow-y-auto">
+                      {notifications.length === 0 ? (
+                        <div className="py-8 text-center">
+                          <Bell className="w-8 h-8 text-text-disabled mx-auto mb-2" />
+                          <p className="text-caption text-text-muted">暂无通知</p>
+                        </div>
+                      ) : (
+                        notifications.map((n) => {
+                          const Icon = notifIcon[n.type] || Bell;
+                          return (
+                            <Link
+                              key={n.id}
+                              href={n.link || '/me'}
+                              onClick={() => setNotifOpen(false)}
+                              className={`flex gap-3 px-4 py-3 hover:bg-gray-50 transition-colors border-b border-divider last:border-0 ${!n.isRead ? 'bg-primary/[0.03]' : ''}`}
+                            >
+                              <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-primary-bg">
+                                {n.fromAvatar ? (
+                                  <Image src={n.fromAvatar} alt="" width={32} height={32} className="rounded-full object-cover" />
+                                ) : (
+                                  <Icon className="w-4 h-4 text-primary" />
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-caption font-medium text-text-title line-clamp-1">{n.title}</p>
+                                <p className="text-caption text-text-muted line-clamp-1 mt-0.5">{n.content}</p>
+                              </div>
+                              {!n.isRead && <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-1.5" />}
+                            </Link>
+                          );
+                        })
+                      )}
+                    </div>
+                    <Link
+                      href="/me?tab=notifications"
+                      onClick={() => setNotifOpen(false)}
+                      className="block text-center py-2.5 border-t border-divider text-caption text-primary font-medium hover:bg-gray-50 transition-colors cursor-pointer"
+                    >
+                      查看全部通知
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
 
             {user ? (
               <div className="relative" ref={dropdownRef}>

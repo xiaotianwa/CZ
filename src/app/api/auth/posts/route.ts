@@ -28,6 +28,15 @@ export async function POST(req: NextRequest) {
 
     const { content, images, tagIds } = parsed.data;
 
+    // 验证用户在 DB 中存在（JWT 有效但用户可能已删除或 DB 重置）
+    const dbUser = await prisma.user.findUnique({
+      where: { id: payload.id },
+      select: { id: true, isActive: true },
+    });
+    if (!dbUser || !dbUser.isActive) {
+      return fail('用户不存在或已被禁用，请重新登录', 401);
+    }
+
     // 违禁词检测
     const banned = checkBannedWords(content);
     if (banned) {

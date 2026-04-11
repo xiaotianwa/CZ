@@ -25,9 +25,11 @@ export async function GET(req: NextRequest) {
       }),
       prisma.user.findUnique({
         where: { id: payload.id },
-        select: { points: true, level: true },
+        select: { points: true, level: true, isActive: true },
       }),
     ]);
+
+    if (!user || !user.isActive) return fail('用户不存在或已被禁用，请重新登录', 401);
 
     // 计算连续签到天数（往前查30天）
     const thirtyDaysAgo = new Date();
@@ -63,8 +65,8 @@ export async function GET(req: NextRequest) {
     return ok({
       checkedIn: checkedInToday,
       streak,
-      points: user?.points || 0,
-      level: user?.level || 1,
+      points: user.points,
+      level: user.level,
     });
   } catch (err) {
     return handleError(err);
@@ -76,6 +78,12 @@ export async function POST(req: NextRequest) {
   try {
     const payload = await getCurrentUser(req);
     if (!payload) return fail('未登录', 401);
+
+    const dbUser = await prisma.user.findUnique({
+      where: { id: payload.id },
+      select: { id: true, isActive: true },
+    });
+    if (!dbUser || !dbUser.isActive) return fail('用户不存在或已被禁用，请重新登录', 401);
 
     const result = await grantDailyLogin(payload.id);
 

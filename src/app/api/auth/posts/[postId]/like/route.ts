@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { ok, fail, handleError } from '@/lib/api';
 import { grantPoints } from '@/lib/points';
+import { notifyLike } from '@/lib/notification';
 
 export async function POST(req: NextRequest, { params }: { params: { postId: string } }) {
   try {
@@ -32,6 +33,11 @@ export async function POST(req: NextRequest, { params }: { params: { postId: str
     // 被点赞积分 +2（给帖子作者，不给自己点赞）
     if (post.authorId !== payload.id) {
       grantPoints(post.authorId, 'be_liked', '帖子被点赞').catch(() => {});
+      notifyLike(
+        post.authorId,
+        { id: payload.id, name: payload.email.split('@')[0], avatar: null },
+        postId,
+      ).catch(() => {});
     }
 
     return ok({ likes: updatedPost.likes }, '点赞成功');

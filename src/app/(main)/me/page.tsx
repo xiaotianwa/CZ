@@ -8,6 +8,7 @@ import {
   Edit3, Camera, Save, X, Heart, ChevronRight,
   Shield, Star, Award, Zap, Clock, Eye, EyeOff,
   LogOut, AlertCircle, Check, Trash2, Loader2, MapPin, Search, ChevronDown,
+  Bookmark, Bell, Pin,
 } from 'lucide-react';
 import { CITY_GROUPS } from '@/data/cities';
 
@@ -54,12 +55,14 @@ interface PointLogItem {
   createdAt: string;
 }
 
-type TabKey = 'profile' | 'posts' | 'comments' | 'level' | 'security';
+type TabKey = 'profile' | 'posts' | 'comments' | 'bookmarks' | 'notifications' | 'level' | 'security';
 
 const tabs: { key: TabKey; label: string; icon: typeof User }[] = [
   { key: 'profile', label: '个人资料', icon: User },
   { key: 'posts', label: '我的帖子', icon: FileText },
   { key: 'comments', label: '我的评论', icon: MessageCircle },
+  { key: 'bookmarks', label: '我的收藏', icon: Bookmark },
+  { key: 'notifications', label: '消息通知', icon: Bell },
   { key: 'level', label: '积分等级', icon: Trophy },
   { key: 'security', label: '账号安全', icon: Lock },
 ];
@@ -303,6 +306,8 @@ export default function MePage() {
             {activeTab === 'profile' && <ProfileTab user={user} onUpdate={setUser} showToast={showToast} />}
             {activeTab === 'posts' && <PostsTab showToast={showToast} />}
             {activeTab === 'comments' && <CommentsTab showToast={showToast} />}
+            {activeTab === 'bookmarks' && <BookmarksTab />}
+            {activeTab === 'notifications' && <NotificationsTab />}
             {activeTab === 'level' && <LevelTab user={user} />}
             {activeTab === 'security' && <SecurityTab showToast={showToast} />}
           </div>
@@ -1180,6 +1185,194 @@ function CitySelect({ value, onChange }: { value: string; onChange: (v: string) 
             ))
           )}
         </div>
+      )}
+    </div>
+  );
+}
+
+// ===== Bookmarks Tab =====
+
+interface BookmarkItem {
+  id: string;
+  createdAt: string;
+  post: {
+    id: string;
+    content: string;
+    images: string;
+    likes: number;
+    createdAt: string;
+    author: { id: string; name: string; avatar: string | null; role: string };
+    postTags: { tag: { id: string; name: string } }[];
+    _count: { comments: number };
+  };
+}
+
+function BookmarksTab() {
+  const [bookmarks, setBookmarks] = useState<BookmarkItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [removing, setRemoving] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/auth/bookmarks', { credentials: 'same-origin' })
+      .then((r) => r.json())
+      .then((json) => { if (json.code === 0) setBookmarks(json.data.list || []); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleRemove = async (postId: string, bookmarkId: string) => {
+    setRemoving(bookmarkId);
+    try {
+      await fetch(`/api/auth/bookmarks/${postId}`, { method: 'DELETE', credentials: 'same-origin' });
+      setBookmarks((prev) => prev.filter((b) => b.id !== bookmarkId));
+    } catch { /* ignore */ }
+    setRemoving(null);
+  };
+
+  if (loading) return <div className="text-center py-12 text-text-muted">加载中...</div>;
+
+  if (bookmarks.length === 0) {
+    return (
+      <div className="card text-center py-12">
+        <Bookmark className="w-10 h-10 text-text-disabled mx-auto mb-3" />
+        <p className="text-body text-text-muted">暂无收藏</p>
+        <p className="text-caption text-text-disabled mt-1">在帖子详情页点击收藏按钮</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-caption text-text-muted">共 {bookmarks.length} 个收藏</p>
+      {bookmarks.map((b) => {
+        const mediaUrls: string[] = (() => { try { return JSON.parse(b.post.images || '[]'); } catch { return []; } })();
+        const imgUrl = mediaUrls.find((u) => !u.match(/\.(mp4|webm|mov)$/i));
+        return (
+          <div key={b.id} className="card flex items-start gap-3">
+            {imgUrl && (
+              <div className="relative w-16 h-16 rounded-btn overflow-hidden flex-shrink-0 bg-gray-100">
+                <Image src={imgUrl} alt="" fill className="object-cover" />
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <a href={`/community/${b.post.id}`} className="text-body text-text-body line-clamp-2 hover:text-primary transition-colors">
+                {b.post.content}
+              </a>
+              <div className="flex items-center gap-3 mt-1.5 text-caption text-text-muted">
+                <span>{b.post.author.name}</span>
+                <span className="inline-flex items-center gap-0.5"><Heart className="w-3 h-3" /> {b.post.likes}</span>
+                <span className="inline-flex items-center gap-0.5"><MessageCircle className="w-3 h-3" /> {b.post._count.comments}</span>
+              </div>
+            </div>
+            <button
+              onClick={() => handleRemove(b.post.id, b.id)}
+              disabled={removing === b.id}
+              className="p-1.5 rounded-btn text-text-muted hover:text-danger hover:bg-red-50 transition-colors cursor-pointer flex-shrink-0"
+              title="取消收藏"
+            >
+              {removing === b.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ===== Notifications Tab =====
+
+interface NotifItem {
+  id: string;
+  type: string;
+  title: string;
+  content: string;
+  link: string | null;
+  isRead: boolean;
+  fromAvatar: string | null;
+  fromName: string | null;
+  createdAt: string;
+}
+
+function NotificationsTab() {
+  const [notifs, setNotifs] = useState<NotifItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [markingAll, setMarkingAll] = useState(false);
+  const unreadCount = notifs.filter((n) => !n.isRead).length;
+
+  useEffect(() => {
+    fetch('/api/auth/notifications?pageSize=50', { credentials: 'same-origin' })
+      .then((r) => r.json())
+      .then((json) => { if (json.code === 0) setNotifs(json.data.list || []); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const markAllRead = async () => {
+    setMarkingAll(true);
+    try {
+      await fetch('/api/auth/notifications', {
+        method: 'PATCH',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ all: true }),
+      });
+      setNotifs((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    } catch { /* ignore */ }
+    setMarkingAll(false);
+  };
+
+  const typeIcon: Record<string, typeof Bell> = {
+    comment: MessageCircle,
+    like: Heart,
+    pin: Pin,
+    system: Bell,
+  };
+
+  if (loading) return <div className="text-center py-12 text-text-muted">加载中...</div>;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-caption text-text-muted">
+          共 {notifs.length} 条通知{unreadCount > 0 ? `，${unreadCount} 条未读` : ''}
+        </p>
+        {unreadCount > 0 && (
+          <button onClick={markAllRead} disabled={markingAll} className="text-caption text-primary hover:underline cursor-pointer disabled:opacity-50">
+            {markingAll ? '处理中...' : '全部标为已读'}
+          </button>
+        )}
+      </div>
+
+      {notifs.length === 0 ? (
+        <div className="card text-center py-12">
+          <Bell className="w-10 h-10 text-text-disabled mx-auto mb-3" />
+          <p className="text-body text-text-muted">暂无通知</p>
+        </div>
+      ) : (
+        notifs.map((n) => {
+          const Icon = typeIcon[n.type] || Bell;
+          return (
+            <a
+              key={n.id}
+              href={n.link || '#'}
+              className={`card flex items-start gap-3 hover:shadow-card-hover transition-shadow ${!n.isRead ? 'border-primary/20 bg-primary/[0.02]' : ''}`}
+            >
+              <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 bg-primary-bg">
+                {n.fromAvatar ? (
+                  <Image src={n.fromAvatar} alt="" width={36} height={36} className="rounded-full object-cover" />
+                ) : (
+                  <Icon className="w-4 h-4 text-primary" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-body font-medium text-text-title">{n.title}</p>
+                <p className="text-caption text-text-muted mt-0.5">{n.content}</p>
+                <p className="text-caption text-text-disabled mt-1">{timeAgo(n.createdAt)}</p>
+              </div>
+              {!n.isRead && <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-1.5" />}
+            </a>
+          );
+        })
       )}
     </div>
   );

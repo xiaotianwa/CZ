@@ -1,12 +1,15 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import Link from 'next/link';
 import {
   Heart, MessageCircle, Pin, Send, ImagePlus, ShieldCheck,
-  X, Video, AlertCircle, Loader2, Hash, ChevronDown, Check, Plus, Search,
+  X, Video, AlertCircle, Loader2, Hash, ChevronDown, Check, Plus, Search, Gift, Flame,
 } from 'lucide-react';
 import Toast from '@/components/admin/Toast';
+import LoginRequiredModal from '@/components/LoginRequiredModal';
 
 interface TopicItem {
   id: string;
@@ -82,11 +85,13 @@ interface CommentItem {
 
 // ===== Post Composer =====
 
-function TopicSelector({ topics, selected, onChange, onTopicCreated }: {
+function TopicSelector({ topics, selected, onChange, onTopicCreated, isLoggedIn, onLoginRequired }: {
   topics: TopicItem[];
   selected: TopicItem[];
   onChange: (topics: TopicItem[]) => void;
   onTopicCreated: (topic: TopicItem) => void;
+  isLoggedIn?: boolean;
+  onLoginRequired?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -158,7 +163,7 @@ function TopicSelector({ topics, selected, onChange, onTopicCreated }: {
     <div ref={ref} className="relative">
       <button
         type="button"
-        onClick={() => setOpen(!open)}
+        onClick={() => { if (isLoggedIn === false) { onLoginRequired?.(); return; } setOpen(!open); }}
         className="p-1.5 rounded-btn text-text-muted hover:text-primary hover:bg-gray-50 transition-colors duration-150 cursor-pointer flex items-center gap-0.5"
         aria-label="选择话题"
       >
@@ -236,13 +241,14 @@ function TopicSelector({ topics, selected, onChange, onTopicCreated }: {
   );
 }
 
-function PostComposer({ topics, onPostCreated, onTopicCreated }: { topics: TopicItem[]; onPostCreated: (post: PostItem) => void; onTopicCreated: (topic: TopicItem) => void }) {
+function PostComposer({ topics, onPostCreated, onTopicCreated, isLoggedIn }: { topics: TopicItem[]; onPostCreated: (post: PostItem) => void; onTopicCreated: (topic: TopicItem) => void; isLoggedIn: boolean }) {
   const [content, setContent] = useState('');
   const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
   const [selectedTopics, setSelectedTopics] = useState<TopicItem[]>([]);
   const [posting, setPosting] = useState(false);
   const [error, setError] = useState('');
   const [expanded, setExpanded] = useState(false);
+  const [loginModal, setLoginModal] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const isExpanded = expanded || content.length > 0 || mediaFiles.length > 0 || selectedTopics.length > 0;
 
@@ -311,6 +317,7 @@ function PostComposer({ topics, onPostCreated, onTopicCreated }: { topics: Topic
   };
 
   const handlePost = async () => {
+    if (!isLoggedIn) { setLoginModal(true); return; }
     if (!content.trim()) { setError('请输入内容'); return; }
     const failedMedia = mediaFiles.filter((m) => m.error);
     if (failedMedia.length) { setError('有文件上传失败，请删除后重试'); return; }
@@ -345,9 +352,10 @@ function PostComposer({ topics, onPostCreated, onTopicCreated }: { topics: Topic
 
   return (
     <div className="bg-white rounded-card p-3 sm:p-5 shadow-card border border-divider">
+      <LoginRequiredModal open={loginModal} redirectTo="/community" onCancel={() => setLoginModal(false)} />
       <textarea
         value={content}
-        onFocus={() => setExpanded(true)}
+        onFocus={() => { if (!isLoggedIn) { setLoginModal(true); return; } setExpanded(true); }}
         onChange={(e) => { setContent(e.target.value); setError(''); }}
         placeholder="分享你的追星心情..."
         maxLength={2000}
@@ -443,7 +451,7 @@ function PostComposer({ topics, onPostCreated, onTopicCreated }: { topics: Topic
           >
             <Video className="w-4 h-4" />
           </button>
-          <TopicSelector topics={topics} selected={selectedTopics} onChange={setSelectedTopics} onTopicCreated={onTopicCreated} />
+          <TopicSelector topics={topics} selected={selectedTopics} onChange={setSelectedTopics} onTopicCreated={onTopicCreated} onLoginRequired={() => setLoginModal(true)} isLoggedIn={isLoggedIn} />
           {isExpanded && (
             <span className="text-caption text-text-disabled ml-1 hidden sm:inline">
               图片≤5MB 视频≤50MB 最多{MAX_FILES}个
@@ -477,12 +485,13 @@ function PostComposer({ topics, onPostCreated, onTopicCreated }: { topics: Topic
 
 // ===== Comment Section =====
 
-function CommentSection({ postId, onToast }: { postId: string; onToast: (msg: string, type: 'success' | 'error') => void }) {
+function CommentSection({ postId, onToast, isLoggedIn }: { postId: string; onToast: (msg: string, type: 'success' | 'error') => void; isLoggedIn: boolean }) {
   const [comments, setComments] = useState<CommentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [content, setContent] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
+  const [loginModal, setLoginModal] = useState(false);
 
   const fetchComments = useCallback(async () => {
     try {
@@ -497,6 +506,10 @@ function CommentSection({ postId, onToast }: { postId: string; onToast: (msg: st
 
   const handleSend = async () => {
     if (!content.trim()) return;
+    if (!isLoggedIn) {
+      setLoginModal(true);
+      return;
+    }
     setSending(true);
     setError('');
     try {
@@ -522,6 +535,7 @@ function CommentSection({ postId, onToast }: { postId: string; onToast: (msg: st
 
   return (
     <div className="mt-3 pt-3 border-t border-divider">
+      <LoginRequiredModal open={loginModal} redirectTo="/community" onCancel={() => setLoginModal(false)} />
       {/* Comment Input */}
       <div className="flex gap-2 mb-3">
         <input
@@ -580,6 +594,92 @@ function CommentSection({ postId, onToast }: { postId: string; onToast: (msg: st
 
 // ===== Main Page =====
 
+function CheckinCard() {
+  const [checkedIn, setCheckedIn] = useState(false);
+  const [streak, setStreak] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [doing, setDoing] = useState(false);
+  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(true);
+  const [loginModal, setLoginModal] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/auth/checkin', { credentials: 'same-origin' })
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.code === 0 && json.data) {
+          setCheckedIn(json.data.checkedIn);
+          setStreak(json.data.streak);
+        } else if (json.code !== 0) {
+          setIsLoggedIn(false);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleCheckin = async () => {
+    if (!isLoggedIn) {
+      setLoginModal(true);
+      return;
+    }
+    if (checkedIn || doing) return;
+    setDoing(true);
+    try {
+      const res = await fetch('/api/auth/checkin', { method: 'POST', credentials: 'same-origin' });
+      const json = await res.json();
+      if (json.code === 0) {
+        setCheckedIn(true);
+        setStreak((s) => s + 1);
+        setToast({ msg: `签到成功！+5积分${json.data?.levelUp ? ' 🎉 升级了！' : ''}`, ok: true });
+        setTimeout(() => setToast(null), 3000);
+      } else if (res.status === 401) {
+        setIsLoggedIn(false);
+        setLoginModal(true);
+      } else {
+        setToast({ msg: json.message || '签到失败', ok: false });
+        setTimeout(() => setToast(null), 2000);
+      }
+    } catch {
+      setToast({ msg: '签到失败，请重试', ok: false });
+      setTimeout(() => setToast(null), 2000);
+    } finally {
+      setDoing(false);
+    }
+  };
+
+  if (loading) return null;
+
+  return (
+    <div className="card">
+      <LoginRequiredModal open={loginModal} redirectTo="/community" onCancel={() => setLoginModal(false)} />
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-body font-semibold text-text-title flex items-center gap-1.5">
+          <Gift className="w-4 h-4 text-primary" /> 每日签到
+        </h3>
+        {streak > 0 && (
+          <span className="inline-flex items-center gap-0.5 text-caption text-orange-500 font-medium">
+            <Flame className="w-3.5 h-3.5" /> 连续{streak}天
+          </span>
+        )}
+      </div>
+      <button
+        onClick={handleCheckin}
+        disabled={(isLoggedIn && checkedIn) || doing}
+        className={`w-full h-9 rounded-btn font-medium text-body transition-all duration-200 inline-flex items-center justify-center gap-2 ${
+          isLoggedIn && checkedIn
+            ? 'bg-gray-100 text-text-muted cursor-not-allowed'
+            : 'bg-primary text-white hover:bg-primary/90 cursor-pointer shadow-sm'
+        }`}
+      >
+        {doing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className={`w-4 h-4 ${isLoggedIn && checkedIn ? 'text-success' : ''}`} />}
+        {!isLoggedIn ? '登录后签到' : checkedIn ? '今日已签到' : '立即签到 +5积分'}
+      </button>
+      {toast && <p className={`text-caption mt-2 text-center ${toast.ok ? 'text-success' : 'text-danger'}`}>{toast.msg}</p>}
+    </div>
+  );
+}
+
 export default function CommunityPage() {
   const [activeTopicId, setActiveTopicId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'hot' | 'new'>('new');
@@ -591,9 +691,18 @@ export default function CommunityPage() {
   const [loading, setLoading] = useState(true);
   const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
   const [toast, setToast] = useState<{ open: boolean; message: string; type: 'success' | 'error' }>({ open: false, message: '', type: 'success' });
+  const [isLoggedIn, setIsLoggedIn] = useState(true);
+  const [loginModal, setLoginModal] = useState(false);
 
   const showToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
     setToast({ open: true, message, type });
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/auth/me', { credentials: 'same-origin' })
+      .then((r) => r.json())
+      .then((json) => { if (json.code !== 0) setIsLoggedIn(false); })
+      .catch(() => {});
   }, []);
 
   // Fetch topics once
@@ -624,6 +733,10 @@ export default function CommunityPage() {
   }, [activeTopicId]);
 
   const toggleLike = async (postId: string) => {
+    if (!isLoggedIn) {
+      setLoginModal(true);
+      return;
+    }
     const isLiked = likedPosts.has(postId);
     // Optimistic update
     setLikedPosts((prev) => {
@@ -682,6 +795,7 @@ export default function CommunityPage() {
   return (
     <>
       <Toast open={toast.open} message={toast.message} type={toast.type} onClose={() => setToast((t) => ({ ...t, open: false }))} />
+      <LoginRequiredModal open={loginModal} redirectTo="/community" onCancel={() => setLoginModal(false)} />
       <section className="hidden sm:block px-4 sm:px-6 lg:px-8 pt-20 pb-6 animate-fade-in-up">
         <div className="container-main">
           <h1 className="section-title" style={{ fontFamily: "'Blazed', sans-serif" }}>1103</h1>
@@ -693,7 +807,7 @@ export default function CommunityPage() {
         <div className="grid lg:grid-cols-[1fr_280px] gap-4 sm:gap-6">
           <div className="space-y-3 sm:space-y-4">
             {/* New Post */}
-            <PostComposer topics={topics} onPostCreated={handlePostCreated} onTopicCreated={handleTopicCreated} />
+            <PostComposer topics={topics} onPostCreated={handlePostCreated} onTopicCreated={handleTopicCreated} isLoggedIn={isLoggedIn} />
 
             {/* Mobile: community stats (hidden on lg) */}
             <div className="flex items-center gap-4 text-caption text-text-muted lg:hidden">
@@ -817,10 +931,16 @@ export default function CommunityPage() {
                         >
                           <MessageCircle className="w-4 h-4" /> {post._count.comments}
                         </button>
+                        <Link
+                          href={`/community/${post.id}`}
+                          className="flex items-center gap-1 text-caption text-text-muted hover:text-primary transition-colors duration-150 ml-auto"
+                        >
+                          查看详情 →
+                        </Link>
                       </div>
 
                       {/* Comments */}
-                      {expandedComments.has(post.id) && <CommentSection postId={post.id} onToast={showToast} />}
+                      {expandedComments.has(post.id) && <CommentSection postId={post.id} onToast={showToast} isLoggedIn={isLoggedIn} />}
                     </div>
                   </div>
                 </article>
@@ -830,6 +950,8 @@ export default function CommunityPage() {
 
           {/* Sidebar */}
           <aside className="space-y-4 hidden lg:block">
+            <CheckinCard />
+
             <div className="card">
               <h3 className="text-body font-semibold text-text-title mb-3">社区数据</h3>
               <div className="space-y-2">

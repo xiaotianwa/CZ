@@ -14,23 +14,24 @@ export async function GET() {
 
     const users = await prisma.user.findMany({
       where: { isActive: true, city: { not: null } },
-      select: { city: true },
+      select: { city: true, name: true },
     });
 
-    // 按城市聚合统计
-    const cityMap: Record<string, number> = {};
+    // 按城市聚合统计，同时收集用户名
+    const cityMap: Record<string, string[]> = {};
     for (const u of users) {
       if (u.city) {
         const city = u.city.trim();
         if (city) {
-          cityMap[city] = (cityMap[city] || 0) + 1;
+          if (!cityMap[city]) cityMap[city] = [];
+          cityMap[city].push(u.name);
         }
       }
     }
 
     // 转为数组，按人数降序
     const cities = Object.entries(cityMap)
-      .map(([city, count]) => ({ city, count }))
+      .map(([city, names]) => ({ city, count: names.length, users: names.slice(0, 20) }))
       .sort((a, b) => b.count - a.count);
 
     const totalFans = await prisma.user.count({ where: { isActive: true } });
