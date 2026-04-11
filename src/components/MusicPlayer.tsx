@@ -27,14 +27,21 @@ export default function MusicPlayer() {
   const [autoPlayPending, setAutoPlayPending] = useState(false);
 
   useEffect(() => {
+    console.log('[MusicPlayer] 开始请求 /api/music');
     fetch('/api/music')
       .then((res) => res.json())
       .then((json) => {
+        console.log('[MusicPlayer] API 返回:', JSON.stringify(json).slice(0, 300));
         if (json.code === 0 && json.data?.length > 0) {
           setPlaylist(json.data);
+          console.log('[MusicPlayer] 播放列表已设置, 条数:', json.data.length);
+        } else {
+          console.warn('[MusicPlayer] 无可用音乐, code:', json.code, 'data长度:', json.data?.length ?? 0);
         }
       })
-      .catch(() => {})
+      .catch((err) => {
+        console.error('[MusicPlayer] 请求失败:', err);
+      })
       .finally(() => setFetched(true));
   }, []);
 
