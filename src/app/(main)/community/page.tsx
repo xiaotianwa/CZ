@@ -72,6 +72,7 @@ interface MediaFile {
   url: string;
   type: 'image' | 'video';
   uploading: boolean;
+  progress: number;
   error?: string;
 }
 
@@ -279,27 +280,63 @@ function PostComposer({ topics, onPostCreated, onTopicCreated, isLoggedIn }: { t
 
       const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       const previewUrl = URL.createObjectURL(file);
-      const mf: MediaFile = { id: localId, file, url: previewUrl, type: isVideo ? 'video' : 'image', uploading: true };
+      const mf: MediaFile = { id: localId, file, url: previewUrl, type: isVideo ? 'video' : 'image', uploading: true, progress: 0 };
 
       setMediaFiles((prev) => [...prev, mf]);
 
-      // Upload
-      const formData = new FormData();
-      formData.append('file', file);
       try {
-        const res = await fetch('/api/auth/upload-media', {
+        // 1. 获取预签名URL
+        const presignRes = await fetch('/api/auth/presign-upload', {
           method: 'POST',
           credentials: 'same-origin',
-          body: formData,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filename: file.name,
+            mimeType: file.type,
+            size: file.size,
+            category: isVideo ? 'post-video' : 'post-image',
+          }),
         });
-        const json = await res.json();
-        if (json.code !== 0) throw new Error(json.message);
+        const presignJson = await presignRes.json();
+        if (presignJson.code !== 0) throw new Error(presignJson.message);
+
+        const { uploadUrl, fileUrl, cosKey } = presignJson.data;
+
+        // 2. 直传COS（XHR支持进度）
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.upload.onprogress = (e) => {
+            if (e.lengthComputable) {
+              const pct = Math.round((e.loaded / e.total) * 100);
+              setMediaFiles((prev) =>
+                prev.map((m) => m.id === localId ? { ...m, progress: pct } : m)
+              );
+            }
+          };
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) resolve();
+            else reject(new Error(`COS上传失败(${xhr.status})`));
+          };
+          xhr.onerror = () => reject(new Error('网络错误，上传失败'));
+          xhr.open('PUT', uploadUrl);
+          xhr.setRequestHeader('Content-Type', file.type);
+          xhr.send(file);
+        });
+
+        // 3. 记录到媒体库
+        await fetch('/api/auth/media-record', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename: file.name, url: fileUrl, cosKey, size: file.size, mimeType: file.type, category: isVideo ? 'post-video' : 'post-image' }),
+        });
+
         setMediaFiles((prev) =>
-          prev.map((m) => m.id === localId ? { ...m, url: json.data.url, uploading: false } : m)
+          prev.map((m) => m.id === localId ? { ...m, url: fileUrl, uploading: false, progress: 100 } : m)
         );
       } catch (err) {
         setMediaFiles((prev) =>
-          prev.map((m) => m.id === localId ? { ...m, uploading: false, error: err instanceof Error ? err.message : '上传失败' } : m)
+          prev.map((m) => m.id === localId ? { ...m, uploading: false, progress: 0, error: err instanceof Error ? err.message : '上传失败' } : m)
         );
       }
     }
@@ -378,8 +415,12 @@ function PostComposer({ topics, onPostCreated, onTopicCreated, isLoggedIn }: { t
                     <video src={mf.url} className="w-full h-full object-cover" muted />
                   )}
                   {mf.uploading && (
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                    <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center gap-1.5">
                       <Loader2 className="w-5 h-5 text-white animate-spin" />
+                      <span className="text-[11px] text-white font-medium">{mf.progress}%</span>
+                      <div className="w-3/4 h-1.5 bg-white/30 rounded-full overflow-hidden">
+                        <div className="h-full bg-white rounded-full transition-all duration-300" style={{ width: `${mf.progress}%` }} />
+                      </div>
                     </div>
                   )}
                   {mf.error && (
