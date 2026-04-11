@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { ok, fail, handleError } from '@/lib/api';
 import { sendVerifyCode } from '@/lib/mail';
-import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
+import { checkRateLimit, rollbackRateLimit, getClientIp } from '@/lib/rate-limit';
 import { setCache } from '@/lib/cache';
 
 const schema = z.object({
@@ -43,7 +43,14 @@ export async function POST(req: NextRequest) {
     // 存入缓存，5 分钟过期
     setCache(`verify-code:${email}`, code, 5 * 60 * 1000);
 
-    await sendVerifyCode(email, code, type);
+    try {
+      await sendVerifyCode(email, code, type);
+    } catch (mailErr) {
+      // 邮件发送失败，回退限流计数（不消耗用户配额）
+      rollbackRateLimit(ip, 'send-code-ip');
+      rollbackRateLimit(`code:${email}`, 'send-code-email');
+      throw mailErr;
+    }
 
     return ok(null, '验证码已发送');
   } catch (err) {

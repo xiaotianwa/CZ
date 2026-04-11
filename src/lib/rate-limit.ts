@@ -51,6 +51,17 @@ export function checkRateLimit(key: string, options: RateLimitOptions): number |
 }
 
 /**
+ * 回退一次限流计数（用于操作失败时不消耗配额）
+ */
+export function rollbackRateLimit(key: string, namespace: string): void {
+  const store = getStore(namespace);
+  const record = store.get(key);
+  if (record && record.count > 0) {
+    record.count--;
+  }
+}
+
+/**
  * 定期清理过期记录，防止内存泄漏
  * 每 3 分钟执行一次
  */
