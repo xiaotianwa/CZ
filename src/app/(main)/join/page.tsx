@@ -63,6 +63,8 @@ export default function JoinPage() {
   const [confirmPwd, setConfirmPwd] = useState('');
   const [showPwd, setShowPwd] = useState(false);
   const [showConfirmPwd, setShowConfirmPwd] = useState(false);
+  const [regLoading, setRegLoading] = useState(false);
+  const [regError, setRegError] = useState('');
 
   const q = questions[currentQ];
   const totalQ = questions.length;
@@ -117,21 +119,61 @@ export default function JoinPage() {
   const pwdMatch = confirmPwd && password === confirmPwd;
   const canSubmit = nickname.trim() && email.trim() && verifyCode.trim() && password.length >= 8 && password === confirmPwd;
 
-  const handleSendCode = () => {
+  const handleSendCode = async () => {
     if (!email.trim() || countdown > 0) return;
-    setCodeSent(true);
-    setCountdown(60);
-    const timer = setInterval(() => {
-      setCountdown((c) => {
-        if (c <= 1) { clearInterval(timer); return 0; }
-        return c - 1;
+    setRegError('');
+    try {
+      const res = await fetch('/api/public/send-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), type: 'register' }),
       });
-    }, 1000);
+      const json = await res.json();
+      if (json.code !== 0) {
+        setRegError(json.message || '发送失败');
+        return;
+      }
+      setCodeSent(true);
+      setCountdown(60);
+      const timer = setInterval(() => {
+        setCountdown((c) => {
+          if (c <= 1) { clearInterval(timer); return 0; }
+          return c - 1;
+        });
+      }, 1000);
+    } catch {
+      setRegError('网络错误，请稍后重试');
+    }
   };
 
-  const handleJoin = () => {
-    if (canSubmit) {
+  const handleJoin = async () => {
+    if (!canSubmit || regLoading) return;
+    setRegError('');
+    setRegLoading(true);
+    try {
+      const res = await fetch('/api/public/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: nickname.trim(),
+          email: email.trim(),
+          password,
+          code: verifyCode.trim(),
+        }),
+      });
+      const json = await res.json();
+      if (json.code !== 0) {
+        setRegError(json.message || '注册失败');
+        return;
+      }
+      if (json.data?.user) {
+        localStorage.setItem('user', JSON.stringify(json.data.user));
+      }
       setStep('done');
+    } catch {
+      setRegError('网络错误，请稍后重试');
+    } finally {
+      setRegLoading(false);
     }
   };
 
@@ -156,12 +198,12 @@ export default function JoinPage() {
               {nickname}，你已成为社区的第 {formatNum(communityStats.totalFans + 1)} 位成员
             </p>
             <div className="flex flex-col gap-3 mt-8">
-              <Link href="/community" className="btn-primary inline-flex items-center justify-center gap-1.5 h-11 text-base">
+              <a href="/community" className="btn-primary inline-flex items-center justify-center gap-1.5 h-11 text-base">
                 进入社区 <ArrowRight className="w-4 h-4" />
-              </Link>
-              <Link href="/" className="btn-outline inline-flex items-center justify-center h-11 text-base">
+              </a>
+              <a href="/" className="btn-outline inline-flex items-center justify-center h-11 text-base">
                 返回首页
-              </Link>
+              </a>
             </div>
           </div>
         </div>
@@ -393,6 +435,13 @@ export default function JoinPage() {
             <div className="card p-5 sm:p-6">
               <h3 className="text-heading-sm text-text-title mb-4">注册信息</h3>
 
+              {regError && (
+                <div className="flex items-center gap-2 p-3 rounded-btn bg-red-50 text-danger text-body mb-4">
+                  <XCircle className="w-4 h-4 flex-shrink-0" />
+                  {regError}
+                </div>
+              )}
+
               <div className="space-y-3">
                 {/* Nickname */}
                 <div>
@@ -530,10 +579,10 @@ export default function JoinPage() {
 
               <button
                 onClick={handleJoin}
-                disabled={!canSubmit}
+                disabled={!canSubmit || regLoading}
                 className="btn-primary w-full h-11 text-base font-semibold mt-5 disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                加入社区
+                {regLoading ? '注册中...' : '加入社区'}
               </button>
 
               <p className="text-caption text-text-muted text-center mt-3">

@@ -25,7 +25,13 @@ export default function Navbar({ profileName }: { profileName: string }) {
     { href: '/fan-map', label: '粉丝地图' },
   ];
   const [isOpen, setIsOpen] = useState(false);
-  const [user, setUser] = useState<UserInfo | null>(null);
+  const [user, setUser] = useState<UserInfo | null>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const cached = localStorage.getItem('user');
+      return cached ? JSON.parse(cached) : null;
+    } catch { return null; }
+  });
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 

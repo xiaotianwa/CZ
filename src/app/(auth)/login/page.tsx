@@ -100,7 +100,7 @@ export default function LoginPage() {
         return;
       }
       localStorage.setItem('user', JSON.stringify(json.data.user));
-      router.push('/');
+      window.location.href = '/';
     } catch {
       setError('网络错误，请稍后重试');
     } finally {
