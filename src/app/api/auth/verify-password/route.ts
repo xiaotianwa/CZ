@@ -25,8 +25,9 @@ export async function POST(req: NextRequest) {
       attempts.set(payload.id, { count: 1, resetAt: now + WINDOW_MS });
     }
 
-    const { password } = await req.json();
-    if (!password) {
+    const body = await req.json();
+    const { password } = body as { password?: string };
+    if (!password || typeof password !== 'string') {
       return fail('请输入密码');
     }
 
@@ -40,7 +41,10 @@ export async function POST(req: NextRequest) {
     }
 
     const valid = await verifyPassword(password, user.password);
-    return ok({ valid });
+    if (!valid) {
+      return fail('密码不正确');
+    }
+    return ok({ valid: true });
   } catch (err) {
     return handleError(err);
   }

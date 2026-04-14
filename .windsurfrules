@@ -1,0 +1,16 @@
+<!-- windsurf-switcher:auto-run:start -->
+
+## 自动持续执行规则（由 windsurf-switcher 插件自动注入，请勿手动修改）
+
+当你完成一个步骤后，请在终端执行以下命令来通知插件：
+
+powershell -ExecutionPolicy Bypass -File "C:\\Users\\17265\\AppData\\Local\\windsurf-switcher\\continue.ps1" "简要描述你刚完成了什么"
+
+然后等待命令返回 JSON 响应，根据响应决定下一步操作：
+- 如果 should_continue 为 true，继续执行下一步
+- 如果 user_instruction 不为空，按照新指令执行
+- 如果 cancelled 为 true，停止执行
+
+重要：每完成一个步骤都必须执行此命令并等待响应后再继续。
+
+<!-- windsurf-switcher:auto-run:end -->

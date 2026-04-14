@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { ok, fail, handleError } from '@/lib/api';
 import { checkBannedWords } from '@/lib/banned-words';
+import { moderateText } from '@/lib/content-moderation';
 import { grantPoints } from '@/lib/points';
 import { notifyComment } from '@/lib/notification';
 
@@ -27,10 +28,16 @@ export async function POST(req: NextRequest) {
 
     const { postId, content } = parsed.data;
 
-    // 违禁词检测
+    // 本地违禁词检测
     const banned = await checkBannedWords(content);
     if (banned) {
       return fail(`评论包含违禁词「${banned}」，请修改后重新发布`);
+    }
+
+    // 腾讯云文本审核（双重保障）
+    const textMod = await moderateText(content);
+    if (!textMod.pass) {
+      return fail(`评论审核未通过：${textMod.detail || '内容违规'}，请修改后重新发布`);
     }
 
     // 验证帖子存在

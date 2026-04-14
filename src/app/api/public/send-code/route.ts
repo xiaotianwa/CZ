@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
+import { randomInt } from 'crypto';
 import { ok, fail, handleError } from '@/lib/api';
 import { sendVerifyCode } from '@/lib/mail';
 import { checkRateLimit, rollbackRateLimit, getClientIp } from '@/lib/rate-limit';
@@ -11,7 +12,7 @@ const schema = z.object({
 });
 
 function generateCode(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  return randomInt(100000, 999999).toString();
 }
 
 export async function POST(req: NextRequest) {
@@ -40,8 +41,8 @@ export async function POST(req: NextRequest) {
 
     const code = generateCode();
 
-    // 存入缓存，5 分钟过期
-    setCache(`verify-code:${email}`, code, 5 * 60 * 1000);
+    // 存入缓存，5 分钟过期（按类型隔离 key，防止注册码和重置码混用）
+    setCache(`verify-code:${type}:${email}`, code, 5 * 60 * 1000);
 
     try {
       await sendVerifyCode(email, code, type);

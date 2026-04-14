@@ -29,8 +29,8 @@ export async function POST(req: NextRequest) {
 
     const { name, email, password, code } = parsed.data;
 
-    // 验证验证码
-    const cacheKey = `verify-code:${email}`;
+    // 验证验证码（使用类型隔离的 key）
+    const cacheKey = `verify-code:register:${email}`;
     const savedCode = getCache<string>(cacheKey);
     if (!savedCode || savedCode !== code) {
       return fail('验证码错误或已过期');

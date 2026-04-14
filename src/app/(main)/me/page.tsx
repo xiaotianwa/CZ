@@ -453,7 +453,7 @@ function ProfileTab({ user, onUpdate, showToast }: { user: UserProfile; onUpdate
           </div>
 
           <div className="grid sm:grid-cols-[120px_1fr] gap-2 items-start">
-            <label className="text-body font-medium text-text-muted pt-2">所在城市</label>
+            <label className="text-body font-medium text-text-muted pt-2">所在位置</label>
             {editing ? (
               <CitySelect value={form.city} onChange={(v) => setForm({ ...form, city: v })} />
             ) : (
@@ -1129,6 +1129,9 @@ function CitySelect({ value, onChange }: { value: string; onChange: (v: string) 
     setSearch('');
   };
 
+  // 支持自由输入：搜索无匹配时可用输入内容作为自定义位置
+  const hasCustomOption = keyword.length > 0 && filtered.length === 0;
+
   return (
     <div className="relative" ref={containerRef}>
       <div
@@ -1141,7 +1144,13 @@ function CitySelect({ value, onChange }: { value: string; onChange: (v: string) 
           value={open ? search : value}
           onChange={(e) => { setSearch(e.target.value); if (!open) setOpen(true); }}
           onFocus={() => setOpen(true)}
-          placeholder="搜索城市..."
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && keyword) {
+              handleSelect(search.trim());
+            }
+          }}
+          placeholder="搜索或输入位置（支持全球城市）"
+          maxLength={50}
           className="flex-1 h-full px-2 text-body text-text-title placeholder:text-text-disabled bg-transparent outline-none"
         />
         {value && !open && (
@@ -1154,35 +1163,61 @@ function CitySelect({ value, onChange }: { value: string; onChange: (v: string) 
 
       {open && (
         <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-divider rounded-card shadow-dropdown max-h-64 overflow-y-auto">
-          {filtered.length === 0 ? (
+          {hasCustomOption ? (
+            <div className="py-1">
+              <button
+                type="button"
+                onClick={() => handleSelect(search.trim())}
+                className="w-full text-left px-4 py-2.5 text-body text-primary hover:bg-primary/5 cursor-pointer flex items-center gap-2"
+              >
+                <MapPin className="w-3.5 h-3.5" />
+                使用自定义位置：<span className="font-medium">{search.trim()}</span>
+              </button>
+              <p className="px-4 py-1.5 text-caption text-text-muted">
+                列表中没有匹配项，按回车或点击上方确认
+              </p>
+            </div>
+          ) : filtered.length === 0 ? (
             <div className="px-4 py-6 text-center">
-              <p className="text-caption text-text-muted">没有找到匹配的城市</p>
+              <p className="text-caption text-text-muted">没有找到匹配的位置</p>
             </div>
           ) : (
-            filtered.map(group => (
-              <div key={group.province}>
-                <div className="sticky top-0 bg-gray-50 px-3 py-1.5 text-caption font-medium text-text-muted border-b border-divider">
-                  {group.province}
+            <>
+              {keyword && (
+                <button
+                  type="button"
+                  onClick={() => handleSelect(search.trim())}
+                  className="w-full text-left px-4 py-2 text-caption text-primary hover:bg-primary/5 cursor-pointer border-b border-divider flex items-center gap-1.5"
+                >
+                  <MapPin className="w-3 h-3" />
+                  直接使用「{search.trim()}」
+                </button>
+              )}
+              {filtered.map(group => (
+                <div key={group.province}>
+                  <div className="sticky top-0 bg-gray-50 px-3 py-1.5 text-caption font-medium text-text-muted border-b border-divider">
+                    {group.province}
+                  </div>
+                  <div className="py-1">
+                    {group.cities.map(city => (
+                      <button
+                        key={city}
+                        type="button"
+                        onClick={() => handleSelect(city)}
+                        className={`w-full text-left px-4 py-2 text-body transition-colors duration-100 cursor-pointer ${
+                          city === value
+                            ? 'text-primary bg-primary/5 font-medium'
+                            : 'text-text-body hover:bg-gray-50 hover:text-primary'
+                        }`}
+                      >
+                        {city}
+                        {city === value && <Check className="w-3.5 h-3.5 inline ml-2 text-primary" />}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div className="py-1">
-                  {group.cities.map(city => (
-                    <button
-                      key={city}
-                      type="button"
-                      onClick={() => handleSelect(city)}
-                      className={`w-full text-left px-4 py-2 text-body transition-colors duration-100 cursor-pointer ${
-                        city === value
-                          ? 'text-primary bg-primary/5 font-medium'
-                          : 'text-text-body hover:bg-gray-50 hover:text-primary'
-                      }`}
-                    >
-                      {city}
-                      {city === value && <Check className="w-3.5 h-3.5 inline ml-2 text-primary" />}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))
+              ))}
+            </>
           )}
         </div>
       )}

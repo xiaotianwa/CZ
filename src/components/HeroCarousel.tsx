@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Users, MessageSquare, TrendingUp, ArrowRight, Gamepad2 } from 'lucide-react';
+import { Users, TrendingUp, ArrowRight } from 'lucide-react';
 
 function formatNum(num: number): string {
   if (num >= 10000) return (num / 10000).toFixed(1) + '万';
@@ -90,94 +90,84 @@ export default function HeroCarousel({ slides, profile, communityStats }: HeroCa
         ))}
       </div>
 
-      {/* Content */}
-      <div className="container-main px-4 sm:px-6 lg:px-8 relative z-10 pt-24 sm:pt-28 pb-20">
-        <div className="grid lg:grid-cols-[1fr_280px] gap-12 items-center">
-          <div>
-            {/* Online badge */}
-            <div className="inline-flex items-center gap-2 bg-primary/15 border border-primary/30 rounded-full px-4 py-1.5 mb-6">
+      {/* Content — centered & minimal */}
+      <div className="container-main px-4 sm:px-6 lg:px-8 relative z-10 flex flex-col items-center justify-center h-full text-center">
+        <div className="max-w-2xl">
+          {/* Avatar */}
+          {profile.avatar && (
+            <div
+              className="animate-fade-in-up relative w-20 h-20 mx-auto mb-6 rounded-full overflow-hidden ring-2 ring-primary/40 ring-offset-2 ring-offset-gray-900"
+              style={{ animationDelay: '0.1s' }}
+            >
+              <Image src={profile.avatar} alt={profile.name} fill className="object-cover" priority />
+            </div>
+          )}
+
+          <h1
+            className="animate-fade-in-up text-[36px] sm:text-[52px] leading-[1.1] font-bold text-white tracking-tight"
+            style={{ animationDelay: '0.2s' }}
+          >
+            <span className="text-primary">{profile.name}</span>的专属社区
+          </h1>
+
+          <p
+            className="animate-fade-in-up mt-3 text-[40px] sm:text-[56px] leading-none text-primary/80"
+            style={{ animationDelay: '0.35s', fontFamily: "'Blazed', sans-serif" }}
+          >
+            {profile.englishName}
+          </p>
+
+          <p
+            className="animate-fade-in-up text-[15px] leading-[1.7] text-gray-400 mt-5 max-w-md mx-auto"
+            style={{ animationDelay: '0.5s' }}
+          >
+            {profile.intro}
+          </p>
+
+          <div
+            className="animate-fade-in-up flex items-center justify-center gap-3 mt-8"
+            style={{ animationDelay: '0.65s' }}
+          >
+            <Link
+              href="/join"
+              className="btn-primary inline-flex items-center gap-1.5 h-11 px-7 text-base"
+            >
+              加入社区 <ArrowRight className="w-4 h-4" />
+            </Link>
+            <Link
+              href="/profile"
+              className="inline-flex items-center gap-1.5 h-11 px-7 rounded-btn text-body font-medium text-white border border-white/25 cursor-pointer hover:bg-white/10 transition-colors duration-150"
+            >
+              了解更多
+            </Link>
+          </div>
+
+          {/* Stats row */}
+          <div
+            className="animate-fade-in-up flex items-center justify-center gap-6 mt-10 text-sm"
+            style={{ animationDelay: '0.8s' }}
+          >
+            <div className="flex items-center gap-1.5 text-gray-400">
+              <Users className="w-4 h-4 text-primary/60" />
+              <span className="font-semibold text-white">{formatNum(communityStats.totalFans)}</span>
+              <span>泽小将</span>
+            </div>
+            <div className="flex items-center gap-1.5 text-gray-400">
               {communityStats.onlineNow > 0 ? (
                 <>
-                  <span className="relative flex h-2.5 w-2.5">
+                  <span className="relative flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
                   </span>
-                  <span className="text-caption font-medium text-primary">
-                    {formatNum(communityStats.onlineNow)} 老铁正在互动
-                  </span>
+                  <span className="font-semibold text-white">{formatNum(communityStats.onlineNow)}</span>
+                  <span>位泽小将在互动</span>
                 </>
               ) : (
                 <>
-                  <Gamepad2 className="w-4 h-4 text-primary" />
-                  <span className="text-caption font-medium text-primary">
-                    社区等你来互动
-                  </span>
+                  <TrendingUp className="w-4 h-4 text-primary/60" />
+                  <span>期待你的互动</span>
                 </>
               )}
-            </div>
-
-            <h1 className="text-[32px] sm:text-[44px] leading-[1.15] font-bold text-white tracking-tight">
-              欢迎来到
-              <br />
-              <span className="text-primary">{profile.name}</span>的专属社区
-            </h1>
-
-            <p className="mt-4 text-[48px] sm:text-[64px] leading-none text-primary" style={{ fontFamily: "'Blazed', sans-serif" }}>
-              {profile.englishName}
-            </p>
-
-            <p className="text-[15px] leading-[1.8] text-gray-300 mt-4 max-w-lg">
-              {profile.intro}
-            </p>
-
-            <div className="flex items-center gap-3 mt-8">
-              <Link
-                href="/join"
-                className="btn-primary inline-flex items-center gap-1.5 h-11 px-6 text-base"
-              >
-                加入社区 <ArrowRight className="w-4 h-4" />
-              </Link>
-              <Link
-                href="/profile"
-                className="inline-flex items-center gap-1.5 h-11 px-6 rounded-btn text-body font-medium text-white border border-white/25 cursor-pointer hover:bg-white/10 transition-colors duration-150"
-              >
-                了解更多
-              </Link>
-            </div>
-
-            {/* Stats row */}
-            <div className="flex flex-wrap items-center gap-3 mt-10">
-              {[
-                { label: '社区粉丝', value: formatNum(communityStats.totalFans), icon: Users },
-                { label: '今日帖子', value: formatNum(communityStats.todayPosts), icon: MessageSquare },
-                { label: '总互动', value: formatNum(communityStats.totalInteractions), icon: TrendingUp },
-              ].map((s) => (
-                <div key={s.label} className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-card px-4 py-3">
-                  <s.icon className="w-4 h-4 text-primary" />
-                  <span className="text-heading-sm text-white">{s.value}</span>
-                  <span className="text-caption text-gray-400">{s.label}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Profile card */}
-          <div className="hidden lg:block">
-            <div className="bg-gray-800 border border-gray-700 rounded-card p-5">
-              <div className="relative rounded-card overflow-hidden aspect-square bg-gray-700">
-                {profile.avatar && <Image src={profile.avatar} alt={profile.name} fill className="object-cover" priority />}
-              </div>
-              <div className="mt-4 text-center">
-                <p className="text-heading-sm text-white">{profile.name}</p>
-                <p className="text-caption text-primary mt-1">{profile.englishName}</p>
-                <div className="flex flex-wrap justify-center gap-1.5 mt-3">
-                  {profile.tags.slice(0, 4).map((tag: string) => (
-                    <span key={tag} className="bg-gray-700 border border-gray-600 rounded-tag px-2.5 py-1 text-caption font-medium text-gray-300">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              </div>
             </div>
           </div>
         </div>

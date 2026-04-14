@@ -3,6 +3,8 @@ import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { uploadBuffer } from '@/lib/cos';
 import { ok, fail, handleError } from '@/lib/api';
+import { moderateImage } from '@/lib/content-moderation';
+import { validateFileType } from '@/lib/file-validation';
 
 const MAX_SIZE = 2 * 1024 * 1024; // 2MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
@@ -30,6 +32,12 @@ export async function POST(req: NextRequest) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
+
+    // 安全校验：验证文件头魔数与声明 MIME 类型一致
+    if (!validateFileType(buffer, file.type)) {
+      return fail('文件内容与声明格式不匹配，请勿伪造文件类型');
+    }
+
     const result = await uploadBuffer(buffer, file.name, file.type, 'avatar');
 
     const media = await prisma.media.create({
@@ -42,6 +50,15 @@ export async function POST(req: NextRequest) {
         category: 'avatar',
       },
     });
+
+    // 内容安全审核
+    const modResult = await moderateImage(media.url);
+    if (!modResult.pass) {
+      const { deleteObject } = await import('@/lib/cos');
+      deleteObject(result.cosKey).catch(() => {});
+      await prisma.media.delete({ where: { id: media.id } }).catch(() => {});
+      return fail(`头像审核未通过：${modResult.detail || '内容违规'}，请更换图片`);
+    }
 
     await prisma.user.update({
       where: { id: payload.id },

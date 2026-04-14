@@ -92,11 +92,15 @@ ensureCleanup();
 
 /**
  * 从请求中获取客户端 IP
+ * 注意：生产环境必须配置反向代理（Nginx/CloudFlare）设置可信的 X-Forwarded-For
+ * 未经反向代理的请求中，X-Forwarded-For 可被客户端伪造
  */
 export function getClientIp(req: Request): string {
-  const xff = req.headers.get('x-forwarded-for');
-  if (xff) return xff.split(',')[0].trim();
+  // 优先使用反向代理设置的 X-Real-IP（不可伪造）
   const realIp = req.headers.get('x-real-ip');
   if (realIp) return realIp;
+  // 其次使用 X-Forwarded-For 的第一个 IP
+  const xff = req.headers.get('x-forwarded-for');
+  if (xff) return xff.split(',')[0].trim();
   return '127.0.0.1';
 }

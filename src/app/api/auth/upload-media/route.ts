@@ -3,6 +3,8 @@ import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { uploadBuffer } from '@/lib/cos';
 import { ok, fail, handleError } from '@/lib/api';
+import { moderateImage, moderateVideo } from '@/lib/content-moderation';
+import { validateFileType } from '@/lib/file-validation';
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;   // 5MB
 const MAX_VIDEO_SIZE = 50 * 1024 * 1024;   // 50MB
@@ -48,6 +50,13 @@ export async function POST(req: NextRequest) {
 
     const category = isVideo ? 'post-video' : 'post-image';
     const buffer = Buffer.from(await file.arrayBuffer());
+
+    // 安全校验：验证文件头魔数与声明 MIME 类型一致
+    if (!validateFileType(buffer, file.type)) {
+      activeUploads--;
+      return fail('文件内容与声明格式不匹配，请勿伪造文件类型');
+    }
+
     const result = await uploadBuffer(buffer, file.name, file.type, category);
 
     const media = await prisma.media.create({
@@ -60,6 +69,22 @@ export async function POST(req: NextRequest) {
         category,
       },
     });
+
+    // 内容安全审核
+    if (!isVideo) {
+      const modResult = await moderateImage(media.url);
+      if (!modResult.pass) {
+        // 违规：删除已上传文件，拒绝请求
+        const { deleteObject } = await import('@/lib/cos');
+        deleteObject(result.cosKey).catch(() => {});
+        await prisma.media.delete({ where: { id: media.id } }).catch(() => {});
+        activeUploads--;
+        return fail(`图片审核未通过：${modResult.detail || '内容违规'}，请更换图片`);
+      }
+    } else {
+      // 视频异步审核（先发布后审核）
+      moderateVideo(media.url).catch(() => {});
+    }
 
     activeUploads--;
     return ok({

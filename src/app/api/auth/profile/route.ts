@@ -8,7 +8,7 @@ const updateProfileSchema = z.object({
   name: z.string().min(1, '昵称不能为空').max(20, '昵称最多20个字符').optional(),
   bio: z.string().max(200, '个性签名最多200个字符').optional(),
   avatar: z.string().url('头像地址格式不正确').optional().nullable(),
-  city: z.string().max(20, '城市名最多20个字符').optional().nullable(),
+  city: z.string().max(50, '位置名最多50个字符').optional().nullable(),
 });
 
 export async function PUT(req: NextRequest) {

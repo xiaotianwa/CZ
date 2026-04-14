@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/db';
 import { ok, handleError } from '@/lib/api';
 import { getCache, setCache } from '@/lib/cache';
+import { getCityLngLat } from '@/data/city-coords';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,9 +30,14 @@ export async function GET() {
       }
     }
 
-    // 转为数组，按人数降序
+    // 转为数组，附带坐标，按人数降序
     const cities = Object.entries(cityMap)
-      .map(([city, names]) => ({ city, count: names.length, users: names.slice(0, 20) }))
+      .map(([city, names]) => ({
+        city,
+        count: names.length,
+        users: names.slice(0, 20),
+        coord: getCityLngLat(city),
+      }))
       .sort((a, b) => b.count - a.count);
 
     const totalFans = await prisma.user.count({ where: { isActive: true } });

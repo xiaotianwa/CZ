@@ -203,8 +203,8 @@ export default function Footer({ profileName, siteDescription }: { profileName: 
               &copy; {new Date().getFullYear()} 1103. All rights reserved.
             </p>
             <div className="flex gap-4">
-              <Link href="#" className="text-caption text-text-muted hover:text-text-body transition-colors duration-150 cursor-pointer">隐私政策</Link>
-              <Link href="#" className="text-caption text-text-muted hover:text-text-body transition-colors duration-150 cursor-pointer">使用条款</Link>
+              <Link href="/privacy" className="text-caption text-text-muted hover:text-text-body transition-colors duration-150 cursor-pointer">隐私政策</Link>
+              <Link href="/terms" className="text-caption text-text-muted hover:text-text-body transition-colors duration-150 cursor-pointer">使用条款</Link>
             </div>
           </div>
         </div>

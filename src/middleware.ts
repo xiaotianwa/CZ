@@ -65,10 +65,11 @@ if (typeof globalThis !== 'undefined') {
 // ===================== 中间件主函数 =====================
 
 function getClientIp(req: NextRequest): string {
-  const xff = req.headers.get('x-forwarded-for');
-  if (xff) return xff.split(',')[0].trim();
+  // 优先使用反向代理设置的 X-Real-IP（不可伪造）
   const realIp = req.headers.get('x-real-ip');
   if (realIp) return realIp;
+  const xff = req.headers.get('x-forwarded-for');
+  if (xff) return xff.split(',')[0].trim();
   return '127.0.0.1';
 }
 

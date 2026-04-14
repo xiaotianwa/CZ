@@ -11,21 +11,43 @@ export async function GET(req: Request) {
     const page = Math.max(1, Number(searchParams.get('page')) || 1);
     const pageSize = Math.min(50, Math.max(1, Number(searchParams.get('pageSize')) || 20));
 
-    if (!q || q.length < 1) {
-      return fail('请输入搜索关键词', 400);
+    // 无关键词时返回热门标签和热门帖子
+    if (!q) {
+      const [hotTags, hotPosts] = await Promise.all([
+        prisma.tag.findMany({
+          select: { id: true, name: true, color: true, _count: { select: { postTags: true } } },
+          orderBy: { postTags: { _count: 'desc' } },
+          take: 12,
+        }),
+        prisma.post.findMany({
+          where: { status: 'published' },
+          select: {
+            id: true,
+            content: true,
+            images: true,
+            likes: true,
+            createdAt: true,
+            author: { select: { id: true, name: true, avatar: true, role: true } },
+            _count: { select: { comments: true } },
+          },
+          orderBy: { likes: 'desc' },
+          take: 5,
+        }),
+      ]);
+      return ok({ hotTags, hotPosts });
     }
 
     const skip = (page - 1) * pageSize;
-    const keyword = `%${q}%`;
 
     const results: { posts?: unknown; users?: unknown; postTotal?: number; userTotal?: number } = {};
 
-    // 搜索帖子
+    // 搜索帖子（内容 + 标签名）
     if (type === 'all' || type === 'posts') {
       const postWhere = {
-        status: 'published',
+        status: 'published' as const,
         OR: [
           { content: { contains: q } },
+          { postTags: { some: { tag: { name: { contains: q } } } } },
         ],
       };
 

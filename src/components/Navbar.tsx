@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { Menu, X, Search, LogIn, LogOut, User as UserIcon, Bell, MessageCircle, Heart, Pin, Info } from 'lucide-react';
 
 interface UserInfo {
@@ -15,6 +15,8 @@ interface UserInfo {
 
 export default function Navbar({ profileName }: { profileName: string }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const isHome = pathname === '/';
   const navLinks = [
     { href: '/', label: '首页' },
     { href: '/profile', label: `关于${profileName}` },
@@ -25,6 +27,7 @@ export default function Navbar({ profileName }: { profileName: string }) {
     { href: '/fan-map', label: '粉丝地图' },
   ];
   const [isOpen, setIsOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const [user, setUser] = useState<UserInfo | null>(null);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -32,6 +35,16 @@ export default function Navbar({ profileName }: { profileName: string }) {
   const [notifications, setNotifications] = useState<{ id: string; type: string; title: string; content: string; link?: string | null; isRead: boolean; fromAvatar?: string | null; createdAt: string }[]>([]);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 20);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // 非首页始终使用深色（实心白底）导航栏样式
+  const solid = !isHome || scrolled;
 
   useEffect(() => {
     // 先从缓存恢复，避免闪烁
@@ -121,10 +134,14 @@ export default function Navbar({ profileName }: { profileName: string }) {
   };
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-divider shadow-sm">
+    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+      solid
+        ? 'bg-white/95 backdrop-blur-md border-b border-divider shadow-sm'
+        : 'bg-transparent border-b border-transparent'
+    }`}>
       <div className="container-main px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14">
-          <Link href="/" className="text-heading-sm text-text-title cursor-pointer hover:text-primary transition-colors duration-150" style={{ fontFamily: "'Blazed', sans-serif" }}>
+          <Link href="/" className={`text-heading-sm cursor-pointer transition-colors duration-150 ${solid ? 'text-text-title hover:text-primary' : 'text-white hover:text-primary'}`} style={{ fontFamily: "'Blazed', sans-serif" }}>
             1103
           </Link>
 
@@ -133,7 +150,11 @@ export default function Navbar({ profileName }: { profileName: string }) {
               <Link
                 key={link.href}
                 href={link.href}
-                className="px-3 py-1.5 rounded-btn text-body font-medium text-text-body hover:text-primary hover:bg-gray-50 transition-colors duration-150 cursor-pointer"
+                className={`px-3 py-1.5 rounded-btn text-body font-medium transition-colors duration-150 cursor-pointer ${
+                  solid
+                    ? 'text-text-body hover:text-primary hover:bg-gray-50'
+                    : 'text-white/80 hover:text-white hover:bg-white/10'
+                }`}
               >
                 {link.label}
               </Link>
@@ -141,15 +162,23 @@ export default function Navbar({ profileName }: { profileName: string }) {
           </div>
 
           <div className="hidden md:flex items-center gap-2">
-            <Link href="/search" className="p-2 rounded-btn text-text-muted hover:text-text-body hover:bg-gray-50 transition-colors duration-150 cursor-pointer" aria-label="搜索">
-              <Search className="w-4 h-4" />
+            <Link
+              href="/search"
+              className={`inline-flex items-center gap-2 h-8 px-3 rounded-full text-caption transition-all duration-150 cursor-pointer ${
+                solid
+                  ? 'bg-gray-100 text-text-muted hover:bg-gray-200'
+                  : 'bg-white/10 text-white/60 hover:bg-white/20 hover:text-white/80'
+              }`}
+            >
+              <Search className="w-3.5 h-3.5" />
+              <span>搜索</span>
             </Link>
 
             {user && (
               <div className="relative" ref={notifRef}>
                 <button
                   onClick={() => { setNotifOpen(!notifOpen); setDropdownOpen(false); }}
-                  className="relative p-2 rounded-btn text-text-muted hover:text-text-body hover:bg-gray-50 transition-colors duration-150 cursor-pointer"
+                  className={`relative p-2 rounded-btn transition-colors duration-150 cursor-pointer ${solid ? 'text-text-muted hover:text-text-body hover:bg-gray-50' : 'text-white/70 hover:text-white hover:bg-white/10'}`}
                   aria-label="通知"
                 >
                   <Bell className="w-4 h-4" />
@@ -217,7 +246,7 @@ export default function Navbar({ profileName }: { profileName: string }) {
               <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setDropdownOpen(!dropdownOpen)}
-                  className="flex items-center gap-2 h-9 pl-1 pr-3 rounded-full hover:bg-gray-50 transition-colors duration-150 cursor-pointer"
+                  className={`flex items-center gap-2 h-9 pl-1 pr-3 rounded-full transition-colors duration-150 cursor-pointer ${solid ? 'hover:bg-gray-50' : 'hover:bg-white/10'}`}
                 >
                   <div className="w-7 h-7 rounded-full overflow-hidden bg-primary-bg flex items-center justify-center flex-shrink-0">
                     {user.avatar ? (
@@ -226,7 +255,7 @@ export default function Navbar({ profileName }: { profileName: string }) {
                       <span className="text-caption font-bold text-primary">{user.name[0]}</span>
                     )}
                   </div>
-                  <span className="text-body font-medium text-text-title max-w-[80px] truncate">{user.name}</span>
+                  <span className={`text-body font-medium max-w-[80px] truncate ${solid ? 'text-text-title' : 'text-white'}`}>{user.name}</span>
                 </button>
 
                 {dropdownOpen && (
@@ -254,15 +283,22 @@ export default function Navbar({ profileName }: { profileName: string }) {
                 )}
               </div>
             ) : (
-              <Link href="/login" className="btn-primary inline-flex items-center gap-1.5">
-                <LogIn className="w-4 h-4" />
+              <Link
+                href="/login"
+                className={`inline-flex items-center gap-1.5 h-9 px-5 rounded-full text-body font-medium transition-all duration-150 cursor-pointer ${
+                  solid
+                    ? 'bg-primary text-white hover:bg-primary/90'
+                    : 'bg-white/15 text-white border border-white/30 hover:bg-white/25'
+                }`}
+              >
+                <LogIn className="w-3.5 h-3.5" />
                 登录 / 加入
               </Link>
             )}
           </div>
 
           <button
-            className="md:hidden p-2 rounded-btn text-text-muted hover:text-text-body transition-colors duration-150 cursor-pointer"
+            className={`md:hidden p-2 rounded-btn transition-colors duration-150 cursor-pointer ${solid ? 'text-text-muted hover:text-text-body' : 'text-white/70 hover:text-white'}`}
             onClick={() => setIsOpen(!isOpen)}
             aria-label={isOpen ? '关闭菜单' : '打开菜单'}
           >
