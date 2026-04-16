@@ -50,7 +50,7 @@ function Countdown({ date }: { date: string }) {
         { v: t.d, l: '天' }, { v: t.h, l: '时' }, { v: t.m, l: '分' }, { v: t.s, l: '秒' },
       ].map((i) => (
         <div key={i.l} className="text-center">
-          <div className="w-10 h-10 rounded-btn bg-primary-bg flex items-center justify-center">
+          <div className="w-10 h-10 rounded-btn bg-primary-bg dark:bg-primary/15 flex items-center justify-center">
             <span className="text-heading-sm text-primary">{String(i.v).padStart(2, '0')}</span>
           </div>
           <span className="text-caption text-text-muted">{i.l}</span>
@@ -98,13 +98,13 @@ export default function EventsPage() {
       </section>
 
       <div className="container-main px-4 sm:px-6 lg:px-8 mt-6">
-        <div className="sticky top-16 z-20 -mx-1 rounded-card border border-divider bg-white/95 p-3 shadow-sm backdrop-blur sm:mx-0 sm:p-4">
+        <div className="sticky top-16 z-20 -mx-1 rounded-card border border-divider bg-white/95 dark:bg-[#1e1e22]/95 p-3 shadow-sm backdrop-blur sm:mx-0 sm:p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-caption font-medium text-text-title">{filter === 'all' ? '全部活动' : filter === 'upcoming' ? '即将开始' : filter === 'ongoing' ? '进行中' : '已结束'}</p>
               <p className="mt-1 text-caption leading-6 text-text-muted">切换活动状态，快速筛选你当前最关心的活动内容。</p>
             </div>
-            <div className="flex flex-wrap gap-1 rounded-full bg-gray-50 p-1">
+            <div className="flex flex-wrap gap-1 rounded-full bg-gray-50 dark:bg-[#28282c] p-1">
               {[
                 { key: 'all', label: '全部' },
                 { key: 'upcoming', label: '即将开始' },
@@ -115,7 +115,7 @@ export default function EventsPage() {
                   key={f.key}
                   onClick={() => setFilter(f.key as typeof filter)}
                   className={`h-8 rounded-full px-3 text-body font-medium transition-colors duration-150 cursor-pointer ${
-                    filter === f.key ? 'bg-white text-primary shadow-sm' : 'text-text-muted hover:text-primary'
+                    filter === f.key ? 'bg-white dark:bg-[#1e1e22] text-primary shadow-sm' : 'text-text-muted hover:text-primary'
                   }`}
                 >
                   {f.label}
@@ -129,7 +129,7 @@ export default function EventsPage() {
       {featured && (
         <div className="container-main px-4 sm:px-6 lg:px-8 mb-8 mt-6">
           <Link href={`/events/${featured.id}`} className="grid cursor-pointer overflow-hidden rounded-card bg-white/40 backdrop-blur-md border border-white/70 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5),0_4px_24px_rgba(0,0,0,0.06)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6),0_8px_32px_rgba(0,0,0,0.10)] md:grid-cols-2">
-            <div className="relative aspect-video md:aspect-auto md:min-h-[280px] bg-gray-100">
+            <div className="relative aspect-video md:aspect-auto md:min-h-[280px] bg-gray-100 dark:bg-[#28282c]">
               <Image src={featured.cover} alt={featured.title} fill className="object-cover" />
             </div>
             <div className="p-6">
@@ -163,7 +163,7 @@ export default function EventsPage() {
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger-children">
           {filteredEvents.map((event: any) => (
             <div key={event.id} className="overflow-hidden rounded-card bg-white/40 backdrop-blur-md border border-white/70 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5),0_4px_24px_rgba(0,0,0,0.06)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6),0_8px_32px_rgba(0,0,0,0.10)]">
-              <div className="relative aspect-video bg-gray-100">
+              <div className="relative aspect-video bg-gray-100 dark:bg-[#28282c]">
                 <Image src={event.cover} alt={event.title} fill className="object-cover" />
                 <div className="absolute top-2 left-2">
                   <span className={`tag text-white ${event.status === 'upcoming' ? 'bg-primary' : event.status === 'ongoing' ? 'bg-success' : 'bg-gray-400'}`}>

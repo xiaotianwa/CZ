@@ -105,7 +105,7 @@ export default function GalleryPage() {
                 key={cat as string}
                 onClick={() => { setActiveCategory(cat as string); setOpenAlbumId(null); }}
                 className={`h-8 px-4 rounded-full text-body font-medium transition-colors duration-150 cursor-pointer ${
-                  activeCategory === cat ? 'bg-primary text-white' : 'bg-white border border-divider text-text-body hover:border-primary hover:text-primary'
+                  activeCategory === cat ? 'bg-primary text-white' : 'bg-white dark:bg-[#1e1e22] border border-divider text-text-body hover:border-primary hover:text-primary'
                 }`}
               >
                 {cat as string}
@@ -123,9 +123,9 @@ export default function GalleryPage() {
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
               {Array.from({ length: 8 }).map((_, i) => (
                 <div key={i} className="animate-pulse">
-                  <div className="aspect-[4/3] rounded-card bg-gray-200" />
-                  <div className="mt-3 h-4 bg-gray-200 rounded w-3/4" />
-                  <div className="mt-1.5 h-3 bg-gray-100 rounded w-1/2" />
+                  <div className="aspect-[4/3] rounded-card bg-gray-200 dark:bg-[#28282c]" />
+                  <div className="mt-3 h-4 bg-gray-200 dark:bg-[#28282c] rounded w-3/4" />
+                  <div className="mt-1.5 h-3 bg-gray-100 dark:bg-[#1e1e22] rounded w-1/2" />
                 </div>
               ))}
             </div>
@@ -145,7 +145,7 @@ export default function GalleryPage() {
                     className="group cursor-pointer rounded-card overflow-hidden bg-white/40 backdrop-blur-md border border-white/70 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5),0_4px_24px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 hover:bg-white/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6),0_8px_32px_rgba(0,0,0,0.10)] transition-all duration-200"
                     onClick={() => setOpenAlbumId(album.id)}
                   >
-                    <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
+                    <div className="relative aspect-[4/3] overflow-hidden bg-gray-100 dark:bg-[#28282c]">
                       <Image src={album.cover} alt={album.title} fill className="object-cover transition-transform duration-300 group-hover:scale-105" />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
                     </div>

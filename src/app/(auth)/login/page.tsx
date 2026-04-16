@@ -110,9 +110,9 @@ export default function LoginPage() {
     <div className="relative min-h-screen flex flex-col items-center justify-center px-4 py-12 overflow-hidden animate-fade-in-up">
       {/* 1103 背景水印 */}
       <div className="absolute inset-0 pointer-events-none select-none" aria-hidden="true">
-        <span className="absolute top-16 -left-8 text-[200px] font-bold text-gray-900/[0.07] leading-none" style={{ fontFamily: "'Blazed', sans-serif" }}>1103</span>
-        <span className="absolute bottom-10 -right-12 text-[280px] font-bold text-gray-900/[0.06] leading-none rotate-12" style={{ fontFamily: "'Blazed', sans-serif" }}>1103</span>
-        <span className="absolute top-[45%] right-[15%] text-[160px] font-bold text-gray-900/[0.04] leading-none -rotate-6" style={{ fontFamily: "'Blazed', sans-serif" }}>1103</span>
+        <span className="absolute top-16 -left-8 text-[200px] font-bold text-gray-900/[0.07] dark:text-white/[0.04] leading-none" style={{ fontFamily: "'Blazed', sans-serif" }}>1103</span>
+        <span className="absolute bottom-10 -right-12 text-[280px] font-bold text-gray-900/[0.06] dark:text-white/[0.03] leading-none rotate-12" style={{ fontFamily: "'Blazed', sans-serif" }}>1103</span>
+        <span className="absolute top-[45%] right-[15%] text-[160px] font-bold text-gray-900/[0.04] dark:text-white/[0.02] leading-none -rotate-6" style={{ fontFamily: "'Blazed', sans-serif" }}>1103</span>
       </div>
 
       {/* 顶部品牌标识 */}
@@ -252,7 +252,7 @@ export default function LoginPage() {
       {modalType && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40" onClick={() => setModalType(null)} />
-          <div className="relative bg-white rounded-card shadow-dropdown w-full max-w-lg max-h-[80vh] flex flex-col">
+          <div className="relative bg-white dark:bg-[#1e1e22] rounded-card shadow-dropdown w-full max-w-lg max-h-[80vh] flex flex-col">
             {/* 弹窗头部 */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-divider flex-shrink-0">
               <h3 className="text-heading-sm text-text-title">

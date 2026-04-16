@@ -179,9 +179,9 @@ export default function SearchPage() {
   const showUsers = activeTab === 'all' || activeTab === 'users';
 
   return (
-    <div className="pt-14 min-h-screen bg-gray-50/50">
+    <div className="pt-14 min-h-screen bg-gray-50/50 dark:bg-[#111113]">
       {/* 搜索头部 */}
-      <section className="bg-white border-b border-divider sticky top-14 z-30">
+      <section className="bg-white dark:bg-[#1e1e22] border-b border-divider sticky top-14 z-30">
         <div className="container-main px-4 sm:px-6 lg:px-8 py-4">
           <form onSubmit={handleSubmit} className="animate-fade-in-up relative max-w-2xl mx-auto">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-text-muted pointer-events-none" />
@@ -191,7 +191,7 @@ export default function SearchPage() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="搜索帖子、标签、用户..."
-              className="w-full h-12 pl-12 pr-20 rounded-full border border-divider text-body text-text-body placeholder:text-text-disabled focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all bg-gray-50 focus:bg-white"
+              className="w-full h-12 pl-12 pr-20 rounded-full border border-divider text-body text-text-body placeholder:text-text-disabled focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all bg-gray-50 dark:bg-[#28282c] focus:bg-white dark:focus:bg-[#1e1e22]"
               autoFocus
             />
             <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
@@ -283,12 +283,12 @@ export default function SearchPage() {
                   <TrendingUp className="w-4 h-4 text-primary" />
                   热门内容
                 </h2>
-                <div className="bg-white rounded-card border border-divider divide-y divide-divider">
+                <div className="bg-white dark:bg-[#1e1e22] rounded-card border border-divider divide-y divide-divider">
                   {hotPosts.map((post, idx) => (
                     <Link
                       key={post.id}
                       href={`/community/${post.id}`}
-                      className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
+                      className="flex items-start gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-[#333] transition-colors"
                     >
                       <span className={`flex-shrink-0 w-5 h-5 rounded flex items-center justify-center text-[11px] font-bold ${
                         idx < 3 ? 'bg-primary text-white' : 'bg-gray-100 text-text-muted'
@@ -350,7 +350,7 @@ export default function SearchPage() {
                     const mediaUrls: string[] = (() => { try { return JSON.parse(post.images || '[]'); } catch { return []; } })();
                     const imageUrls = mediaUrls.filter((u) => !u.match(/\.(mp4|webm|mov)$/i));
                     return (
-                      <Link key={post.id} href={`/community/${post.id}`} className="block bg-white rounded-card border border-divider p-4 hover:shadow-card transition-shadow">
+                      <Link key={post.id} href={`/community/${post.id}`} className="block bg-white dark:bg-[#1e1e22] rounded-card border border-divider p-4 hover:shadow-card transition-shadow">
                         <div className="flex items-start gap-3">
                           <div className="relative w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-gray-100">
                             {post.author.avatar && <Image src={post.author.avatar} alt={post.author.name} fill className="object-cover" />}
@@ -421,7 +421,7 @@ export default function SearchPage() {
                 )}
                 <div className="grid sm:grid-cols-2 gap-3">
                   {users.map((u) => (
-                    <Link key={u.id} href={`/community?author=${u.id}`} className="bg-white rounded-card border border-divider p-4 flex items-center gap-3 hover:shadow-card transition-shadow">
+                    <Link key={u.id} href={`/community?author=${u.id}`} className="bg-white dark:bg-[#1e1e22] rounded-card border border-divider p-4 flex items-center gap-3 hover:shadow-card transition-shadow">
                       <div className="relative w-11 h-11 rounded-full overflow-hidden flex-shrink-0 bg-gray-100">
                         {u.avatar ? (
                           <Image src={u.avatar} alt={u.name} fill className="object-cover" />

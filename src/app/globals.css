@@ -263,6 +263,19 @@ html.dark [class*="shadow-card"] {
   --tw-shadow-color: rgba(0, 0, 0, 0.3);
 }
 
+/* Skeleton / loading states */
+html.dark .bg-gray-200 { background-color: rgba(50, 50, 55, 0.6) !important; }
+html.dark .bg-gray-300 { background-color: rgba(55, 55, 60, 0.6) !important; }
+html.dark .bg-gray-400 { background-color: rgba(75, 75, 80, 0.6) !important; }
+
+/* Alert / status backgrounds */
+html.dark .bg-red-50 { background-color: rgba(220, 38, 38, 0.1) !important; }
+html.dark .bg-green-50 { background-color: rgba(22, 163, 74, 0.1) !important; }
+html.dark .bg-orange-50 { background-color: rgba(234, 179, 8, 0.1) !important; }
+
+/* Search highlight */
+html.dark mark { background-color: rgba(24, 144, 255, 0.25) !important; }
+
 /* Hide scrollbar for horizontal scroll strips on mobile */
 .scrollbar-hide {
   -ms-overflow-style: none;
