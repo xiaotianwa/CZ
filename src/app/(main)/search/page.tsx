@@ -92,6 +92,8 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(false);
   const [hotTags, setHotTags] = useState<HotTag[]>([]);
   const [hotPosts, setHotPosts] = useState<HotPost[]>([]);
+  const [filterTagId, setFilterTagId] = useState<string>('');
+  const [filterTagName, setFilterTagName] = useState<string>('');
 
   // 获取热门数据（无关键词时）
   useEffect(() => {
@@ -109,10 +111,11 @@ export default function SearchPage() {
   }, [q]);
 
   const doSearch = useCallback(async (keyword: string, type: TabKey) => {
-    if (!keyword.trim()) return;
+    if (!keyword.trim() && !filterTagId) return;
     setLoading(true);
     try {
       const params = new URLSearchParams({ q: keyword.trim(), type, pageSize: '30' });
+      if (filterTagId) params.set('tagId', filterTagId);
       const res = await fetch(`/api/public/search?${params}`);
       const json = await res.json();
       if (json.code === 0 && json.data) {
@@ -126,11 +129,11 @@ export default function SearchPage() {
   }, []);
 
   useEffect(() => {
-    if (q) {
+    if (q || filterTagId) {
       setQuery(q);
       doSearch(q, activeTab);
     }
-  }, [q, activeTab, doSearch]);
+  }, [q, activeTab, filterTagId, doSearch]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -150,8 +153,20 @@ export default function SearchPage() {
     setUsers([]);
     setPostTotal(0);
     setUserTotal(0);
+    setFilterTagId('');
+    setFilterTagName('');
     router.push('/search');
     inputRef.current?.focus();
+  };
+
+  const handleFilterByTag = (tagId: string, tagName: string) => {
+    setFilterTagId(tagId);
+    setFilterTagName(tagName);
+  };
+
+  const clearTagFilter = () => {
+    setFilterTagId('');
+    setFilterTagName('');
   };
 
   const handleTabChange = (tab: TabKey) => {
@@ -198,7 +213,18 @@ export default function SearchPage() {
             </div>
           </form>
 
-          {q && (
+          {/* Active filters */}
+          {filterTagId && (
+            <div className="flex items-center gap-2 mt-3 max-w-2xl mx-auto">
+              <span className="text-caption text-text-muted">筛选：</span>
+              <span className="inline-flex items-center gap-1 h-7 px-2.5 rounded-full bg-primary/10 text-primary text-caption font-medium">
+                <Hash className="w-3 h-3" />{filterTagName}
+                <button onClick={clearTagFilter} className="ml-0.5 p-0.5 rounded-full hover:bg-primary/20 cursor-pointer"><X className="w-3 h-3" /></button>
+              </span>
+            </div>
+          )}
+
+          {(q || filterTagId) && (
             <div className="flex gap-1 mt-3 max-w-2xl mx-auto">
               {tabs.map((tab) => (
                 <button
@@ -360,9 +386,13 @@ export default function SearchPage() {
                               <span className="inline-flex items-center gap-1"><Heart className="w-3 h-3" /> {post.likes}</span>
                               <span className="inline-flex items-center gap-1"><MessageCircle className="w-3 h-3" /> {post._count.comments}</span>
                               {post.postTags.length > 0 && post.postTags.map((pt) => (
-                                <span key={pt.tag.id} className="inline-flex items-center gap-1 text-primary">
+                                <button
+                                  key={pt.tag.id}
+                                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleFilterByTag(pt.tag.id, pt.tag.name); }}
+                                  className="inline-flex items-center gap-1 text-primary hover:underline cursor-pointer"
+                                >
                                   <Hash className="w-3 h-3" />{pt.tag.name}
-                                </span>
+                                </button>
                               ))}
                             </div>
                           </div>

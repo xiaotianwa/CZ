@@ -8,6 +8,8 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const q = (searchParams.get('q') || '').trim();
     const type = searchParams.get('type') || 'all'; // all | posts | users
+    const tagId = searchParams.get('tagId') || '';
+    const authorId = searchParams.get('authorId') || '';
     const page = Math.max(1, Number(searchParams.get('page')) || 1);
     const pageSize = Math.min(50, Math.max(1, Number(searchParams.get('pageSize')) || 20));
 
@@ -41,15 +43,23 @@ export async function GET(req: Request) {
 
     const results: { posts?: unknown; users?: unknown; postTotal?: number; userTotal?: number } = {};
 
-    // 搜索帖子（内容 + 标签名）
+    // 搜索帖子（内容 + 标签名 + 标签/作者筛选）
     if (type === 'all' || type === 'posts') {
-      const postWhere = {
-        status: 'published' as const,
-        OR: [
+      const postWhere: Record<string, unknown> = {
+        status: 'published',
+      };
+      if (q) {
+        postWhere.OR = [
           { content: { contains: q } },
           { postTags: { some: { tag: { name: { contains: q } } } } },
-        ],
-      };
+        ];
+      }
+      if (tagId) {
+        postWhere.postTags = { some: { tagId } };
+      }
+      if (authorId) {
+        postWhere.authorId = authorId;
+      }
 
       const [posts, postTotal] = await Promise.all([
         prisma.post.findMany({
