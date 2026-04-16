@@ -66,6 +66,7 @@ model Post {
   images    String   @default("[]") // JSON array of COS URLs
   isPinned  Boolean  @default(false)
   likes     Int      @default(0)
+  hotScore  Float    @default(0) // 热门排序分数，定期刷新
   status    String   @default("published") // draft | published | hidden
   authorId  String
   createdAt DateTime @default(now())
@@ -81,6 +82,7 @@ model Post {
   @@index([status])
   @@index([isPinned])
   @@index([createdAt])
+  @@index([status, hotScore])
 }
 
 model Comment {

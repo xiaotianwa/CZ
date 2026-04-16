@@ -7,6 +7,7 @@ import { checkBannedWords } from '@/lib/banned-words';
 import { moderateText } from '@/lib/content-moderation';
 import { grantPoints } from '@/lib/points';
 import { notifyComment } from '@/lib/notification';
+import { updatePostHotScore } from '@/lib/hot-score';
 
 const createCommentSchema = z.object({
   postId: z.string().min(1, '帖子ID不能为空'),
@@ -80,6 +81,9 @@ export async function POST(req: NextRequest) {
 
     // 评论积分 +3
     grantPoints(payload.id, 'comment', '发表评论').catch(() => {});
+
+    // 异步刷新帖子热度分
+    updatePostHotScore(postId).catch(() => {});
 
     // 通知帖子作者
     notifyComment(

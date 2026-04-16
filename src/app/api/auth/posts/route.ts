@@ -7,6 +7,7 @@ import { checkBannedWords } from '@/lib/banned-words';
 import { moderateText } from '@/lib/content-moderation';
 import { invalidateCache } from '@/lib/cache';
 import { grantPoints } from '@/lib/points';
+import { calcHotScore } from '@/lib/hot-score';
 
 const createPostSchema = z.object({
   content: z.string().min(1, '内容不能为空').max(2000, '内容最多2000字'),
@@ -50,10 +51,13 @@ export async function POST(req: NextRequest) {
       return fail(`内容审核未通过：${textMod.detail || '内容违规'}，请修改后重新发布`);
     }
 
+    const initialHotScore = calcHotScore(0, 0, new Date());
+
     const post = await prisma.post.create({
       data: {
         content,
         images: JSON.stringify(images),
+        hotScore: initialHotScore,
         authorId: payload.id,
         postTags: tagIds.length > 0
           ? { create: tagIds.map((tagId) => ({ tagId })) }

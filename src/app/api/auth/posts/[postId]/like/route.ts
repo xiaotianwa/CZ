@@ -4,6 +4,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { ok, fail, handleError } from '@/lib/api';
 import { grantPoints } from '@/lib/points';
 import { notifyLike } from '@/lib/notification';
+import { updatePostHotScore } from '@/lib/hot-score';
 
 export async function POST(req: NextRequest, { params }: { params: { postId: string } }) {
   try {
@@ -59,6 +60,9 @@ export async function POST(req: NextRequest, { params }: { params: { postId: str
       }).catch(() => {});
     }
 
+    // 异步刷新热度分
+    updatePostHotScore(postId).catch(() => {});
+
     return ok({ likes: updatedPost.likes }, '点赞成功');
   } catch (err) {
     return handleError(err);
@@ -93,6 +97,9 @@ export async function DELETE(req: NextRequest, { params }: { params: { postId: s
         where: { userId_postId: { userId: payload.id, postId } },
       }),
     ]);
+
+    // 异步刷新热度分
+    updatePostHotScore(postId).catch(() => {});
 
     return ok({ likes: Math.max(0, updatedPost.likes) }, '取消点赞成功');
   } catch (err) {
