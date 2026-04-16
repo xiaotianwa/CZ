@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Search, FileText, Users, Loader2, MessageCircle, Heart, TrendingUp, Hash, X, ArrowRight } from 'lucide-react';
+import { Search, FileText, Users, MessageCircle, Heart, TrendingUp, Hash, X, ArrowRight } from 'lucide-react';
 
 interface PostResult {
   id: string;
@@ -42,6 +42,13 @@ interface HotPost {
   content: string;
   likes: number;
   author: { name: string };
+}
+
+interface SearchCacheData {
+  posts: PostResult[];
+  users: UserResult[];
+  postTotal: number;
+  userTotal: number;
 }
 
 type TabKey = 'all' | 'posts' | 'users';
@@ -83,6 +90,8 @@ export default function SearchPage() {
   const router = useRouter();
   const q = searchParams.get('q') || '';
   const inputRef = useRef<HTMLInputElement>(null);
+  const cacheRef = useRef<Map<string, SearchCacheData>>(new Map());
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [query, setQuery] = useState(q);
   const [activeTab, setActiveTab] = useState<TabKey>('all');
   const [posts, setPosts] = useState<PostResult[]>([]);
@@ -98,12 +107,27 @@ export default function SearchPage() {
   // 获取热门数据（无关键词时）
   useEffect(() => {
     if (!q) {
+      const cachedHot = sessionStorage.getItem('search_hot_cache_v1');
+      if (cachedHot) {
+        try {
+          const parsed = JSON.parse(cachedHot) as { hotTags: HotTag[]; hotPosts: HotPost[] };
+          setHotTags(parsed.hotTags || []);
+          setHotPosts(parsed.hotPosts || []);
+          return;
+        } catch {
+          sessionStorage.removeItem('search_hot_cache_v1');
+        }
+      }
+
       fetch('/api/public/search')
         .then((r) => r.json())
         .then((json) => {
           if (json.code === 0 && json.data) {
-            setHotTags(json.data.hotTags || []);
-            setHotPosts(json.data.hotPosts || []);
+            const nextHotTags = json.data.hotTags || [];
+            const nextHotPosts = json.data.hotPosts || [];
+            setHotTags(nextHotTags);
+            setHotPosts(nextHotPosts);
+            sessionStorage.setItem('search_hot_cache_v1', JSON.stringify({ hotTags: nextHotTags, hotPosts: nextHotPosts }));
           }
         })
         .catch(() => {});
@@ -111,28 +135,61 @@ export default function SearchPage() {
   }, [q]);
 
   const doSearch = useCallback(async (keyword: string, type: TabKey) => {
-    if (!keyword.trim() && !filterTagId) return;
+    const normalizedKeyword = keyword.trim();
+    if (!normalizedKeyword && !filterTagId) return;
+
+    const cacheKey = `${normalizedKeyword}__${type}__${filterTagId}`;
+    const cached = cacheRef.current.get(cacheKey);
+    if (cached) {
+      setPosts(cached.posts);
+      setUsers(cached.users);
+      setPostTotal(cached.postTotal);
+      setUserTotal(cached.userTotal);
+      return;
+    }
+
     setLoading(true);
     try {
-      const params = new URLSearchParams({ q: keyword.trim(), type, pageSize: '30' });
+      const params = new URLSearchParams({ q: normalizedKeyword, type, pageSize: '30' });
       if (filterTagId) params.set('tagId', filterTagId);
       const res = await fetch(`/api/public/search?${params}`);
       const json = await res.json();
       if (json.code === 0 && json.data) {
-        if (json.data.posts) setPosts(json.data.posts);
-        if (json.data.users) setUsers(json.data.users);
-        if (json.data.postTotal !== undefined) setPostTotal(json.data.postTotal);
-        if (json.data.userTotal !== undefined) setUserTotal(json.data.userTotal);
+        const nextPosts = json.data.posts || [];
+        const nextUsers = json.data.users || [];
+        const nextPostTotal = json.data.postTotal ?? 0;
+        const nextUserTotal = json.data.userTotal ?? 0;
+        setPosts(nextPosts);
+        setUsers(nextUsers);
+        setPostTotal(nextPostTotal);
+        setUserTotal(nextUserTotal);
+        cacheRef.current.set(cacheKey, {
+          posts: nextPosts,
+          users: nextUsers,
+          postTotal: nextPostTotal,
+          userTotal: nextUserTotal,
+        });
       }
     } catch { /* ignore */ }
     setLoading(false);
-  }, []);
+  }, [filterTagId]);
 
   useEffect(() => {
+    setQuery(q);
     if (q || filterTagId) {
-      setQuery(q);
-      doSearch(q, activeTab);
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = setTimeout(() => {
+        doSearch(q, activeTab);
+      }, 300);
+    } else {
+      setPosts([]);
+      setUsers([]);
+      setPostTotal(0);
+      setUserTotal(0);
     }
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    };
   }, [q, activeTab, filterTagId, doSearch]);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -177,6 +234,7 @@ export default function SearchPage() {
 
   const showPosts = activeTab === 'all' || activeTab === 'posts';
   const showUsers = activeTab === 'all' || activeTab === 'users';
+  const displayKeyword = q || filterTagName;
 
   return (
     <div className="pt-14 min-h-screen bg-gray-50/50 dark:bg-[#111113]">
@@ -250,7 +308,7 @@ export default function SearchPage() {
 
       {/* 搜索结果 / 发现页 */}
       <div className="container-main px-4 sm:px-6 lg:px-8 py-6">
-        {!q ? (
+        {!q && !filterTagId ? (
           /* ========= 无搜索词：展示发现页 ========= */
           <div className="max-w-2xl mx-auto space-y-8">
             {/* 热门标签 */}
@@ -317,14 +375,29 @@ export default function SearchPage() {
             )}
           </div>
         ) : loading ? (
-          <div className="text-center py-20">
-            <Loader2 className="w-8 h-8 text-primary mx-auto animate-spin" />
-            <p className="text-body text-text-muted mt-3">搜索中...</p>
+          <div className="max-w-3xl mx-auto space-y-3 animate-pulse">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="rounded-card border border-divider bg-white dark:bg-[#1e1e22] p-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-full bg-gray-100 dark:bg-[#2a2a2f] flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="h-4 w-36 rounded bg-gray-100 dark:bg-[#2a2a2f]" />
+                    <div className="mt-2 h-3 w-full rounded bg-gray-100 dark:bg-[#2a2a2f]" />
+                    <div className="mt-2 h-3 w-3/4 rounded bg-gray-100 dark:bg-[#2a2a2f]" />
+                    <div className="mt-3 flex gap-2">
+                      <div className="w-14 h-14 rounded bg-gray-100 dark:bg-[#2a2a2f]" />
+                      <div className="w-14 h-14 rounded bg-gray-100 dark:bg-[#2a2a2f]" />
+                      <div className="w-14 h-14 rounded bg-gray-100 dark:bg-[#2a2a2f]" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         ) : (postTotal === 0 && userTotal === 0) ? (
           <div className="text-center py-20">
             <Search className="w-10 h-10 text-text-disabled mx-auto mb-3" />
-            <p className="text-body text-text-muted">没有找到 &ldquo;<span className="text-primary font-medium">{q}</span>&rdquo; 相关结果</p>
+            <p className="text-body text-text-muted">没有找到 &ldquo;<span className="text-primary font-medium">{displayKeyword}</span>&rdquo; 相关结果</p>
             <p className="text-caption text-text-disabled mt-1">换个关键词试试</p>
           </div>
         ) : (
