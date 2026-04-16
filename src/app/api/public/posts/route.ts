@@ -5,12 +5,20 @@ import { paginated, handleError, getSearchParams } from '@/lib/api';
 export async function GET(req: NextRequest) {
   try {
     const { page, pageSize } = getSearchParams(req.url);
-    const tagId = new URL(req.url).searchParams.get('tagId') || '';
+    const url = new URL(req.url);
+    const tagId = url.searchParams.get('tagId') || '';
+    const sort = url.searchParams.get('sort') || 'new'; // hot | new
 
     const where: Record<string, unknown> = { status: 'published' };
     if (tagId) {
       where.postTags = { some: { tagId } };
     }
+
+    // hot: 按点赞数降序（置顶优先）; new: 按时间降序（置顶优先）
+    const orderBy =
+      sort === 'hot'
+        ? [{ isPinned: 'desc' as const }, { likes: 'desc' as const }, { createdAt: 'desc' as const }]
+        : [{ isPinned: 'desc' as const }, { createdAt: 'desc' as const }];
 
     const [list, total] = await Promise.all([
       prisma.post.findMany({
@@ -20,7 +28,7 @@ export async function GET(req: NextRequest) {
           postTags: { include: { tag: { select: { id: true, name: true } } } },
           _count: { select: { comments: true } },
         },
-        orderBy: [{ isPinned: 'desc' }, { createdAt: 'desc' }],
+        orderBy,
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),

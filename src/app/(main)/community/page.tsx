@@ -1011,7 +1011,7 @@ export default function CommunityPage() {
   const fetchPosts = useCallback(async (pageNum: number, append: boolean) => {
     if (pageNum === 1) setLoading(true); else setLoadingMore(true);
     try {
-      const params = new URLSearchParams({ page: String(pageNum), pageSize: String(PAGE_SIZE) });
+      const params = new URLSearchParams({ page: String(pageNum), pageSize: String(PAGE_SIZE), sort: sortBy });
       if (activeTopicId) params.set('tagId', activeTopicId);
       const res = await fetch(`/api/public/posts?${params}`);
       const json = await res.json();
@@ -1027,13 +1027,13 @@ export default function CommunityPage() {
     } catch { /* ignore */ }
     setLoading(false);
     setLoadingMore(false);
-  }, [activeTopicId]);
+  }, [activeTopicId, sortBy]);
 
   useEffect(() => {
     setPage(1);
     setHasMore(true);
     fetchPosts(1, false);
-  }, [activeTopicId, fetchPosts]);
+  }, [activeTopicId, sortBy, fetchPosts]);
 
   // IntersectionObserver for infinite scroll
   useEffect(() => {
@@ -1106,14 +1106,7 @@ export default function CommunityPage() {
     setTopics((prev) => prev.some((t) => t.id === topic.id) ? prev : [...prev, topic]);
   };
 
-  const sortedPosts = [...posts].sort((a, b) => {
-    if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
-    if (sortBy === 'hot') {
-      const likeDiff = b.likes - a.likes;
-      if (likeDiff !== 0) return likeDiff;
-    }
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-  });
+  const sortedPosts = posts;
 
   const activeTopicName = activeTopicId ? topics.find((topic) => topic.id === activeTopicId)?.name ?? '当前话题' : '全部动态';
 
