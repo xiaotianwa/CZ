@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Trash2, Edit2, X, Star, Palette } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, Star, Palette, CheckCircle2, XCircle, Clock } from 'lucide-react';
 import { adminGet, adminPost, adminPut, adminDelete } from '@/lib/admin-fetch';
 import ConfirmDialog from '@/components/admin/ConfirmDialog';
 import Toast from '@/components/admin/Toast';
@@ -20,6 +20,8 @@ interface FanWorkItem {
   source: string | null;
   sourceUrl: string | null;
   likes: number;
+  status: string;
+  rejectReason: string | null;
   isActive: boolean;
   isFeatured: boolean;
   sortOrder: number;
@@ -38,7 +40,13 @@ const defaultForm = {
 };
 
 const typeLabel: Record<string, string> = {
-  image: '绘画/图片', video: '视频', audio: '音频', text: '文字', other: '其他',
+  image: '绘画/图片', video: '视频',
+};
+
+const statusLabel: Record<string, { text: string; cls: string }> = {
+  pending: { text: '待审核', cls: 'tag-muted' },
+  approved: { text: '已通过', cls: 'bg-green-100 text-green-700' },
+  rejected: { text: '已驳回', cls: 'bg-red-100 text-red-700' },
 };
 
 export default function AdminFanWorksPage() {
@@ -49,13 +57,16 @@ export default function AdminFanWorksPage() {
   const [imageInput, setImageInput] = useState('');
   const [confirmState, setConfirmState] = useState<{ open: boolean; id: string }>({ open: false, id: '' });
   const [toast, setToast] = useState<{ open: boolean; message: string; type: 'success' | 'error' }>({ open: false, message: '', type: 'error' });
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [rejectDialog, setRejectDialog] = useState<{ open: boolean; id: string; reason: string }>({ open: false, id: '', reason: '' });
 
   const fetchWorks = useCallback(async () => {
     try {
-      const res = await adminGet<PaginatedResponse>('/api/admin/fan-works?pageSize=100');
+      const url = statusFilter === 'all' ? '/api/admin/fan-works?pageSize=100' : `/api/admin/fan-works?pageSize=100&status=${statusFilter}`;
+      const res = await adminGet<PaginatedResponse>(url);
       setData(res.data);
     } catch (err) { console.error(err); }
-  }, []);
+  }, [statusFilter]);
 
   useEffect(() => { fetchWorks(); }, [fetchWorks]);
 
@@ -126,10 +137,33 @@ export default function AdminFanWorksPage() {
     setForm({ ...form, images: form.images.filter((i) => i !== url) });
   };
 
+  const handleReview = async (id: string, action: 'approve' | 'reject', reason?: string) => {
+    try {
+      await adminPut('/api/admin/fan-works/review', { id, action, rejectReason: reason });
+      setToast({ open: true, message: action === 'approve' ? '已通过' : '已驳回', type: 'success' });
+      setRejectDialog({ open: false, id: '', reason: '' });
+      fetchWorks();
+    } catch (err) {
+      setToast({ open: true, message: err instanceof Error ? err.message : '操作失败', type: 'error' });
+    }
+  };
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <span className="text-body text-text-muted">共 {data?.pagination.total ?? 0} 件作品</span>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-2">
+          <span className="text-body text-text-muted">共 {data?.pagination.total ?? 0} 件作品</span>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="h-8 px-2 rounded-lg border border-border bg-white text-caption focus:outline-none focus:border-primary"
+          >
+            <option value="all">全部状态</option>
+            <option value="pending">待审核</option>
+            <option value="approved">已通过</option>
+            <option value="rejected">已驳回</option>
+          </select>
+        </div>
         <button onClick={openCreate} className="btn-primary h-9 px-4 flex items-center gap-1.5 text-caption">
           <Plus className="w-4 h-4" /> 添加作品
         </button>
@@ -184,9 +218,6 @@ export default function AdminFanWorksPage() {
                       >
                         <option value="image">绘画/图片</option>
                         <option value="video">视频</option>
-                        <option value="audio">音频</option>
-                        <option value="text">文字</option>
-                        <option value="other">其他</option>
                       </select>
                     </div>
                     <div>
@@ -323,18 +354,42 @@ export default function AdminFanWorksPage() {
               {work.cover && <img src={work.cover} alt={work.title} className="w-full h-full object-cover" />}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="text-body font-semibold text-text-title">{work.title}</h3>
                 <span className="tag-muted text-[10px]">{typeLabel[work.type] || work.type}</span>
                 {work.isFeatured && <span className="tag-primary text-[10px]">精选</span>}
-                {!work.isActive && <span className="tag-muted text-[10px]">已隐藏</span>}
+                <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${(statusLabel[work.status] || statusLabel.pending).cls}`}>
+                  {work.status === 'pending' && <Clock className="w-2.5 h-2.5" />}
+                  {work.status === 'approved' && <CheckCircle2 className="w-2.5 h-2.5" />}
+                  {work.status === 'rejected' && <XCircle className="w-2.5 h-2.5" />}
+                  {(statusLabel[work.status] || statusLabel.pending).text}
+                </span>
               </div>
               <div className="flex items-center gap-3 mt-1 text-caption text-text-muted">
                 <span>{work.authorName}</span>
                 {work.source && <span>{work.source}</span>}
+                {work.status === 'rejected' && work.rejectReason && <span className="text-danger">驳回原因：{work.rejectReason}</span>}
               </div>
             </div>
             <div className="flex gap-1 flex-shrink-0">
+              {work.status === 'pending' && (
+                <>
+                  <button
+                    onClick={() => handleReview(work.id, 'approve')}
+                    className="p-1.5 rounded-btn text-success hover:bg-green-50 cursor-pointer"
+                    title="通过"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    onClick={() => setRejectDialog({ open: true, id: work.id, reason: '' })}
+                    className="p-1.5 rounded-btn text-danger hover:bg-red-50 cursor-pointer"
+                    title="驳回"
+                  >
+                    <XCircle className="w-3.5 h-3.5" />
+                  </button>
+                </>
+              )}
               <button onClick={() => openEdit(work)} className="p-1.5 rounded-btn text-text-muted hover:bg-gray-100 cursor-pointer">
                 <Edit2 className="w-3.5 h-3.5" />
               </button>
@@ -345,6 +400,33 @@ export default function AdminFanWorksPage() {
           </div>
         ))}
       </div>
+
+      {/* 驳回原因弹窗 */}
+      {rejectDialog.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setRejectDialog({ open: false, id: '', reason: '' })} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+            <h3 className="text-heading-sm flex items-center gap-2"><XCircle className="w-5 h-5 text-danger" /> 驳回作品</h3>
+            <textarea
+              value={rejectDialog.reason}
+              onChange={(e) => setRejectDialog({ ...rejectDialog, reason: e.target.value })}
+              rows={3}
+              placeholder="请填写驳回原因（必填）"
+              className="w-full p-3 rounded-lg border border-border bg-gray-50/50 text-body resize-none focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors"
+            />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setRejectDialog({ open: false, id: '', reason: '' })} className="btn-outline h-9 px-5 text-caption">取消</button>
+              <button
+                onClick={() => handleReview(rejectDialog.id, 'reject', rejectDialog.reason)}
+                disabled={!rejectDialog.reason.trim()}
+                className="btn-primary h-9 px-5 text-caption bg-danger hover:bg-danger/90 disabled:opacity-50"
+              >
+                确认驳回
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ConfirmDialog
         open={confirmState.open}

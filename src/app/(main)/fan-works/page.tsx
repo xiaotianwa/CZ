@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { Palette, Play, Image as ImageIcon, FileText, Music, Star, ExternalLink, User } from 'lucide-react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { Palette, Play, Image as ImageIcon, Star, ExternalLink, User, Plus, Upload, X, Clock, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import SafeImage from '@/components/SafeImage';
 
 interface FanWorkItem {
@@ -24,24 +24,54 @@ interface FanWorkItem {
 const TYPE_CONFIG: Record<string, { label: string; icon: typeof Palette; color: string }> = {
   image: { label: '绘画/图片', icon: ImageIcon, color: 'text-primary bg-primary/10' },
   video: { label: '视频', icon: Play, color: 'text-success bg-green-50 dark:bg-green-900/20' },
-  audio: { label: '音频', icon: Music, color: 'text-warning bg-orange-50 dark:bg-orange-900/20' },
-  text: { label: '文字', icon: FileText, color: 'text-text-body bg-gray-100 dark:bg-[#28282c]' },
-  other: { label: '其他', icon: Palette, color: 'text-text-muted bg-gray-100 dark:bg-[#28282c]' },
 };
 
 const TYPE_TABS = [
   { key: 'all', label: '全部' },
   { key: 'image', label: '绘画/图片' },
   { key: 'video', label: '视频' },
-  { key: 'audio', label: '音频' },
-  { key: 'text', label: '文字' },
 ];
+
+interface MyWork {
+  id: string;
+  title: string;
+  type: string;
+  cover: string;
+  status: string;
+  rejectReason: string | null;
+  createdAt: string;
+}
+
+const STATUS_MAP: Record<string, { label: string; cls: string }> = {
+  pending: { label: '审核中', cls: 'text-warning bg-orange-50 dark:bg-orange-900/20' },
+  approved: { label: '已通过', cls: 'text-success bg-green-50 dark:bg-green-900/20' },
+  rejected: { label: '未通过', cls: 'text-danger bg-red-50 dark:bg-red-900/20' },
+};
 
 export default function FanWorksPage() {
   const [works, setWorks] = useState<FanWorkItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeType, setActiveType] = useState('all');
   const [lightbox, setLightbox] = useState<{ workId: string; imageIndex: number } | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [showSubmit, setShowSubmit] = useState(false);
+  const [showMyWorks, setShowMyWorks] = useState(false);
+  const [myWorks, setMyWorks] = useState<MyWork[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitForm, setSubmitForm] = useState({ title: '', description: '', type: 'image', cover: '', contentUrl: '', images: [] as string[] });
+  const [imageInput, setImageInput] = useState('');
+  const [toast, setToast] = useState<{ open: boolean; message: string; type: 'success' | 'error' }>({ open: false, message: '', type: 'success' });
+
+  const showToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ open: true, message, type });
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/auth/me', { credentials: 'same-origin' })
+      .then((r) => r.json())
+      .then((json) => { if (json.code === 0) setIsLoggedIn(true); })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetch('/api/public/fan-works')
@@ -52,6 +82,55 @@ export default function FanWorksPage() {
       })
       .catch(() => setLoading(false));
   }, []);
+
+  const fetchMyWorks = useCallback(async () => {
+    try {
+      const res = await fetch('/api/auth/fan-works', { credentials: 'same-origin' });
+      const json = await res.json();
+      if (json.code === 0 && json.data) setMyWorks(json.data);
+    } catch {}
+  }, []);
+
+  const handleSubmit = async () => {
+    if (!submitForm.title.trim()) { showToast('请输入标题', 'error'); return; }
+    if (submitForm.images.length === 0) { showToast('请至少上传一个文件', 'error'); return; }
+    if (!submitForm.cover.trim()) {
+      // 自动用第一张图作为封面
+      submitForm.cover = submitForm.images[0];
+    }
+    setSubmitting(true);
+    try {
+      const res = await fetch('/api/auth/fan-works', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(submitForm),
+      });
+      const json = await res.json();
+      if (json.code === 0) {
+        showToast('投稿成功，等待管理员审核');
+        setShowSubmit(false);
+        setSubmitForm({ title: '', description: '', type: 'image', cover: '', contentUrl: '', images: [] });
+      } else {
+        showToast(json.message || '投稿失败', 'error');
+      }
+    } catch {
+      showToast('网络错误', 'error');
+    }
+    setSubmitting(false);
+  };
+
+  const addImage = () => {
+    const url = imageInput.trim();
+    if (url && !submitForm.images.includes(url)) {
+      setSubmitForm({ ...submitForm, images: [...submitForm.images, url] });
+    }
+    setImageInput('');
+  };
+
+  const removeImage = (url: string) => {
+    setSubmitForm({ ...submitForm, images: submitForm.images.filter((i) => i !== url) });
+  };
 
   const filtered = useMemo(() => {
     if (activeType === 'all') return works;
@@ -99,28 +178,48 @@ export default function FanWorksPage() {
           </div>
           <h1 className="text-heading-lg text-white">粉丝二创作品集</h1>
           <p className="text-body text-gray-400 mt-1.5 max-w-md mx-auto">
-            绘画、视频、音频、文字... 1103粉丝的才华展示
+            照片、视频... 1103粉丝的才华展示
           </p>
         </div>
       </section>
 
-      {/* 类型筛选 */}
+      {/* 类型筛选 + 投稿入口 */}
       <section className="section-block pb-0 animate-fade-in-up">
         <div className="container-main">
-          <div className="flex flex-wrap gap-2">
-            {TYPE_TABS.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveType(tab.key)}
-                className={`h-8 px-4 rounded-full text-body font-medium transition-colors duration-150 cursor-pointer ${
-                  activeType === tab.key
-                    ? 'bg-primary text-white'
-                    : 'bg-white dark:bg-[#1e1e22] border border-divider text-text-body hover:border-primary hover:text-primary'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex flex-wrap gap-2">
+              {TYPE_TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveType(tab.key)}
+                  className={`h-8 px-4 rounded-full text-body font-medium transition-colors duration-150 cursor-pointer ${
+                    activeType === tab.key
+                      ? 'bg-primary text-white'
+                      : 'bg-white dark:bg-[#1e1e22] border border-divider text-text-body hover:border-primary hover:text-primary'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            {isLoggedIn && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => { setShowMyWorks(true); fetchMyWorks(); }}
+                  className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-full border border-divider text-caption font-medium text-text-body hover:border-primary hover:text-primary transition-colors cursor-pointer bg-white dark:bg-[#1e1e22]"
+                >
+                  <Clock className="w-3.5 h-3.5" />
+                  我的投稿
+                </button>
+                <button
+                  onClick={() => setShowSubmit(true)}
+                  className="inline-flex items-center gap-1.5 h-8 px-4 rounded-full bg-primary text-white text-caption font-medium hover:bg-primary/90 transition-colors cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  投稿作品
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -259,6 +358,183 @@ export default function FanWorksPage() {
           </div>
         </div>
       )}
+
+      {/* 投稿弹窗 */}
+      {showSubmit && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowSubmit(false)} />
+          <div className="relative bg-white dark:bg-[#1e1e22] rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-divider">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Upload className="w-4 h-4 text-primary" />
+                </div>
+                <h3 className="text-heading-sm text-text-title">投稿作品</h3>
+              </div>
+              <button onClick={() => setShowSubmit(false)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-[#28282c] transition-colors cursor-pointer">
+                <X className="w-5 h-5 text-text-muted" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+              <div>
+                <label className="text-caption font-medium text-text-muted mb-1 block">标题 *</label>
+                <input
+                  value={submitForm.title}
+                  onChange={(e) => setSubmitForm({ ...submitForm, title: e.target.value })}
+                  placeholder="给你的作品取个名字"
+                  maxLength={100}
+                  className="w-full h-9 px-3 rounded-lg border border-divider bg-gray-50/50 dark:bg-[#28282c] text-body focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors"
+                />
+              </div>
+              <div>
+                <label className="text-caption font-medium text-text-muted mb-1 block">类型 *</label>
+                <div className="flex gap-2">
+                  {(['image', 'video'] as const).map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => setSubmitForm({ ...submitForm, type: t })}
+                      className={`h-8 px-4 rounded-full text-caption font-medium transition-colors cursor-pointer ${
+                        submitForm.type === t ? 'bg-primary text-white' : 'bg-gray-50 dark:bg-[#28282c] border border-divider text-text-body'
+                      }`}
+                    >
+                      {t === 'image' ? '照片/图片' : '视频'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="text-caption font-medium text-text-muted mb-1 block">描述（可选）</label>
+                <textarea
+                  value={submitForm.description}
+                  onChange={(e) => setSubmitForm({ ...submitForm, description: e.target.value })}
+                  rows={2}
+                  maxLength={500}
+                  placeholder="简单介绍一下你的作品"
+                  className="w-full p-3 rounded-lg border border-divider bg-gray-50/50 dark:bg-[#28282c] text-body resize-none focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors"
+                />
+              </div>
+              {submitForm.type === 'video' && (
+                <div>
+                  <label className="text-caption font-medium text-text-muted mb-1 block">视频链接</label>
+                  <input
+                    value={submitForm.contentUrl}
+                    onChange={(e) => setSubmitForm({ ...submitForm, contentUrl: e.target.value })}
+                    placeholder="B站/YouTube 视频链接"
+                    className="w-full h-9 px-3 rounded-lg border border-divider bg-gray-50/50 dark:bg-[#28282c] text-body focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors"
+                  />
+                </div>
+              )}
+              <div>
+                <label className="text-caption font-medium text-text-muted mb-1 block">
+                  {submitForm.type === 'image' ? '图片 URL *' : '封面/截图 URL *'}
+                  <span className="text-text-disabled ml-1">（先上传到图床获取链接）</span>
+                </label>
+                {submitForm.images.length > 0 && (
+                  <div className="grid grid-cols-4 gap-2 mb-2">
+                    {submitForm.images.map((url, idx) => (
+                      <div key={idx} className="relative group aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-[#28282c] border border-divider">
+                        <SafeImage src={url} alt={`图片${idx + 1}`} fill className="object-cover" />
+                        <button
+                          onClick={() => removeImage(url)}
+                          className="absolute top-1 right-1 p-0.5 rounded-full bg-black/50 text-white hover:bg-danger opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <input
+                    value={imageInput}
+                    onChange={(e) => setImageInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addImage(); } }}
+                    placeholder="输入图片URL，按回车添加"
+                    className="flex-1 h-9 px-3 rounded-lg border border-divider bg-gray-50/50 dark:bg-[#28282c] text-body focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors"
+                  />
+                  <button onClick={addImage} className="h-9 px-3 rounded-lg border border-divider text-caption font-medium text-text-body hover:border-primary hover:text-primary transition-colors cursor-pointer">添加</button>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-divider">
+              <button onClick={() => setShowSubmit(false)} className="h-9 px-5 rounded-lg border border-divider text-caption font-medium text-text-body hover:border-primary transition-colors cursor-pointer">取消</button>
+              <button
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="h-9 px-5 rounded-lg bg-primary text-white text-caption font-medium hover:bg-primary/90 transition-colors cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5"
+              >
+                {submitting ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> 提交中...</> : '提交投稿'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 我的投稿面板 */}
+      {showMyWorks && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowMyWorks(false)} />
+          <div className="relative bg-white dark:bg-[#1e1e22] rounded-2xl shadow-2xl w-full max-w-md max-h-[70vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-divider">
+              <h3 className="text-heading-sm text-text-title">我的投稿</h3>
+              <button onClick={() => setShowMyWorks(false)} className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-[#28282c] transition-colors cursor-pointer">
+                <X className="w-5 h-5 text-text-muted" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-6 py-4">
+              {myWorks.length === 0 ? (
+                <div className="text-center py-12">
+                  <Palette className="w-8 h-8 text-text-disabled mx-auto mb-2" />
+                  <p className="text-body text-text-muted">还没有投稿记录</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {myWorks.map((w) => {
+                    const st = STATUS_MAP[w.status] || STATUS_MAP.pending;
+                    return (
+                      <div key={w.id} className="flex items-center gap-3 p-3 rounded-card border border-divider">
+                        <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 dark:bg-[#28282c] flex-shrink-0">
+                          <SafeImage src={w.cover} alt={w.title} width={48} height={48} className="object-cover w-full h-full" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-body font-medium text-text-title truncate">{w.title}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${st.cls}`}>
+                              {w.status === 'pending' && <Clock className="w-3 h-3" />}
+                              {w.status === 'approved' && <CheckCircle2 className="w-3 h-3" />}
+                              {w.status === 'rejected' && <XCircle className="w-3 h-3" />}
+                              {st.label}
+                            </span>
+                            <span className="text-caption text-text-disabled">{new Date(w.createdAt).toLocaleDateString('zh-CN')}</span>
+                          </div>
+                          {w.status === 'rejected' && w.rejectReason && (
+                            <p className="text-caption text-danger mt-1">原因：{w.rejectReason}</p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast */}
+      {toast.open && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[100] animate-fade-in-up">
+          <div className={`flex items-center gap-2 px-4 py-3 rounded-card shadow-dropdown border ${
+            toast.type === 'success' ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800/40 text-green-700 dark:text-green-400' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/40 text-danger'
+          }`}>
+            {toast.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+            <span className="text-body font-medium">{toast.message}</span>
+            <button onClick={() => setToast((t) => ({ ...t, open: false }))} className="ml-2 p-0.5 rounded-full hover:bg-black/10 cursor-pointer">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -275,7 +551,7 @@ function WorkCard({
   onImageClick: (index: number) => void;
   formatDate: (d: string) => string;
 }) {
-  const typeConfig = TYPE_CONFIG[work.type] || TYPE_CONFIG.other;
+  const typeConfig = TYPE_CONFIG[work.type] || TYPE_CONFIG.image;
   const TypeIcon = typeConfig.icon;
   let images: string[] = [];
   try { images = JSON.parse(work.images); } catch { /* ignore */ }

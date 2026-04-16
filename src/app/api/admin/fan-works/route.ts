@@ -9,6 +9,8 @@ export async function GET(req: NextRequest) {
     await requireAdmin(req);
     const { page, pageSize, keyword, category } = getSearchParams(req.url);
 
+    const status = new URL(req.url).searchParams.get('status') || '';
+
     const where: Record<string, unknown> = {};
     if (keyword) {
       where.OR = [
@@ -18,6 +20,7 @@ export async function GET(req: NextRequest) {
       ];
     }
     if (category) where.type = category;
+    if (status) where.status = status;
 
     const [list, total] = await Promise.all([
       prisma.fanWork.findMany({
@@ -38,7 +41,7 @@ export async function GET(req: NextRequest) {
 const fanWorkSchema = z.object({
   title: z.string().min(1, '标题不能为空'),
   description: z.string().optional().nullable(),
-  type: z.enum(['image', 'video', 'audio', 'text', 'other']).default('image'),
+  type: z.enum(['image', 'video']).default('image'),
   cover: z.string().min(1, '封面不能为空'),
   contentUrl: z.string().optional().nullable(),
   images: z.array(z.string()).default([]),

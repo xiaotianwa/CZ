@@ -36,6 +36,7 @@ model User {
   reports       Report[]
   bookmarks     Bookmark[]
   postLikes     PostLike[]
+  fanWorks      FanWork[]
 
   @@index([role])
   @@index([isActive])
@@ -436,28 +437,35 @@ model Meme {
 // ==================== 二创作品 ====================
 
 model FanWork {
-  id          String   @id @default(cuid())
-  title       String
-  description String?
-  type        String   @default("image") // image | video | audio | text | other
-  cover       String   // 封面图 URL
-  contentUrl  String?  // 作品链接（视频链接/音频链接等）
-  images      String   @default("[]") // JSON array of image URLs (多图作品)
-  authorName  String   // 作者名（不一定是注册用户）
-  authorAvatar String? // 作者头像
-  source      String?  // 来源平台（B站/微博/抖音等）
-  sourceUrl   String?  // 来源链接
-  likes       Int      @default(0)
-  isActive    Boolean  @default(true)
-  isFeatured  Boolean  @default(false) // 精选推荐
-  sortOrder   Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String   @id @default(cuid())
+  title        String
+  description  String?
+  type         String   @default("image") // image | video
+  cover        String   // 封面图 URL
+  contentUrl   String?  // 视频链接
+  images       String   @default("[]") // JSON array of image/video URLs
+  authorName   String   // 作者名（展示用）
+  authorAvatar String?  // 作者头像
+  userId       String?  // 上传用户ID（注册用户投稿时关联）
+  source       String?  // 来源平台（B站/微博/抖音等）
+  sourceUrl    String?  // 来源链接
+  likes        Int      @default(0)
+  status       String   @default("pending") // pending | approved | rejected
+  rejectReason String?  // 驳回原因
+  isActive     Boolean  @default(true)
+  isFeatured   Boolean  @default(false) // 精选推荐
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User? @relation(fields: [userId], references: [id])
 
   @@index([type])
+  @@index([status])
   @@index([isActive])
   @@index([isFeatured])
   @@index([sortOrder])
+  @@index([userId])
 }
 
 // ==================== 举报系统 ====================
