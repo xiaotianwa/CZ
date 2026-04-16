@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Palette, Play, Image as ImageIcon, Star, ExternalLink, User, Plus, Upload, X, Clock, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { Palette, Play, Image as ImageIcon, Star, ExternalLink, User, Plus, Upload, X, Clock, CheckCircle2, XCircle, Loader2, Link2 } from 'lucide-react';
 import SafeImage from '@/components/SafeImage';
 
 interface FanWorkItem {
@@ -60,7 +60,10 @@ export default function FanWorksPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitForm, setSubmitForm] = useState({ title: '', description: '', type: 'image', cover: '', contentUrl: '', images: [] as string[] });
   const [uploading, setUploading] = useState(false);
+  const [videoMode, setVideoMode] = useState<'link' | 'upload'>('link');
+  const [uploadingVideo, setUploadingVideo] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
   const [toast, setToast] = useState<{ open: boolean; message: string; type: 'success' | 'error' }>({ open: false, message: '', type: 'success' });
 
   const showToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
@@ -435,13 +438,80 @@ export default function FanWorksPage() {
               </div>
               {submitForm.type === 'video' && (
                 <div>
-                  <label className="text-caption font-medium text-text-muted mb-1 block">视频链接</label>
-                  <input
-                    value={submitForm.contentUrl}
-                    onChange={(e) => setSubmitForm({ ...submitForm, contentUrl: e.target.value })}
-                    placeholder="B站/YouTube 视频链接"
-                    className="w-full h-9 px-3 rounded-lg border border-divider bg-gray-50/50 dark:bg-[#28282c] text-body focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors"
-                  />
+                  <label className="text-caption font-medium text-text-muted mb-1 block">视频来源 *</label>
+                  <div className="flex gap-2 mb-2">
+                    {([['link', '填写链接'], ['upload', '上传视频']] as const).map(([mode, label]) => (
+                      <button
+                        key={mode}
+                        onClick={() => setVideoMode(mode)}
+                        className={`h-7 px-3 rounded-full text-caption font-medium transition-colors cursor-pointer ${
+                          videoMode === mode ? 'bg-primary text-white' : 'bg-gray-50 dark:bg-[#28282c] border border-divider text-text-body'
+                        }`}
+                      >
+                        {mode === 'link' ? <span className="inline-flex items-center gap-1"><Link2 className="w-3 h-3" />{label}</span> : <span className="inline-flex items-center gap-1"><Upload className="w-3 h-3" />{label}</span>}
+                      </button>
+                    ))}
+                  </div>
+                  {videoMode === 'link' ? (
+                    <input
+                      value={submitForm.contentUrl}
+                      onChange={(e) => setSubmitForm({ ...submitForm, contentUrl: e.target.value })}
+                      placeholder="B站/YouTube 视频链接"
+                      className="w-full h-9 px-3 rounded-lg border border-divider bg-gray-50/50 dark:bg-[#28282c] text-body focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors"
+                    />
+                  ) : (
+                    <>
+                      <input
+                        ref={videoInputRef}
+                        type="file"
+                        accept="video/*"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          setUploadingVideo(true);
+                          try {
+                            const fd = new FormData();
+                            fd.append('file', file);
+                            const res = await fetch('/api/auth/upload-media', { method: 'POST', credentials: 'same-origin', body: fd });
+                            const json = await res.json();
+                            if (json.code === 0 && json.data?.url) {
+                              setSubmitForm((prev) => ({ ...prev, contentUrl: json.data.url }));
+                              showToast('视频上传成功');
+                            } else {
+                              showToast(json.message || '视频上传失败', 'error');
+                            }
+                          } catch {
+                            showToast('视频上传失败', 'error');
+                          }
+                          setUploadingVideo(false);
+                          if (videoInputRef.current) videoInputRef.current.value = '';
+                        }}
+                        className="hidden"
+                      />
+                      {submitForm.contentUrl ? (
+                        <div className="flex items-center gap-2 p-2.5 rounded-lg border border-divider bg-green-50/50 dark:bg-green-900/10">
+                          <CheckCircle2 className="w-4 h-4 text-success flex-shrink-0" />
+                          <span className="text-caption text-text-body truncate flex-1">视频已上传</span>
+                          <button onClick={() => setSubmitForm((prev) => ({ ...prev, contentUrl: '' }))} className="p-0.5 rounded hover:bg-black/10 cursor-pointer">
+                            <X className="w-3.5 h-3.5 text-text-muted" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => !uploadingVideo && videoInputRef.current?.click()}
+                          disabled={uploadingVideo}
+                          className="w-full h-20 rounded-lg border-2 border-dashed border-divider hover:border-primary/50 hover:bg-primary/5 dark:hover:bg-primary/10 transition-colors flex flex-col items-center justify-center gap-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {uploadingVideo ? (
+                            <><Loader2 className="w-5 h-5 text-primary animate-spin" /><span className="text-caption text-text-muted">视频上传中...</span></>
+                          ) : (
+                            <><Play className="w-5 h-5 text-text-muted" /><span className="text-caption text-text-muted">点击选择视频文件</span><span className="text-[10px] text-text-disabled">支持 MP4/WebM，最大 50MB</span></>
+                          )}
+                        </button>
+                      )}
+                    </>
+                  )}
                 </div>
               )}
               <div>
