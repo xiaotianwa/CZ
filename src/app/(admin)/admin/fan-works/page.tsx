@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Trash2, Edit2, X, Star, Palette, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, Star, Palette, CheckCircle2, XCircle, Clock, Eye, Play, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
 import { adminGet, adminPost, adminPut, adminDelete } from '@/lib/admin-fetch';
 import ConfirmDialog from '@/components/admin/ConfirmDialog';
 import Toast from '@/components/admin/Toast';
@@ -59,6 +59,8 @@ export default function AdminFanWorksPage() {
   const [toast, setToast] = useState<{ open: boolean; message: string; type: 'success' | 'error' }>({ open: false, message: '', type: 'error' });
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [rejectDialog, setRejectDialog] = useState<{ open: boolean; id: string; reason: string }>({ open: false, id: '', reason: '' });
+  const [preview, setPreview] = useState<FanWorkItem | null>(null);
+  const [previewIdx, setPreviewIdx] = useState(0);
 
   const fetchWorks = useCallback(async () => {
     try {
@@ -372,6 +374,13 @@ export default function AdminFanWorksPage() {
               </div>
             </div>
             <div className="flex gap-1 flex-shrink-0">
+              <button
+                onClick={() => { setPreview(work); setPreviewIdx(0); }}
+                className="p-1.5 rounded-btn text-primary hover:bg-primary/10 cursor-pointer"
+                title="预览"
+              >
+                <Eye className="w-3.5 h-3.5" />
+              </button>
               {work.status === 'pending' && (
                 <>
                   <button
@@ -400,6 +409,129 @@ export default function AdminFanWorksPage() {
           </div>
         ))}
       </div>
+
+      {/* 预览弹窗 */}
+      {preview && (() => {
+        let imgs: string[] = [];
+        try { imgs = JSON.parse(preview.images || '[]'); } catch { /* */ }
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setPreview(null)} />
+            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-border/60">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <Eye className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-heading-sm truncate">{preview.title}</h3>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-caption text-text-muted">{preview.authorName}</span>
+                      <span className="tag-muted text-[10px]">{typeLabel[preview.type] || preview.type}</span>
+                      <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${(statusLabel[preview.status] || statusLabel.pending).cls}`}>
+                        {(statusLabel[preview.status] || statusLabel.pending).text}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1">
+                  {preview.status === 'pending' && (
+                    <>
+                      <button
+                        onClick={() => { handleReview(preview.id, 'approve'); setPreview(null); }}
+                        className="h-7 px-3 rounded-lg bg-green-500 text-white text-caption font-medium hover:bg-green-600 cursor-pointer inline-flex items-center gap-1"
+                      >
+                        <CheckCircle2 className="w-3 h-3" /> 通过
+                      </button>
+                      <button
+                        onClick={() => { setPreview(null); setRejectDialog({ open: true, id: preview.id, reason: '' }); }}
+                        className="h-7 px-3 rounded-lg bg-danger text-white text-caption font-medium hover:bg-danger/90 cursor-pointer inline-flex items-center gap-1"
+                      >
+                        <XCircle className="w-3 h-3" /> 驳回
+                      </button>
+                    </>
+                  )}
+                  <button onClick={() => setPreview(null)} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer ml-1">
+                    <X className="w-5 h-5 text-text-muted" />
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+                {preview.description && (
+                  <p className="text-body text-text-body">{preview.description}</p>
+                )}
+                {/* 视频 */}
+                {preview.type === 'video' && preview.contentUrl && (
+                  <div className="space-y-2">
+                    <h4 className="text-caption font-semibold text-text-title flex items-center gap-1"><Play className="w-3.5 h-3.5" /> 视频</h4>
+                    {/\.(mp4|webm|mov)$/i.test(preview.contentUrl) ? (
+                      <video src={preview.contentUrl} controls className="w-full rounded-lg max-h-[400px] bg-black" />
+                    ) : (
+                      <a href={preview.contentUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-primary hover:underline text-body">
+                        <ExternalLink className="w-4 h-4" /> {preview.contentUrl}
+                      </a>
+                    )}
+                  </div>
+                )}
+                {/* 图片 */}
+                {imgs.length > 0 && (
+                  <div className="space-y-2">
+                    <h4 className="text-caption font-semibold text-text-title">作品图片（{imgs.length} 张）</h4>
+                    <div className="relative">
+                      <div className="relative aspect-video rounded-lg overflow-hidden bg-gray-100 border border-border">
+                        {/\.(mp4|webm|mov)$/i.test(imgs[previewIdx]) ? (
+                          <video src={imgs[previewIdx]} controls className="w-full h-full object-contain bg-black" />
+                        ) : (
+                          <img src={imgs[previewIdx]} alt={`预览${previewIdx + 1}`} className="w-full h-full object-contain" />
+                        )}
+                      </div>
+                      {imgs.length > 1 && (
+                        <>
+                          <button
+                            onClick={() => setPreviewIdx((prev) => (prev - 1 + imgs.length) % imgs.length)}
+                            className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 cursor-pointer"
+                          >
+                            <ChevronLeft className="w-5 h-5" />
+                          </button>
+                          <button
+                            onClick={() => setPreviewIdx((prev) => (prev + 1) % imgs.length)}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70 cursor-pointer"
+                          >
+                            <ChevronRight className="w-5 h-5" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                    {imgs.length > 1 && (
+                      <div className="flex gap-1.5 flex-wrap">
+                        {imgs.map((url, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => setPreviewIdx(idx)}
+                            className={`w-14 h-14 rounded-lg overflow-hidden border-2 cursor-pointer transition-colors ${
+                              idx === previewIdx ? 'border-primary' : 'border-transparent hover:border-primary/30'
+                            }`}
+                          >
+                            <img src={url} alt={`缩略图${idx + 1}`} className="w-full h-full object-cover" />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* 其他信息 */}
+                {(preview.source || preview.sourceUrl || (preview.status === 'rejected' && preview.rejectReason)) && (
+                  <div className="text-caption text-text-muted space-y-1 pt-2 border-t border-border/40">
+                    {preview.source && <p>来源平台：{preview.source}</p>}
+                    {preview.sourceUrl && <p>来源链接：<a href={preview.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{preview.sourceUrl}</a></p>}
+                    {preview.status === 'rejected' && preview.rejectReason && <p className="text-danger">驳回原因：{preview.rejectReason}</p>}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* 驳回原因弹窗 */}
       {rejectDialog.open && (
