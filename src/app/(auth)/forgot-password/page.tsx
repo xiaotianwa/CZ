@@ -91,7 +91,7 @@ export default function ForgotPasswordPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-bg-page px-4">
         <div className="card max-w-md w-full p-8 text-center space-y-4">
-          <div className="w-16 h-16 rounded-full bg-green-50 flex items-center justify-center mx-auto">
+          <div className="w-16 h-16 rounded-full bg-green-50 dark:bg-green-900/20 flex items-center justify-center mx-auto">
             <CheckCircle className="w-8 h-8 text-success" />
           </div>
           <h2 className="text-xl font-bold text-text-title">密码重置成功</h2>
@@ -112,7 +112,7 @@ export default function ForgotPasswordPage() {
       <div className="card max-w-md w-full p-6 sm:p-8">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
-          <Link href="/login" className="p-1.5 rounded-btn hover:bg-gray-100 transition-colors">
+          <Link href="/login" className="p-1.5 rounded-btn hover:bg-gray-100 dark:hover:bg-[#28282c] transition-colors">
             <ArrowLeft className="w-5 h-5 text-text-muted" />
           </Link>
           <div>
@@ -124,7 +124,7 @@ export default function ForgotPasswordPage() {
         </div>
 
         {error && (
-          <p className="text-sm text-danger text-center bg-red-50 rounded-card py-2 px-3 mb-4">{error}</p>
+          <p className="text-sm text-danger text-center bg-red-50 dark:bg-red-900/20 rounded-card py-2 px-3 mb-4">{error}</p>
         )}
 
         {step === 'email' && (
@@ -159,7 +159,7 @@ export default function ForgotPasswordPage() {
         {step === 'reset' && (
           <div className="space-y-4">
             {/* Email display */}
-            <div className="flex items-center gap-2 text-sm text-text-body bg-gray-50 rounded-card px-3 py-2">
+            <div className="flex items-center gap-2 text-sm text-text-body bg-gray-50 dark:bg-[#28282c] rounded-card px-3 py-2">
               <Mail className="w-4 h-4 text-text-muted" />
               <span>{email}</span>
             </div>
@@ -207,7 +207,7 @@ export default function ForgotPasswordPage() {
                 <div className="mt-1.5">
                   <div className="flex gap-1">
                     {[1, 2, 3, 4].map((i) => (
-                      <div key={i} className={`h-1 flex-1 rounded-full transition-colors ${i <= pwdStrength.level ? pwdStrength.color : 'bg-gray-200'}`} />
+                      <div key={i} className={`h-1 flex-1 rounded-full transition-colors ${i <= pwdStrength.level ? pwdStrength.color : 'bg-gray-200 dark:bg-gray-700'}`} />
                     ))}
                   </div>
                   <p className="text-[11px] text-text-muted mt-0.5">密码强度：{pwdStrength.label}</p>

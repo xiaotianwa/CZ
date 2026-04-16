@@ -85,7 +85,7 @@ export default function StickyTimeline({ events }: { events: TimelineEvent[] }) 
                 return (
                   <div key={event.id} className="flex flex-col items-center">
                     {idx > 0 && (
-                      <div className={`w-px h-5 transition-colors duration-400 ${isPast || isActive ? 'bg-primary' : 'bg-gray-200'}`} />
+                      <div className={`w-px h-5 transition-colors duration-400 ${isPast || isActive ? 'bg-primary' : 'bg-gray-200 dark:bg-gray-700'}`} />
                     )}
                     <button
                       onClick={() => setActiveIndex(idx)}
@@ -94,7 +94,7 @@ export default function StickyTimeline({ events }: { events: TimelineEvent[] }) 
                           ? `w-10 h-10 bg-gradient-to-br ${tc.color} ${tc.glow}`
                           : isPast
                             ? `w-6 h-6 bg-gradient-to-br ${tc.color} opacity-50`
-                            : 'w-6 h-6 bg-gray-200 text-gray-400'
+                            : 'w-6 h-6 bg-gray-200 dark:bg-gray-700 text-gray-400'
                       }`}
                     >
                       {isActive && tc.icon}
@@ -146,7 +146,7 @@ export default function StickyTimeline({ events }: { events: TimelineEvent[] }) 
                       pointerEvents: isActive ? 'auto' : 'none',
                     }}
                   >
-                    <div className="rounded-2xl p-6 sm:p-8 bg-white/50 backdrop-blur-md border border-white/70 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5),0_8px_32px_rgba(0,0,0,0.08)]">
+                    <div className="rounded-2xl p-6 sm:p-8 bg-white/50 dark:bg-[#1e1e22]/80 backdrop-blur-md border border-white/70 dark:border-[#333] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5),0_8px_32px_rgba(0,0,0,0.08)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
                       <div className="flex items-center gap-3 mb-3">
                         <span className={`inline-flex items-center gap-1.5 h-7 px-3 rounded-full text-[12px] font-bold text-white bg-gradient-to-r ${tc.color}`}>
                           {tc.icon}
@@ -164,7 +164,7 @@ export default function StickyTimeline({ events }: { events: TimelineEvent[] }) 
                             className={`h-1 rounded-full transition-all duration-500 ${
                               i === activeIndex
                                 ? `flex-[3] bg-gradient-to-r ${tc.color}`
-                                : i < activeIndex ? 'flex-1 bg-primary/30' : 'flex-1 bg-gray-200'
+                                : i < activeIndex ? 'flex-1 bg-primary/30' : 'flex-1 bg-gray-200 dark:bg-gray-700'
                             }`}
                           />
                         ))}

@@ -161,6 +161,8 @@ export default function Footer({ profileName, siteDescription }: { profileName: 
     { href: '/profile', label: `关于${profileName}` },
     { href: '/gallery', label: '相册' },
     { href: '/community', label: '社区' },
+    { href: '/memes', label: '梗百科' },
+    { href: '/fan-works', label: '二创作品' },
     { href: '/events', label: '活动' },
   ];
 

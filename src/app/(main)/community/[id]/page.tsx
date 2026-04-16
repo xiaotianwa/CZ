@@ -273,8 +273,38 @@ export default function PostDetailPage() {
 
   if (loading) {
     return (
-      <div className="pt-14 min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+      <div className="pt-14 min-h-screen bg-bg-page">
+        <div className="sticky top-14 z-20 bg-white dark:bg-[#1e1e22] border-b border-divider">
+          <div className="container-main px-4 sm:px-6 lg:px-8 flex items-center h-12">
+            <div className="w-5 h-5 rounded bg-gray-200 dark:bg-[#28282c]" />
+            <div className="h-4 w-20 rounded bg-gray-200 dark:bg-[#28282c] ml-2" />
+          </div>
+        </div>
+        <div className="container-main px-4 sm:px-6 lg:px-8 py-6 max-w-3xl mx-auto animate-pulse">
+          <div className="card p-5 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-[#28282c]" />
+              <div className="space-y-2">
+                <div className="h-4 w-28 rounded bg-gray-200 dark:bg-[#28282c]" />
+                <div className="h-3 w-20 rounded bg-gray-100 dark:bg-[#333]" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="h-4 w-full rounded bg-gray-200 dark:bg-[#28282c]" />
+              <div className="h-4 w-5/6 rounded bg-gray-200 dark:bg-[#28282c]" />
+              <div className="h-4 w-3/4 rounded bg-gray-100 dark:bg-[#333]" />
+            </div>
+            <div className="flex gap-2">
+              <div className="w-24 h-24 rounded-btn bg-gray-200 dark:bg-[#28282c]" />
+              <div className="w-24 h-24 rounded-btn bg-gray-200 dark:bg-[#28282c]" />
+            </div>
+            <div className="flex gap-6 pt-4 border-t border-divider">
+              <div className="h-4 w-16 rounded bg-gray-100 dark:bg-[#333]" />
+              <div className="h-4 w-16 rounded bg-gray-100 dark:bg-[#333]" />
+              <div className="h-4 w-16 rounded bg-gray-100 dark:bg-[#333]" />
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -294,9 +324,9 @@ export default function PostDetailPage() {
     <div className="pt-14 min-h-screen bg-bg-page">
       <LoginRequiredModal open={loginModal} redirectTo={`/community/${postId}`} onCancel={() => setLoginModal(false)} />
       {/* Header */}
-      <div className="sticky top-14 z-20 bg-white border-b border-divider">
+      <div className="sticky top-14 z-20 bg-white dark:bg-[#1e1e22] border-b border-divider">
         <div className="container-main px-4 sm:px-6 lg:px-8 flex items-center h-12">
-          <button onClick={() => router.back()} className="p-1.5 -ml-1.5 rounded-btn hover:bg-gray-50 transition-colors cursor-pointer">
+          <button onClick={() => router.back()} className="p-1.5 -ml-1.5 rounded-btn hover:bg-gray-50 dark:hover:bg-[#28282c] transition-colors cursor-pointer">
             <ArrowLeft className="w-5 h-5 text-text-body" />
           </button>
           <span className="text-body font-medium text-text-title ml-2">帖子详情</span>
@@ -364,7 +394,7 @@ export default function PostDetailPage() {
               {imageUrls.map((url, i) => (
                 <div
                   key={i}
-                  className="relative aspect-square rounded-btn overflow-hidden bg-gray-100 cursor-pointer"
+                  className="relative aspect-square rounded-btn overflow-hidden bg-gray-100 dark:bg-[#28282c] cursor-pointer"
                   onClick={() => setLightbox(i)}
                 >
                   <SafeImage
@@ -384,6 +414,7 @@ export default function PostDetailPage() {
           <div className="flex items-center gap-6 mt-5 pt-4 border-t border-divider">
             <button
               onClick={handleLike}
+              aria-label={liked ? '取消点赞' : '点赞'}
               className={`inline-flex items-center gap-1.5 text-body font-medium cursor-pointer transition-colors ${liked ? 'text-danger' : 'text-text-muted hover:text-danger'}`}
             >
               <Heart className={`w-5 h-5 ${liked ? 'fill-current' : ''}`} />
@@ -393,19 +424,20 @@ export default function PostDetailPage() {
               <MessageCircle className="w-5 h-5" />
               {formatNum(post._count.comments)}
             </span>
-            <button onClick={handleShare} className="inline-flex items-center gap-1.5 text-body text-text-muted hover:text-primary cursor-pointer transition-colors">
+            <button onClick={handleShare} aria-label="分享帖子" className="inline-flex items-center gap-1.5 text-body text-text-muted hover:text-primary cursor-pointer transition-colors">
               <Share2 className="w-5 h-5" />
               分享
             </button>
             <button
               onClick={handleBookmark}
               disabled={bookmarking}
+              aria-label={bookmarked ? '取消收藏' : '收藏帖子'}
               className={`inline-flex items-center gap-1.5 text-body cursor-pointer transition-colors ml-auto ${bookmarked ? 'text-primary' : 'text-text-muted hover:text-primary'}`}
             >
               <Bookmark className={`w-4 h-4 ${bookmarked ? 'fill-current' : ''}`} />
               {bookmarked ? '已收藏' : '收藏'}
             </button>
-            <button onClick={() => setReportOpen(true)} className="inline-flex items-center gap-1.5 text-body text-text-muted hover:text-danger cursor-pointer transition-colors">
+            <button onClick={() => setReportOpen(true)} aria-label="举报帖子" className="inline-flex items-center gap-1.5 text-body text-text-muted hover:text-danger cursor-pointer transition-colors">
               <Flag className="w-4 h-4" />
               举报
             </button>
@@ -599,7 +631,7 @@ export default function PostDetailPage() {
 
       {/* Lightbox */}
       {lightbox !== null && imageUrls[lightbox] && (
-        <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center" onClick={() => setLightbox(null)}>
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex items-center justify-center" onClick={() => setLightbox(null)}>
           {imageUrls.length > 1 && (
             <button
               className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 cursor-pointer"
@@ -613,7 +645,9 @@ export default function PostDetailPage() {
             </button>
           )}
 
-          <Image src={imageUrls[lightbox]} alt={`帖子大图 ${lightbox + 1}`} width={1200} height={800} className="max-w-[90vw] max-h-[90vh] object-contain" priority />
+          <div className="relative max-w-[90vw] max-h-[90vh]" style={{ width: 1200, height: 800 }} onClick={(e) => e.stopPropagation()}>
+            <SafeImage src={imageUrls[lightbox]} alt={`帖子大图 ${lightbox + 1}`} fill className="object-contain" priority sizes="90vw" />
+          </div>
 
           {imageUrls.length > 1 && (
             <button

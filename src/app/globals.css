@@ -51,7 +51,7 @@ html.dark body {
   }
 
   .btn-outline {
-    @apply bg-white text-text-body h-10 px-5 rounded-btn text-sm font-medium border border-border transition-colors duration-150 cursor-pointer hover:border-primary hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:ring-offset-1 active:scale-[0.98];
+    @apply bg-white dark:bg-[#1e1e22] text-text-body h-10 px-5 rounded-btn text-sm font-medium border border-border transition-colors duration-150 cursor-pointer hover:border-primary hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/30 focus:ring-offset-1 active:scale-[0.98];
   }
 
   .tag {
@@ -67,7 +67,7 @@ html.dark body {
   }
 
   .tag-muted {
-    @apply tag bg-gray-100 text-text-muted;
+    @apply tag bg-gray-100 dark:bg-[#28282c] text-text-muted;
   }
 
   .section-title {
@@ -273,6 +273,13 @@ html.dark .bg-red-50 { background-color: rgba(220, 38, 38, 0.1) !important; }
 html.dark .bg-green-50 { background-color: rgba(22, 163, 74, 0.1) !important; }
 html.dark .bg-orange-50 { background-color: rgba(234, 179, 8, 0.1) !important; }
 
+/* Tags */
+html.dark .tag-success { background-color: rgba(22, 163, 74, 0.12) !important; }
+
+/* Alert borders */
+html.dark .border-green-200 { border-color: rgba(22, 163, 74, 0.3) !important; }
+html.dark .border-red-200 { border-color: rgba(220, 38, 38, 0.3) !important; }
+
 /* Search highlight */
 html.dark mark { background-color: rgba(24, 144, 255, 0.25) !important; }
 
@@ -286,6 +293,11 @@ html.dark mark { background-color: rgba(24, 144, 255, 0.25) !important; }
 }
 
 @keyframes toast-progress {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+
+@keyframes toast-shrink {
   from { width: 100%; }
   to { width: 0%; }
 }

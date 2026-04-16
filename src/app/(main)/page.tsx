@@ -65,9 +65,9 @@ export default async function HomePage() {
                 const videoUrls = mediaUrls.filter((u) => u.match(/\.(mp4|webm|mov)$/i));
                 return (
                   <Link key={post.id} href={`/community/${post.id}`} className="block">
-                    <article className="rounded-card p-5 bg-white/40 backdrop-blur-md border border-white/70 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5),0_4px_24px_rgba(0,0,0,0.06)] cursor-pointer hover:-translate-y-0.5 hover:bg-white/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6),0_8px_32px_rgba(0,0,0,0.10)] transition-all duration-200">
+                    <article className="rounded-card p-5 bg-white/40 dark:bg-[#1e1e22]/80 backdrop-blur-md border border-white/70 dark:border-[#333] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5),0_4px_24px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.3)] cursor-pointer hover:-translate-y-0.5 hover:bg-white/50 dark:hover:bg-[#1e1e22] hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6),0_8px_32px_rgba(0,0,0,0.10)] transition-all duration-200">
                       <div className="flex items-start gap-3">
-                        <div className="relative w-10 h-10 rounded-full overflow-hidden flex-shrink-0 bg-gray-100">
+                        <div className="relative w-10 h-10 rounded-full overflow-hidden flex-shrink-0 bg-gray-100 dark:bg-[#28282c]">
                           {post.author?.avatar && <Image src={post.author.avatar} alt={post.author.name} fill className="object-cover" />}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -86,12 +86,12 @@ export default async function HomePage() {
                           )}
 
                           {videoUrls.length === 0 && imageUrls.length > 0 && (
-                            <div className="mt-3 rounded-card overflow-hidden relative aspect-video bg-gray-100">
+                            <div className="mt-3 rounded-card overflow-hidden relative aspect-video bg-gray-100 dark:bg-[#28282c]">
                               <Image src={imageUrls[0]} alt="帖子预览图" fill className="object-cover" />
                             </div>
                           )}
 
-                          <div className="flex items-center gap-4 mt-3 pt-3 border-t border-black/[0.06] text-caption text-text-muted">
+                          <div className="flex items-center gap-4 mt-3 pt-3 border-t border-black/[0.06] dark:border-[#333] text-caption text-text-muted">
                             <span>{timeAgo(post.createdAt)}</span>
                             <span>{formatNum(post.likes)} 赞</span>
                             <span>{post._count?.comments ?? 0} 评论</span>
@@ -131,7 +131,7 @@ export default async function HomePage() {
               {events.map((event: any) => (
                 <Link key={event.id} href={`/events/${event.id}`} className="block">
                   <div className="card p-0 overflow-hidden cursor-pointer hover:-translate-y-0.5 transition-all duration-200">
-                    <div className="relative aspect-video bg-gray-100">
+                    <div className="relative aspect-video bg-gray-100 dark:bg-[#28282c]">
                       <Image src={event.cover} alt={event.title} fill className="object-cover" />
                       <div className="absolute top-3 left-3">
                         <span className={`tag text-white ${event.status === 'upcoming' ? 'bg-primary' : event.status === 'ongoing' ? 'bg-success' : 'bg-gray-400'}`}>

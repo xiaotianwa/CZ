@@ -410,6 +410,54 @@ model BannedWord {
   @@index([category])
 }
 
+// ==================== 梗百科 ====================
+
+model Meme {
+  id          String   @id @default(cuid())
+  title       String
+  origin      String   // 梗的出处/起源描述
+  description String   // 详细解释
+  example     String?  // 用法示例
+  image       String?  // 配图 URL
+  tags        String   @default("[]") // JSON array of tag strings, e.g. ["直播","名场面"]
+  popularity  Int      @default(0) // 热度/引用次数
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([popularity])
+  @@index([sortOrder])
+}
+
+// ==================== 二创作品 ====================
+
+model FanWork {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  type        String   @default("image") // image | video | audio | text | other
+  cover       String   // 封面图 URL
+  contentUrl  String?  // 作品链接（视频链接/音频链接等）
+  images      String   @default("[]") // JSON array of image URLs (多图作品)
+  authorName  String   // 作者名（不一定是注册用户）
+  authorAvatar String? // 作者头像
+  source      String?  // 来源平台（B站/微博/抖音等）
+  sourceUrl   String?  // 来源链接
+  likes       Int      @default(0)
+  isActive    Boolean  @default(true)
+  isFeatured  Boolean  @default(false) // 精选推荐
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([type])
+  @@index([isActive])
+  @@index([isFeatured])
+  @@index([sortOrder])
+}
+
 // ==================== 举报系统 ====================
 
 model Report {

@@ -29,8 +29,8 @@ function WeiboIcon({ className }: { className?: string }) {
 }
 
 const platformMeta: Record<string, { color: string; bg: string; icon: React.ReactNode }> = {
-  '抖音': { color: '#FE2C55', bg: 'bg-gray-50', icon: <DouyinIcon className="w-6 h-6 text-[#FE2C55]" /> },
-  '微博': { color: '#E6162D', bg: 'bg-gray-50', icon: <WeiboIcon className="w-6 h-6 text-[#E6162D]" /> },
+  '抖音': { color: '#FE2C55', bg: 'bg-gray-50 dark:bg-[#28282c]', icon: <DouyinIcon className="w-6 h-6 text-[#FE2C55]" /> },
+  '微博': { color: '#E6162D', bg: 'bg-gray-50 dark:bg-[#28282c]', icon: <WeiboIcon className="w-6 h-6 text-[#E6162D]" /> },
 };
 
 export default async function ProfilePage() {
@@ -62,7 +62,7 @@ export default async function ProfilePage() {
       <section className="container-main px-4 sm:px-6 lg:px-8 -mt-16 relative z-10 animate-fade-in-up">
         <div className="card p-6 sm:p-8">
           <div className="flex flex-col sm:flex-row items-center sm:items-end gap-5">
-            <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-card overflow-hidden border-2 border-white shadow-card -mt-16 sm:-mt-20 flex-shrink-0 bg-gray-100">
+            <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-card overflow-hidden border-2 border-white dark:border-[#28282c] shadow-card -mt-16 sm:-mt-20 flex-shrink-0 bg-gray-100 dark:bg-[#28282c]">
               {profile.avatar && <Image src={profile.avatar} alt={profile.name} fill className="object-cover" />}
             </div>
             <div className="flex-1 text-center sm:text-left">
@@ -120,7 +120,7 @@ export default async function ProfilePage() {
                     href={link.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-4 p-5 rounded-card border border-divider bg-white shadow-card hover:shadow-card-hover transition-all duration-200 cursor-pointer"
+                    className="flex items-center gap-4 p-5 rounded-card border border-divider bg-white dark:bg-[#1e1e22] shadow-card hover:shadow-card-hover transition-all duration-200 cursor-pointer"
                   >
                     <div className={`w-12 h-12 rounded-xl ${meta.bg} flex items-center justify-center flex-shrink-0`}>
                       {meta.icon}
@@ -142,7 +142,7 @@ export default async function ProfilePage() {
 
                   {/* Hover Profile Card (名片) */}
                   <div className="absolute left-0 right-0 bottom-full mb-2 z-30 opacity-0 scale-95 -translate-y-1 pointer-events-none group-hover/card:opacity-100 group-hover/card:scale-100 group-hover/card:translate-y-0 group-hover/card:pointer-events-auto transition-all duration-200 ease-out">
-                    <div className="rounded-card overflow-hidden shadow-lg border border-divider bg-white">
+                    <div className="rounded-card overflow-hidden shadow-lg border border-divider bg-white dark:bg-[#1e1e22]">
                       {/* Header Banner */}
                       <div className="h-14 bg-gray-900 relative overflow-hidden">
                         <div className="absolute inset-0 flex items-center justify-center gap-3 select-none">
@@ -185,7 +185,7 @@ export default async function ProfilePage() {
 
                         {/* Right: QR Code */}
                         <div className="flex flex-col items-center gap-1 flex-shrink-0">
-                          <div className="w-20 h-20 rounded-lg border border-divider bg-gray-50 overflow-hidden flex items-center justify-center">
+                          <div className="w-20 h-20 rounded-lg border border-divider bg-gray-50 dark:bg-[#28282c] overflow-hidden flex items-center justify-center">
                             {link.qrcode ? (
                               <Image src={link.qrcode} alt={`${link.platform}二维码`} width={80} height={80} className="object-contain w-full h-full" />
                             ) : (

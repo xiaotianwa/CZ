@@ -35,6 +35,12 @@ async function main() {
     create: { email: 'editor@chenze.com', password: adminPwd, name: '内容编辑', role: 'editor', avatar: PH(48, 48, 'ED') },
   });
 
+  await prisma.admin.upsert({
+    where: { email: 'mod@chenze.com' },
+    update: {},
+    create: { email: 'mod@chenze.com', password: adminPwd, name: '社区管理员', role: 'admin', avatar: PH(48, 48, 'MOD') },
+  });
+
   // ===== 前台用户 =====
   const fanPwd = await bcrypt.hash('fan12345', 12);
 
@@ -51,10 +57,18 @@ async function main() {
   });
 
   const fans = await Promise.all([
-    prisma.user.upsert({ where: { email: 'fan1@test.com' }, update: {}, create: { email: 'fan1@test.com', password: fanPwd, name: '绥棱铁粉王', role: 'fan', level: 8, badge: '超级粉', points: 128600, avatar: PH(48, 48, 'M') } }),
-    prisma.user.upsert({ where: { email: 'fan2@test.com' }, update: {}, create: { email: 'fan2@test.com', password: fanPwd, name: '东北铁粉', role: 'fan', level: 9, badge: '超级粉', points: 96400, avatar: PH(48, 48, 'F1') } }),
-    prisma.user.upsert({ where: { email: 'fan3@test.com' }, update: {}, create: { email: 'fan3@test.com', password: fanPwd, name: 'LOL小迷妹', role: 'fan', level: 9, badge: '超级粉', points: 82100, avatar: PH(48, 48, 'F2') } }),
-    prisma.user.upsert({ where: { email: 'fan4@test.com' }, update: {}, create: { email: 'fan4@test.com', password: fanPwd, name: '画手阿泽粉', role: 'fan', level: 6, badge: '真爱粉', points: 67800, avatar: PH(48, 48, 'L') } }),
+    prisma.user.upsert({ where: { email: 'fan1@test.com' }, update: {}, create: { email: 'fan1@test.com', password: fanPwd, name: '绥棱铁粉王', role: 'fan', level: 8, badge: '超级粉', points: 128600, avatar: PH(48, 48, 'M'), city: '黑龙江·绥棱', bio: '绥棱老乡，泽子忠实粉丝' } }),
+    prisma.user.upsert({ where: { email: 'fan2@test.com' }, update: {}, create: { email: 'fan2@test.com', password: fanPwd, name: '东北铁粉', role: 'fan', level: 9, badge: '超级粉', points: 96400, avatar: PH(48, 48, 'F1'), city: '辽宁·沈阳', bio: '东北人永远支持泽子' } }),
+    prisma.user.upsert({ where: { email: 'fan3@test.com' }, update: {}, create: { email: 'fan3@test.com', password: fanPwd, name: 'LOL小迷妹', role: 'fan', level: 9, badge: '超级粉', points: 82100, avatar: PH(48, 48, 'F2'), city: '北京·朝阳', bio: '英雄联盟迷妹一枚' } }),
+    prisma.user.upsert({ where: { email: 'fan4@test.com' }, update: {}, create: { email: 'fan4@test.com', password: fanPwd, name: '画手阿泽粉', role: 'fan', level: 6, badge: '真爱粉', points: 67800, avatar: PH(48, 48, 'L'), city: '广东·广州', bio: '画画爱好者，最爱画泽子' } }),
+    prisma.user.upsert({ where: { email: 'fan5@test.com' }, update: {}, create: { email: 'fan5@test.com', password: fanPwd, name: '老铁666', role: 'fan', level: 5, badge: '铁粉', points: 45200, avatar: PH(48, 48, 'F5'), city: '吉林·长春', bio: '每天准时蹲直播' } }),
+    prisma.user.upsert({ where: { email: 'fan6@test.com' }, update: {}, create: { email: 'fan6@test.com', password: fanPwd, name: '泽泽的小迷弟', role: 'fan', level: 4, badge: '铁粉', points: 32100, avatar: PH(48, 48, 'F6'), city: '浙江·杭州', bio: '南方人也爱看东北主播' } }),
+    prisma.user.upsert({ where: { email: 'fan7@test.com' }, update: {}, create: { email: 'fan7@test.com', password: fanPwd, name: '峡谷暴走族', role: 'fan', level: 7, badge: '真爱粉', points: 58900, avatar: PH(48, 48, 'F7'), city: '四川·成都', bio: 'LOL钻石选手，跟泽子学盲僧' } }),
+    prisma.user.upsert({ where: { email: 'fan8@test.com' }, update: {}, create: { email: 'fan8@test.com', password: fanPwd, name: '快乐追星人', role: 'fan', level: 3, badge: '活跃粉', points: 18600, avatar: PH(48, 48, 'F8'), city: '上海·浦东', bio: '追泽子一年了，越来越快乐' } }),
+    prisma.user.upsert({ where: { email: 'fan9@test.com' }, update: {}, create: { email: 'fan9@test.com', password: fanPwd, name: '视频剪辑小王', role: 'fan', level: 6, badge: '真爱粉', points: 52300, avatar: PH(48, 48, 'F9'), city: '湖南·长沙', bio: '专门给泽子剪辑高能集锦' } }),
+    prisma.user.upsert({ where: { email: 'fan10@test.com' }, update: {}, create: { email: 'fan10@test.com', password: fanPwd, name: '新来的小粉丝', role: 'fan', level: 1, badge: undefined, points: 100, avatar: PH(48, 48, 'F10'), city: '河南·郑州', bio: '刚关注泽子，社区新人报到' } }),
+    prisma.user.upsert({ where: { email: 'fan11@test.com' }, update: {}, create: { email: 'fan11@test.com', password: fanPwd, name: '永劫无间大佬', role: 'fan', level: 5, badge: '铁粉', points: 41000, avatar: PH(48, 48, 'F11'), city: '山东·济南', bio: '永劫无间天梯前100，等泽子来战' } }),
+    prisma.user.upsert({ where: { email: 'fan12@test.com' }, update: {}, create: { email: 'fan12@test.com', password: fanPwd, name: '表情包收集者', role: 'fan', level: 4, badge: '铁粉', points: 28700, avatar: PH(48, 48, 'F12'), city: '江苏·南京', bio: '收集了200+泽子表情包' } }),
   ]);
 
   // ===== Tags =====
@@ -67,10 +81,20 @@ async function main() {
 
   // ===== Posts =====
   const postsData = [
-    { authorId: star.id, content: '今晚九点直播英雄联盟，新赛季冲分！上赛季差一点上大师，这次必须给安排上。老铁们记得来捧场，不来的都是瓜皮！', images: [PH(600, 400, 'LOL+Stream')], tagNames: ['官方动态', '直播预告'], likes: 52800, isPinned: true },
-    { authorId: fans[0].id, content: '整理了陈泽从快手到抖音的经典名场面合集，每一段都能笑到肚子疼！"还有我，我也是"这个梗到现在还在用哈哈哈哈。', images: [PH(600, 400, 'Highlights+1'), PH(600, 400, 'Highlights+2')], tagNames: ['追星日记', '名场面'], likes: 1890, isPinned: false },
-    { authorId: assistant.id, content: '【陈泽杯预告】第二届英雄联盟陈泽杯即将开赛！面向全网召集选手，奖金池超百万。报名通道即将开放，有实力的召唤师们准备好了吗？', images: [PH(600, 300, 'ChenZe+Cup+S2')], tagNames: ['官方动态', '陈泽杯'], likes: 32400, isPinned: true },
-    { authorId: fans[3].id, content: '花了一周画的陈泽Q版头像，灵感来自泽子直播时经典的表情。第一次画这种风格，感觉还挺像的，希望泽子能看到！', images: [PH(600, 600, 'Fan+Art+CZ')], tagNames: ['同人创作', '绘画'], likes: 3420, isPinned: false },
+    { authorId: star.id, content: '今晚九点直播英雄联盟，新赛季冲分！上赛季差一点上大师，这次必须给安排上。老铁们记得来捧场，不来的都是瓜皮！', images: [PH(600, 400, 'LOL+Stream')], tagNames: ['官方动态', '直播预告'], likes: 52800, isPinned: true, status: 'published' },
+    { authorId: fans[0].id, content: '整理了陈泽从快手到抖音的经典名场面合集，每一段都能笑到肚子疼！"还有我，我也是"这个梗到现在还在用哈哈哈哈。', images: [PH(600, 400, 'Highlights+1'), PH(600, 400, 'Highlights+2')], tagNames: ['追星日记', '名场面'], likes: 1890, isPinned: false, status: 'published' },
+    { authorId: assistant.id, content: '【陈泽杯预告】第二届英雄联盟陈泽杯即将开赛！面向全网召集选手，奖金池超百万。报名通道即将开放，有实力的召唤师们准备好了吗？', images: [PH(600, 300, 'ChenZe+Cup+S2')], tagNames: ['官方动态', '陈泽杯'], likes: 32400, isPinned: true, status: 'published' },
+    { authorId: fans[3].id, content: '花了一周画的陈泽Q版头像，灵感来自泽子直播时经典的表情。第一次画这种风格，感觉还挺像的，希望泽子能看到！', images: [PH(600, 600, 'Fan+Art+CZ')], tagNames: ['同人创作', '绘画'], likes: 3420, isPinned: false, status: 'published' },
+    { authorId: fans[4].id, content: '有没有老铁今晚开黑的？黄金段位，想冲白金，带个辅助来！泽子教的盲僧我已经练了三天了，虽然回旋踢还是踢不准……', images: [], tagNames: ['开黑组队', '英雄联盟'], likes: 234, isPinned: false, status: 'published' },
+    { authorId: fans[6].id, content: '分享一波泽子直播中的经典东北话教学：\n1. "瓜皮" = 笨蛋\n2. "造" = 吃\n3. "嘎哈呢" = 干什么呢\n4. "整挺好" = 弄得挺好\n学会了吗老铁们？', images: [], tagNames: ['东北话教学', '1103语录'], likes: 4560, isPinned: false, status: 'published' },
+    { authorId: fans[8].id, content: '给泽子剪了一个永劫无间高能时刻合集！从落地成盒到绝地翻盘，每一刻都是经典。剪了三天三夜，希望大家喜欢~视频链接在评论区！', images: [PH(600, 400, 'Naraka+Clip+1'), PH(600, 400, 'Naraka+Clip+2'), PH(600, 400, 'Naraka+Clip+3')], tagNames: ['名场面', '直播名场面'], likes: 2890, isPinned: false, status: 'published' },
+    { authorId: star.id, content: '兄弟们，明天下午两点来个特别直播，带大家打元梦之星！粉丝专场，满人就开车，先到先得！', images: [PH(600, 400, 'YuanMeng+Live')], tagNames: ['官方动态', '直播预告'], likes: 18900, isPinned: false, status: 'published' },
+    { authorId: fans[5].id, content: '第一次来社区发帖，作为一个南方人，我是怎么被泽子圈粉的呢？答案就是那句"还有我，我也是"的视频，笑了一晚上，然后就再也没离开过直播间。', images: [], tagNames: ['追星日记', '安利'], likes: 890, isPinned: false, status: 'published' },
+    { authorId: fans[10].id, content: '永劫无间排位赛今天打了十把赢了八把！感觉跟着泽子看直播学到了不少操作技巧，特别是空中连招那一套，太帅了。', images: [PH(600, 400, 'Naraka+Rank')], tagNames: ['英雄联盟', '安利'], likes: 567, isPinned: false, status: 'published' },
+    { authorId: fans[11].id, content: '新做了一波泽子表情包！"整挺好"系列、"还有我"系列、"瓜皮"系列各六张，需要的老铁评论区扣1，我私发！', images: [PH(600, 400, 'Emoji+1'), PH(600, 400, 'Emoji+2')], tagNames: ['同人创作', '1103语录'], likes: 3210, isPinned: false, status: 'published' },
+    { authorId: fans[7].id, content: '请问泽子一般几点开播啊？我刚关注，想看直播但总是错过……有没有大佬告诉一下直播时间表？', images: [], tagNames: ['问答'], likes: 156, isPinned: false, status: 'published' },
+    { authorId: assistant.id, content: '这是一篇草稿帖子，还没有发布，正在编辑中...', images: [], tagNames: ['官方动态'], likes: 0, isPinned: false, status: 'draft' },
+    { authorId: fans[9].id, content: '这条内容因为包含不适当内容被隐藏了。', images: [], tagNames: [], likes: 12, isPinned: false, status: 'hidden' },
   ];
 
   for (const p of postsData) {
@@ -84,7 +108,7 @@ async function main() {
         images: JSON.stringify(p.images),
         likes: p.likes,
         isPinned: p.isPinned,
-        status: 'published',
+        status: p.status,
       },
     });
 
@@ -95,25 +119,86 @@ async function main() {
     }
   }
 
-  // ===== Comments =====
-  const posts = await prisma.post.findMany({ orderBy: { createdAt: 'asc' }, take: 4 });
-  if (posts[0]) {
-    const commentCount = await prisma.comment.count({ where: { postId: posts[0].id } });
-    if (commentCount === 0) {
-      await prisma.comment.createMany({
-        data: [
-          { postId: posts[0].id, authorId: fans[1].id, content: '冲冲冲！泽哥必上大师！', likes: 328 },
-          { postId: posts[0].id, authorId: assistant.id, content: '直播间已开启预约，点击主页预约按钮不迷路~', likes: 156 },
-        ],
-      });
+  // ===== Comments (含嵌套回复) =====
+  const allPosts = await prisma.post.findMany({ orderBy: { createdAt: 'asc' }, take: 14 });
+
+  // 帖子1: 直播预告 - 多条评论 + 嵌套回复
+  if (allPosts[0]) {
+    const cc = await prisma.comment.count({ where: { postId: allPosts[0].id } });
+    if (cc === 0) {
+      const c1 = await prisma.comment.create({ data: { postId: allPosts[0].id, authorId: fans[1].id, content: '冲冲冲！泽哥必上大师！', likes: 328 } });
+      await prisma.comment.create({ data: { postId: allPosts[0].id, authorId: fans[4].id, content: '泽哥稳的，上大师不在话下', likes: 89, parentId: c1.id, replyToName: '东北铁粉' } });
+      await prisma.comment.create({ data: { postId: allPosts[0].id, authorId: fans[6].id, content: '大师？直接冲王者吧！', likes: 56, parentId: c1.id, replyToName: '东北铁粉' } });
+      await prisma.comment.create({ data: { postId: allPosts[0].id, authorId: assistant.id, content: '直播间已开启预约，点击主页预约按钮不迷路~', likes: 156 } });
+      await prisma.comment.create({ data: { postId: allPosts[0].id, authorId: fans[2].id, content: '已预约！今晚准时到', likes: 67 } });
+      await prisma.comment.create({ data: { postId: allPosts[0].id, authorId: fans[7].id, content: '新粉第一次看直播，激动！', likes: 23 } });
     }
   }
-  if (posts[3]) {
-    const commentCount = await prisma.comment.count({ where: { postId: posts[3].id } });
-    if (commentCount === 0) {
-      await prisma.comment.create({
-        data: { postId: posts[3].id, authorId: star.id, content: '可以可以，这也太像了，直接拿去当头像了兄弟！', likes: 8900 },
-      });
+
+  // 帖子2: 名场面合集
+  if (allPosts[1]) {
+    const cc = await prisma.comment.count({ where: { postId: allPosts[1].id } });
+    if (cc === 0) {
+      await prisma.comment.create({ data: { postId: allPosts[1].id, authorId: fans[2].id, content: '泽子和宇将军那段太经典了', likes: 45 } });
+      await prisma.comment.create({ data: { postId: allPosts[1].id, authorId: fans[5].id, content: '"还有我我也是"百看不厌哈哈哈', likes: 112 } });
+      await prisma.comment.create({ data: { postId: allPosts[1].id, authorId: fans[8].id, content: '每段都是经典，楼主整理辛苦了！', likes: 78 } });
+    }
+  }
+
+  // 帖子3: 陈泽杯预告
+  if (allPosts[2]) {
+    const cc = await prisma.comment.count({ where: { postId: allPosts[2].id } });
+    if (cc === 0) {
+      await prisma.comment.create({ data: { postId: allPosts[2].id, authorId: fans[6].id, content: '我们五排队已经准备好了，就等报名！', likes: 234 } });
+      await prisma.comment.create({ data: { postId: allPosts[2].id, authorId: fans[10].id, content: '奖金超百万？这也太豪了吧', likes: 189 } });
+    }
+  }
+
+  // 帖子4: 同人绘画
+  if (allPosts[3]) {
+    const cc = await prisma.comment.count({ where: { postId: allPosts[3].id } });
+    if (cc === 0) {
+      const c1 = await prisma.comment.create({ data: { postId: allPosts[3].id, authorId: star.id, content: '可以可以，这也太像了，直接拿去当头像了兄弟！', likes: 8900 } });
+      await prisma.comment.create({ data: { postId: allPosts[3].id, authorId: fans[3].id, content: '啊啊啊泽子回复我了！！！激动到飞起！', likes: 456, parentId: c1.id, replyToName: '陈泽' } });
+      await prisma.comment.create({ data: { postId: allPosts[3].id, authorId: fans[2].id, content: '画得也太好了吧，求教程！', likes: 67 } });
+      await prisma.comment.create({ data: { postId: allPosts[3].id, authorId: fans[11].id, content: '可以做成表情包吗？求授权', likes: 34 } });
+    }
+  }
+
+  // 帖子5: 开黑组队
+  if (allPosts[4]) {
+    const cc = await prisma.comment.count({ where: { postId: allPosts[4].id } });
+    if (cc === 0) {
+      await prisma.comment.create({ data: { postId: allPosts[4].id, authorId: fans[6].id, content: '我钻石辅助，加我加我！', likes: 34 } });
+      await prisma.comment.create({ data: { postId: allPosts[4].id, authorId: fans[1].id, content: '回旋踢要多练练，先用AI练', likes: 12 } });
+    }
+  }
+
+  // 帖子6: 东北话教学
+  if (allPosts[5]) {
+    const cc = await prisma.comment.count({ where: { postId: allPosts[5].id } });
+    if (cc === 0) {
+      await prisma.comment.create({ data: { postId: allPosts[5].id, authorId: fans[5].id, content: '作为南方人我全学会了哈哈', likes: 89 } });
+      await prisma.comment.create({ data: { postId: allPosts[5].id, authorId: fans[7].id, content: '还有"嘎嘎好使"也很经典', likes: 45 } });
+      await prisma.comment.create({ data: { postId: allPosts[5].id, authorId: fans[0].id, content: '绥棱人表示这些都是日常用语', likes: 167 } });
+    }
+  }
+
+  // 帖子8: 元梦之星特别直播
+  if (allPosts[7]) {
+    const cc = await prisma.comment.count({ where: { postId: allPosts[7].id } });
+    if (cc === 0) {
+      await prisma.comment.create({ data: { postId: allPosts[7].id, authorId: fans[4].id, content: '泽哥带带我！', likes: 78 } });
+      await prisma.comment.create({ data: { postId: allPosts[7].id, authorId: fans[9].id, content: '新人报名！刚下载了元梦之星', likes: 23 } });
+    }
+  }
+
+  // 帖子12: 问答帖
+  if (allPosts[11]) {
+    const cc = await prisma.comment.count({ where: { postId: allPosts[11].id } });
+    if (cc === 0) {
+      await prisma.comment.create({ data: { postId: allPosts[11].id, authorId: fans[0].id, content: '一般晚上8-9点开播，偶尔下午也有，关注社区通知就不会错过', likes: 45 } });
+      await prisma.comment.create({ data: { postId: allPosts[11].id, authorId: assistant.id, content: '直播时间一般是每晚8-9点，具体以抖音直播预告为准哦~', likes: 89 } });
     }
   }
 
@@ -283,12 +368,239 @@ async function main() {
     }
   }
 
+  // ===== Music Tracks =====
+  const musicData = [
+    { title: '直播BGM - 热血出征', artist: '陈泽', src: 'https://cos.chenze.com/music/hot-blood.mp3', cover: PH(200, 200, 'BGM+1'), duration: 245, sortOrder: 1 },
+    { title: '直播BGM - 轻松时刻', artist: '陈泽', src: 'https://cos.chenze.com/music/chill-time.mp3', cover: PH(200, 200, 'BGM+2'), duration: 198, sortOrder: 2 },
+    { title: '陈泽杯主题曲', artist: '陈泽', src: 'https://cos.chenze.com/music/chenze-cup-theme.mp3', cover: PH(200, 200, 'CZCup'), duration: 312, sortOrder: 3 },
+    { title: '直播BGM - 峡谷战歌', artist: '陈泽', src: 'https://cos.chenze.com/music/canyon-battle.mp3', cover: PH(200, 200, 'BGM+3'), duration: 267, sortOrder: 4 },
+    { title: '直播BGM - 深夜电台', artist: '陈泽', src: 'https://cos.chenze.com/music/late-night.mp3', cover: PH(200, 200, 'BGM+4'), duration: 180, sortOrder: 5 },
+    { title: '粉丝应援曲', artist: '1103粉丝团', src: 'https://cos.chenze.com/music/fan-cheer.mp3', cover: PH(200, 200, 'FAN'), duration: 156, sortOrder: 6 },
+    { title: '直播BGM - 东北摇', artist: '陈泽', src: 'https://cos.chenze.com/music/dongbei-shake.mp3', cover: PH(200, 200, 'BGM+5'), duration: 210, sortOrder: 7, isActive: false },
+  ];
+
+  for (const m of musicData) {
+    const existing = await prisma.musicTrack.findFirst({ where: { title: m.title } });
+    if (!existing) await prisma.musicTrack.create({ data: m });
+  }
+
+  // ===== Media (COS文件管理) =====
+  const mediaData = [
+    { filename: 'chenze-avatar.jpg', url: PH(200, 200, 'CZ+Avatar'), cosKey: 'avatar/chenze-avatar.jpg', size: 45200, mimeType: 'image/jpeg', width: 200, height: 200, category: 'avatar' },
+    { filename: 'post-lol-stream.jpg', url: PH(600, 400, 'LOL+Stream'), cosKey: 'post/lol-stream.jpg', size: 128400, mimeType: 'image/jpeg', width: 600, height: 400, category: 'post' },
+    { filename: 'album-live-cover.jpg', url: PH(400, 300, 'Live+Cover'), cosKey: 'album/live-cover.jpg', size: 89600, mimeType: 'image/jpeg', width: 400, height: 300, category: 'album' },
+    { filename: 'hero-slide-1.jpg', url: PH(1920, 800, 'Hero+1'), cosKey: 'cover/hero-slide-1.jpg', size: 356800, mimeType: 'image/jpeg', width: 1920, height: 800, category: 'cover' },
+    { filename: 'game-lol-cover.jpg', url: PH(400, 540, 'LOL+Cover'), cosKey: 'game/lol-cover.jpg', size: 98700, mimeType: 'image/jpeg', width: 400, height: 540, category: 'game' },
+    { filename: 'event-cup-poster.jpg', url: PH(800, 400, 'Cup+Poster'), cosKey: 'event/cup-poster.jpg', size: 245300, mimeType: 'image/jpeg', width: 800, height: 400, category: 'event' },
+    { filename: 'fan-art-q.png', url: PH(600, 600, 'Fan+Art'), cosKey: 'post/fan-art-q.png', size: 178900, mimeType: 'image/png', width: 600, height: 600, category: 'post' },
+    { filename: 'chenze-banner.jpg', url: PH(1920, 600, 'Banner'), cosKey: 'cover/chenze-banner.jpg', size: 412000, mimeType: 'image/jpeg', width: 1920, height: 600, category: 'cover' },
+    { filename: 'bgm-hot-blood.mp3', url: 'https://cos.chenze.com/music/hot-blood.mp3', cosKey: 'music/hot-blood.mp3', size: 4520000, mimeType: 'audio/mpeg', category: 'general' },
+    { filename: 'naraka-clip.mp4', url: 'https://cos.chenze.com/video/naraka-clip.mp4', cosKey: 'video/naraka-clip.mp4', size: 15800000, mimeType: 'video/mp4', category: 'general' },
+  ];
+
+  for (const m of mediaData) {
+    const existing = await prisma.media.findFirst({ where: { cosKey: m.cosKey } });
+    if (!existing) await prisma.media.create({ data: m });
+  }
+
+  // ===== Banned Words (违禁词) =====
+  const bannedWordsData = [
+    { word: '赌博', category: 'gambling' },
+    { word: '博彩', category: 'gambling' },
+    { word: '代充', category: 'ad' },
+    { word: '外挂', category: 'ad' },
+    { word: '代练', category: 'ad' },
+    { word: '色情', category: 'porn' },
+    { word: '黄片', category: 'porn' },
+    { word: '暴力威胁', category: 'violence' },
+    { word: '人肉搜索', category: 'violence' },
+    { word: '脑残', category: 'abuse' },
+    { word: '智障', category: 'abuse' },
+    { word: '去死', category: 'abuse' },
+    { word: '反动', category: 'politics' },
+    { word: '颠覆', category: 'politics' },
+    { word: '加微信', category: 'ad' },
+    { word: '免费领取', category: 'ad' },
+    { word: '低价代购', category: 'ad' },
+    { word: '自定义测试词', category: 'custom', isActive: false },
+  ];
+
+  for (const bw of bannedWordsData) {
+    const existing = await prisma.bannedWord.findFirst({ where: { word: bw.word } });
+    if (!existing) await prisma.bannedWord.create({ data: bw });
+  }
+
+  // ===== PostLike (点赞记录) =====
+  const publishedPosts = allPosts.filter(p => p.status === 'published');
+  const postLikeCount = await prisma.postLike.count();
+  if (postLikeCount === 0 && publishedPosts.length > 0) {
+    const likesData: { userId: string; postId: string }[] = [];
+    // 每个粉丝给前几个帖子点赞
+    for (let fi = 0; fi < Math.min(fans.length, 8); fi++) {
+      for (let pi = 0; pi < Math.min(publishedPosts.length, 4); pi++) {
+        likesData.push({ userId: fans[fi].id, postId: publishedPosts[pi].id });
+      }
+    }
+    // star 和 assistant 也点赞
+    if (publishedPosts[3]) likesData.push({ userId: star.id, postId: publishedPosts[3].id });
+    if (publishedPosts[1]) likesData.push({ userId: assistant.id, postId: publishedPosts[1].id });
+
+    for (const l of likesData) {
+      const existing = await prisma.postLike.findFirst({ where: { userId: l.userId, postId: l.postId } });
+      if (!existing) await prisma.postLike.create({ data: l });
+    }
+  }
+
+  // ===== Bookmark (收藏) =====
+  const bookmarkCount = await prisma.bookmark.count();
+  if (bookmarkCount === 0 && publishedPosts.length > 0) {
+    const bookmarksData: { userId: string; postId: string }[] = [];
+    // 粉丝收藏精华帖子
+    if (publishedPosts[0]) { bookmarksData.push({ userId: fans[0].id, postId: publishedPosts[0].id }); bookmarksData.push({ userId: fans[1].id, postId: publishedPosts[0].id }); bookmarksData.push({ userId: fans[2].id, postId: publishedPosts[0].id }); }
+    if (publishedPosts[2]) { bookmarksData.push({ userId: fans[0].id, postId: publishedPosts[2].id }); bookmarksData.push({ userId: fans[3].id, postId: publishedPosts[2].id }); }
+    if (publishedPosts[3]) { bookmarksData.push({ userId: fans[1].id, postId: publishedPosts[3].id }); bookmarksData.push({ userId: fans[2].id, postId: publishedPosts[3].id }); }
+    if (publishedPosts[5]) { bookmarksData.push({ userId: fans[5].id, postId: publishedPosts[5].id }); }
+    if (publishedPosts[6]) { bookmarksData.push({ userId: fans[8].id, postId: publishedPosts[6].id }); }
+
+    for (const b of bookmarksData) {
+      const existing = await prisma.bookmark.findFirst({ where: { userId: b.userId, postId: b.postId } });
+      if (!existing) await prisma.bookmark.create({ data: b });
+    }
+  }
+
+  // ===== PointLog (积分记录) =====
+  const pointLogCount = await prisma.pointLog.count();
+  if (pointLogCount === 0) {
+    const now = new Date();
+    const pointLogsData = [
+      // fan1 - 高等级用户的丰富积分历史
+      { userId: fans[0].id, action: 'daily_login', points: 10, detail: '每日签到', createdAt: new Date(now.getTime() - 86400000 * 1) },
+      { userId: fans[0].id, action: 'daily_login', points: 10, detail: '每日签到', createdAt: new Date(now.getTime() - 86400000 * 2) },
+      { userId: fans[0].id, action: 'post', points: 20, detail: '发布帖子《经典名场面合集》', createdAt: new Date(now.getTime() - 86400000 * 3) },
+      { userId: fans[0].id, action: 'be_liked', points: 5, detail: '帖子被点赞', createdAt: new Date(now.getTime() - 86400000 * 3) },
+      { userId: fans[0].id, action: 'comment', points: 5, detail: '发表评论', createdAt: new Date(now.getTime() - 86400000 * 4) },
+      { userId: fans[0].id, action: 'event', points: 100, detail: '参加陈泽杯报名', createdAt: new Date(now.getTime() - 86400000 * 10) },
+      // fan2
+      { userId: fans[1].id, action: 'daily_login', points: 10, detail: '每日签到', createdAt: new Date(now.getTime() - 86400000 * 1) },
+      { userId: fans[1].id, action: 'comment', points: 5, detail: '发表评论', createdAt: new Date(now.getTime() - 86400000 * 1) },
+      { userId: fans[1].id, action: 'be_liked', points: 5, detail: '评论被点赞', createdAt: new Date(now.getTime() - 86400000 * 2) },
+      // fan5 - 中等级用户
+      { userId: fans[4].id, action: 'daily_login', points: 10, detail: '每日签到', createdAt: new Date(now.getTime() - 86400000 * 1) },
+      { userId: fans[4].id, action: 'post', points: 20, detail: '发布帖子《开黑组队》', createdAt: new Date(now.getTime() - 86400000 * 2) },
+      // fan10 - 新用户
+      { userId: fans[9].id, action: 'daily_login', points: 10, detail: '首次签到', createdAt: new Date(now.getTime() - 86400000 * 1) },
+      // star
+      { userId: star.id, action: 'post', points: 20, detail: '发布直播预告', createdAt: new Date(now.getTime() - 86400000 * 1) },
+      { userId: star.id, action: 'be_liked', points: 5, detail: '帖子被大量点赞', createdAt: new Date(now.getTime() - 86400000 * 1) },
+      // 负数积分示例
+      { userId: fans[9].id, action: 'post', points: -10, detail: '违规内容扣分', createdAt: new Date(now.getTime() - 86400000 * 1) },
+    ];
+
+    await prisma.pointLog.createMany({ data: pointLogsData });
+  }
+
+  // ===== Notification (通知) =====
+  const notifCount = await prisma.notification.count();
+  if (notifCount === 0) {
+    const now = new Date();
+    const notifsData = [
+      // 评论通知
+      { userId: star.id, type: 'comment', title: '新评论', content: '东北铁粉 评论了你的帖子"今晚九点直播英雄联盟"', link: '/community', isRead: false, fromId: fans[1].id, fromName: '东北铁粉', fromAvatar: PH(32, 32, 'F1'), createdAt: new Date(now.getTime() - 3600000) },
+      { userId: fans[3].id, type: 'comment', title: '陈泽回复了你', content: '陈泽 回复了你的帖子"花了一周画的陈泽Q版头像"', link: '/community', isRead: true, fromId: star.id, fromName: '陈泽', fromAvatar: PH(32, 32, 'CZ'), createdAt: new Date(now.getTime() - 7200000) },
+      // 点赞通知
+      { userId: fans[0].id, type: 'like', title: '帖子被点赞', content: 'LOL小迷妹 赞了你的帖子', link: '/community', isRead: false, fromId: fans[2].id, fromName: 'LOL小迷妹', fromAvatar: PH(32, 32, 'F2'), createdAt: new Date(now.getTime() - 1800000) },
+      { userId: fans[3].id, type: 'like', title: '帖子被点赞', content: '峡谷暴走族 赞了你的帖子', link: '/community', isRead: false, fromId: fans[6].id, fromName: '峡谷暴走族', fromAvatar: PH(32, 32, 'F7'), createdAt: new Date(now.getTime() - 5400000) },
+      // 置顶通知
+      { userId: star.id, type: 'pin', title: '帖子被置顶', content: '你的帖子"今晚九点直播英雄联盟"已被管理员置顶', link: '/community', isRead: true, createdAt: new Date(now.getTime() - 86400000) },
+      // 系统通知
+      { userId: fans[0].id, type: 'system', title: '欢迎来到1103社区', content: '恭喜你成功注册1103社区！快去发布你的第一条动态吧~', isRead: true, createdAt: new Date(now.getTime() - 86400000 * 30) },
+      { userId: fans[1].id, type: 'system', title: '等级提升', content: '恭喜你升级到 Lv.9 超级粉！继续互动可以解锁更多特权哦~', isRead: true, createdAt: new Date(now.getTime() - 86400000 * 5) },
+      { userId: fans[9].id, type: 'system', title: '欢迎来到1103社区', content: '恭喜你成功注册1103社区！快去发布你的第一条动态吧~', isRead: false, createdAt: new Date(now.getTime() - 86400000) },
+      // 给多个用户发系统通知
+      { userId: fans[2].id, type: 'system', title: '陈泽杯报名开启', content: '第二届英雄联盟陈泽杯报名已开启，快去查看详情吧！', link: '/events', isRead: false, createdAt: new Date(now.getTime() - 3600000 * 2) },
+      { userId: fans[4].id, type: 'system', title: '陈泽杯报名开启', content: '第二届英雄联盟陈泽杯报名已开启，快去查看详情吧！', link: '/events', isRead: false, createdAt: new Date(now.getTime() - 3600000 * 2) },
+    ];
+
+    await prisma.notification.createMany({ data: notifsData });
+  }
+
+  // ===== Feedback (反馈建议) =====
+  const feedbackCount = await prisma.feedback.count();
+  if (feedbackCount === 0) {
+    const feedbacksData = [
+      { type: 'suggestion', content: '建议增加暗黑模式，晚上看直播回放的时候太亮了', contact: 'fan1@test.com', status: 'resolved', reply: '感谢建议！暗黑模式已在开发计划中，预计下个版本上线。', userId: fans[0].id },
+      { type: 'suggestion', content: '希望社区能加一个私信功能，方便粉丝之间交流', contact: null, status: 'read', reply: null, userId: fans[2].id },
+      { type: 'bug', content: '在手机上打开相册页面时，图片加载很慢，有时候会卡住', contact: 'wechat: fan5_test', status: 'pending', reply: null, userId: fans[4].id },
+      { type: 'bug', content: '发帖时上传多张图片偶尔会失败，需要重新选择', contact: null, status: 'resolved', reply: '已修复上传并发限制问题，请更新后重试。', userId: fans[8].id },
+      { type: 'other', content: '想问一下社区后续会不会出周边商城？超想买泽子的周边！', contact: 'fan6@qq.com', status: 'read', reply: null, userId: fans[5].id },
+      { type: 'suggestion', content: '能不能加个粉丝排行榜，看看谁是最活跃的铁粉', contact: null, status: 'pending', reply: null, userId: fans[6].id },
+      { type: 'bug', content: '点赞之后数量没有立即更新，需要刷新页面', contact: null, status: 'pending', reply: null, userId: fans[7].id },
+      { type: 'suggestion', content: '建议在个人主页增加粉丝勋章展示区域', contact: null, status: 'pending', reply: null, userId: null },
+    ];
+
+    for (const f of feedbacksData) {
+      await prisma.feedback.create({ data: f });
+    }
+  }
+
+  // ===== Report (举报) =====
+  const reportCount = await prisma.report.count();
+  if (reportCount === 0 && publishedPosts.length > 0) {
+    const reportsData = [
+      { reporterId: fans[0].id, targetType: 'post', targetId: allPosts.find(p => p.status === 'hidden')?.id || publishedPosts[0].id, reason: 'inappropriate', description: '包含不适当内容', status: 'resolved', adminNote: '已隐藏该帖子' },
+      { reporterId: fans[2].id, targetType: 'comment', targetId: 'fake-comment-id-for-test', reason: 'spam', description: '评论区疑似广告', status: 'pending', adminNote: null },
+      { reporterId: fans[5].id, targetType: 'user', targetId: fans[9].id, reason: 'abuse', description: '该用户多次发布违规内容', status: 'reviewed', adminNote: '已警告该用户' },
+      { reporterId: fans[7].id, targetType: 'post', targetId: publishedPosts[0].id, reason: 'other', description: '误举报，抱歉', status: 'dismissed', adminNote: '误报，已驳回' },
+    ];
+
+    for (const r of reportsData) {
+      await prisma.report.create({ data: r });
+    }
+  }
+
+  // ===== 更多 Announcements (扩充公告类型) =====
+  const moreAnnouncementsData = [
+    { title: '社区规则更新', content: '为了维护良好的社区氛围，我们更新了社区规则：\n\n1. 禁止发布广告\n2. 禁止人身攻击\n3. 禁止搬运他人原创内容\n\n违规者将视情节严重程度进行警告或封禁处理。', type: 'warning', sortOrder: 3 },
+    { title: '系统维护通知', content: '2026年4月20日凌晨2:00-6:00将进行系统维护升级，届时社区将暂时无法访问。\n\n维护完成后将带来全新的个人主页和消息功能，敬请期待！', type: 'update', startAt: new Date('2026-04-20T02:00'), endAt: new Date('2026-04-20T06:00'), sortOrder: 4 },
+  ];
+
+  for (const a of moreAnnouncementsData) {
+    const existing = await prisma.announcement.findFirst({ where: { title: a.title } });
+    if (!existing) await prisma.announcement.create({ data: a });
+  }
+
+  // ===== 更多 Events (扩充活动状态) =====
+  const moreEventsData = [
+    { title: '1103社区上线庆典', description: '社区正式上线！在线直播庆祝，抽奖送周边。', cover: PH(800, 400, 'Launch+Party'), startTime: new Date('2026-03-01T20:00'), endTime: new Date('2026-03-01T23:00'), location: '抖音直播间', status: 'ended', participants: 320000 },
+    { title: '陈泽x永劫无间联动直播', description: '与永劫无间官方联动特别直播，解锁限定皮肤。', cover: PH(800, 400, 'Naraka+Collab'), startTime: new Date('2026-04-16T20:00'), endTime: new Date('2026-04-16T23:00'), location: '抖音直播间', status: 'ongoing', participants: 480000 },
+  ];
+
+  for (const e of moreEventsData) {
+    const existing = await prisma.event.findFirst({ where: { title: e.title } });
+    if (!existing) await prisma.event.create({ data: e });
+  }
+
+  // ===== 更多 SiteConfig (stats 分组) =====
+  const statsConfigs = [
+    { key: 'stats_total_fans', value: '22096000', group: 'stats', label: '总粉丝数' },
+    { key: 'stats_today_posts', value: '3680', group: 'stats', label: '今日发帖' },
+    { key: 'stats_total_interactions', value: '65892000', group: 'stats', label: '总互动数' },
+    { key: 'stats_online_now', value: '12800', group: 'stats', label: '当前在线' },
+  ];
+
+  for (const c of statsConfigs) {
+    await prisma.siteConfig.upsert({ where: { key: c.key }, update: { value: c.value }, create: c });
+  }
+
   console.log('✅ Seed completed!');
   console.log('');
   console.log('   管理后台: admin@chenze.com / admin123');
   console.log('   编辑账号: editor@chenze.com / admin123');
+  console.log('   社区管理: mod@chenze.com / admin123');
   console.log('');
-  console.log('   前台用户: fan1@test.com / fan12345');
+  console.log('   前台用户: fan1@test.com ~ fan12@test.com / fan12345');
+  console.log('   明星用户: chenze@chenze.com / fan12345');
+  console.log('   助理用户: assistant@chenze.com / fan12345');
 }
 
 main()

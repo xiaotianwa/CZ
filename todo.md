@@ -42,6 +42,26 @@
 
 ---
 
+## 新增页面
+
+### 1103梗百科 ✔
+- [x] Prisma `Meme` 模型（title, origin, description, example, image, tags, popularity）
+- [x] 公共 API `/api/public/memes` 列表查询
+- [x] 管理后台 API `/api/admin/memes` CRUD
+- [x] 前台展示页 `/memes`（搜索、标签筛选、手风琴展开详情）
+- [x] 管理后台页面 `/admin/memes`（增删改查 + 标签管理）
+- [x] 导航栏 & 页脚添加入口
+
+### 二创作品 ✔
+- [x] Prisma `FanWork` 模型（title, type, cover, images, authorName, source, isFeatured）
+- [x] 公共 API `/api/public/fan-works` 列表查询（支持类型筛选）
+- [x] 管理后台 API `/api/admin/fan-works` CRUD
+- [x] 前台展示页 `/fan-works`（类型筛选、精选推荐、瀑布流卡片、Lightbox 图片预览）
+- [x] 管理后台页面 `/admin/fan-works`（增删改查 + 多图管理）
+- [x] 导航栏 & 页脚添加入口
+
+---
+
 ## 三、主题与视觉
 
 ### 3.1 暗色模式 ✔
@@ -113,6 +133,8 @@
 | 评论嵌套回复 | ✔ 已完成 |
 | 帖子无限滚动 | ✔ 已完成 |
 | 签到打卡可视化 | ✔ 已完成 |
+| 1103梗百科 | ✔ 已完成 |
+| 二创作品 | ✔ 已完成 |
 | 暗色模式（核心） | ✔ 已完成 |
 | 暗色模式（粉丝地图） | ✔ 已完成 |
 | 暗色模式（其他页面） | 🔲 待完成 |

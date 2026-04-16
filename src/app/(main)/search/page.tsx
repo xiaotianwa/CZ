@@ -103,6 +103,8 @@ export default function SearchPage() {
   const [hotPosts, setHotPosts] = useState<HotPost[]>([]);
   const [filterTagId, setFilterTagId] = useState<string>('');
   const [filterTagName, setFilterTagName] = useState<string>('');
+  const [filterAuthorId, setFilterAuthorId] = useState<string>('');
+  const [filterAuthorName, setFilterAuthorName] = useState<string>('');
 
   // 获取热门数据（无关键词时）
   useEffect(() => {
@@ -136,9 +138,9 @@ export default function SearchPage() {
 
   const doSearch = useCallback(async (keyword: string, type: TabKey) => {
     const normalizedKeyword = keyword.trim();
-    if (!normalizedKeyword && !filterTagId) return;
+    if (!normalizedKeyword && !filterTagId && !filterAuthorId) return;
 
-    const cacheKey = `${normalizedKeyword}__${type}__${filterTagId}`;
+    const cacheKey = `${normalizedKeyword}__${type}__${filterTagId}__${filterAuthorId}`;
     const cached = cacheRef.current.get(cacheKey);
     if (cached) {
       setPosts(cached.posts);
@@ -152,6 +154,7 @@ export default function SearchPage() {
     try {
       const params = new URLSearchParams({ q: normalizedKeyword, type, pageSize: '30' });
       if (filterTagId) params.set('tagId', filterTagId);
+      if (filterAuthorId) params.set('authorId', filterAuthorId);
       const res = await fetch(`/api/public/search?${params}`);
       const json = await res.json();
       if (json.code === 0 && json.data) {
@@ -172,11 +175,11 @@ export default function SearchPage() {
       }
     } catch { /* ignore */ }
     setLoading(false);
-  }, [filterTagId]);
+  }, [filterTagId, filterAuthorId]);
 
   useEffect(() => {
     setQuery(q);
-    if (q || filterTagId) {
+    if (q || filterTagId || filterAuthorId) {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
       debounceTimerRef.current = setTimeout(() => {
         doSearch(q, activeTab);
@@ -190,7 +193,7 @@ export default function SearchPage() {
     return () => {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     };
-  }, [q, activeTab, filterTagId, doSearch]);
+  }, [q, activeTab, filterTagId, filterAuthorId, doSearch]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -212,6 +215,8 @@ export default function SearchPage() {
     setUserTotal(0);
     setFilterTagId('');
     setFilterTagName('');
+    setFilterAuthorId('');
+    setFilterAuthorName('');
     router.push('/search');
     inputRef.current?.focus();
   };
@@ -226,6 +231,17 @@ export default function SearchPage() {
     setFilterTagName('');
   };
 
+  const handleFilterByAuthor = (authorId: string, authorName: string) => {
+    setFilterAuthorId(authorId);
+    setFilterAuthorName(authorName);
+    setActiveTab('posts');
+  };
+
+  const clearAuthorFilter = () => {
+    setFilterAuthorId('');
+    setFilterAuthorName('');
+  };
+
   const handleTabChange = (tab: TabKey) => {
     setActiveTab(tab);
     setPosts([]);
@@ -234,7 +250,7 @@ export default function SearchPage() {
 
   const showPosts = activeTab === 'all' || activeTab === 'posts';
   const showUsers = activeTab === 'all' || activeTab === 'users';
-  const displayKeyword = q || filterTagName;
+  const displayKeyword = q || filterTagName || filterAuthorName;
 
   return (
     <div className="pt-14 min-h-screen bg-gray-50/50 dark:bg-[#111113]">
@@ -272,17 +288,25 @@ export default function SearchPage() {
           </form>
 
           {/* Active filters */}
-          {filterTagId && (
-            <div className="flex items-center gap-2 mt-3 max-w-2xl mx-auto">
+          {(filterTagId || filterAuthorId) && (
+            <div className="flex items-center gap-2 mt-3 max-w-2xl mx-auto flex-wrap">
               <span className="text-caption text-text-muted">筛选：</span>
-              <span className="inline-flex items-center gap-1 h-7 px-2.5 rounded-full bg-primary/10 text-primary text-caption font-medium">
-                <Hash className="w-3 h-3" />{filterTagName}
-                <button onClick={clearTagFilter} className="ml-0.5 p-0.5 rounded-full hover:bg-primary/20 cursor-pointer"><X className="w-3 h-3" /></button>
-              </span>
+              {filterTagId && (
+                <span className="inline-flex items-center gap-1 h-7 px-2.5 rounded-full bg-primary/10 text-primary text-caption font-medium">
+                  <Hash className="w-3 h-3" />{filterTagName}
+                  <button onClick={clearTagFilter} className="ml-0.5 p-0.5 rounded-full hover:bg-primary/20 cursor-pointer"><X className="w-3 h-3" /></button>
+                </span>
+              )}
+              {filterAuthorId && (
+                <span className="inline-flex items-center gap-1 h-7 px-2.5 rounded-full bg-orange-500/10 text-orange-600 text-caption font-medium">
+                  <Users className="w-3 h-3" />{filterAuthorName}
+                  <button onClick={clearAuthorFilter} className="ml-0.5 p-0.5 rounded-full hover:bg-orange-500/20 cursor-pointer"><X className="w-3 h-3" /></button>
+                </span>
+              )}
             </div>
           )}
 
-          {(q || filterTagId) && (
+          {(q || filterTagId || filterAuthorId) && (
             <div className="flex gap-1 mt-3 max-w-2xl mx-auto">
               {tabs.map((tab) => (
                 <button
@@ -308,7 +332,7 @@ export default function SearchPage() {
 
       {/* 搜索结果 / 发现页 */}
       <div className="container-main px-4 sm:px-6 lg:px-8 py-6">
-        {!q && !filterTagId ? (
+        {!q && !filterTagId && !filterAuthorId ? (
           /* ========= 无搜索词：展示发现页 ========= */
           <div className="max-w-2xl mx-auto space-y-8">
             {/* 热门标签 */}
@@ -494,7 +518,7 @@ export default function SearchPage() {
                 )}
                 <div className="grid sm:grid-cols-2 gap-3">
                   {users.map((u) => (
-                    <Link key={u.id} href={`/community?author=${u.id}`} className="bg-white dark:bg-[#1e1e22] rounded-card border border-divider p-4 flex items-center gap-3 hover:shadow-card transition-shadow">
+                    <div key={u.id} className="bg-white dark:bg-[#1e1e22] rounded-card border border-divider p-4 flex items-center gap-3 hover:shadow-card transition-shadow">
                       <div className="relative w-11 h-11 rounded-full overflow-hidden flex-shrink-0 bg-gray-100">
                         {u.avatar ? (
                           <Image src={u.avatar} alt={u.name} fill className="object-cover" />
@@ -522,8 +546,16 @@ export default function SearchPage() {
                           <span>{u._count.comments} 评论</span>
                           {u.city && <span>{u.city}</span>}
                         </div>
+                        {u._count.posts > 0 && (
+                          <button
+                            onClick={() => handleFilterByAuthor(u.id, u.name)}
+                            className="mt-1.5 text-caption text-primary hover:underline cursor-pointer inline-flex items-center gap-1"
+                          >
+                            <FileText className="w-3 h-3" /> 筛选TA的帖子
+                          </button>
+                        )}
                       </div>
-                    </Link>
+                    </div>
                   ))}
                 </div>
               </div>

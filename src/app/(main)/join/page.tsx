@@ -182,7 +182,7 @@ export default function JoinPage() {
       <div className="relative min-h-screen pt-20 pb-16 overflow-hidden animate-fade-in-up">
         <div className="container-main px-4 sm:px-6 lg:px-8 max-w-md mx-auto text-center relative z-10">
           <div className="card p-8 sm:p-10">
-            <div className="w-16 h-16 rounded-full bg-green-50 flex items-center justify-center mx-auto">
+            <div className="w-16 h-16 rounded-full bg-green-50 dark:bg-green-900/20 flex items-center justify-center mx-auto">
               <CheckCircle className="w-8 h-8 text-success" />
             </div>
             <h1 className="text-heading text-text-title mt-5">
@@ -228,7 +228,7 @@ export default function JoinPage() {
             </div>
             <div className="h-px flex-1 bg-divider" />
             <div className={`flex items-center gap-2 flex-1 ${step === 'register' ? 'text-primary' : 'text-text-muted'}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${step === 'register' ? 'bg-primary text-white' : 'bg-gray-100 text-text-muted'}`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${step === 'register' ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-[#28282c] text-text-muted'}`}>
                 2
               </div>
               <span className="text-caption font-medium">填写信息</span>
@@ -271,7 +271,7 @@ export default function JoinPage() {
               </div>
 
               {/* Progress bar */}
-              <div className="w-full h-1.5 bg-gray-100 rounded-full mb-6">
+              <div className="w-full h-1.5 bg-gray-100 dark:bg-[#28282c] rounded-full mb-6">
                 <div
                   className="h-full bg-primary rounded-full transition-all duration-300"
                   style={{ width: `${((currentQ + (showResult ? 1 : 0)) / totalQ) * 100}%` }}
@@ -282,14 +282,16 @@ export default function JoinPage() {
 
               <div className="space-y-2.5">
                 {q.options.map((opt, idx) => {
-                  let optClass = 'bg-white border border-divider text-text-body hover:border-primary hover:text-primary';
+                  let optClass = 'bg-white dark:bg-[#1e1e22] border border-divider text-text-body hover:border-primary hover:text-primary';
                   if (showResult) {
-                    if (idx === q.answer) {
-                      optClass = 'bg-green-50 border-2 border-success text-success';
-                    } else if (idx === selected && idx !== q.answer) {
-                      optClass = 'bg-red-50 border-2 border-danger text-danger';
+                    if (selected === q.answer && idx === q.answer) {
+                      // 答对时：高亮正确选项
+                      optClass = 'bg-green-50 dark:bg-green-900/20 border-2 border-success text-success';
+                    } else if (idx === selected && selected !== q.answer) {
+                      // 答错时：只标红用户选的错误选项，不显示正确答案
+                      optClass = 'bg-red-50 dark:bg-red-900/20 border-2 border-danger text-danger';
                     } else {
-                      optClass = 'bg-white border border-divider text-text-muted opacity-50';
+                      optClass = 'bg-white dark:bg-[#1e1e22] border border-divider text-text-muted opacity-50';
                     }
                   } else if (idx === selected) {
                     optClass = 'bg-primary/10 border-2 border-primary text-primary';
@@ -341,7 +343,7 @@ export default function JoinPage() {
         {step === 'quiz' && quizFailed && (
           <div className="max-w-md mx-auto text-center">
             <div className="card p-8 sm:p-10">
-              <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mx-auto">
+              <div className="w-16 h-16 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center mx-auto">
                 <XCircle className="w-8 h-8 text-danger" />
               </div>
               <h2 className="text-heading text-text-title mt-5">你根本就不是泽小将</h2>
@@ -423,7 +425,7 @@ export default function JoinPage() {
               <h3 className="text-heading-sm text-text-title mb-4">注册信息</h3>
 
               {regError && (
-                <div className="flex items-center gap-2 p-3 rounded-btn bg-red-50 text-danger text-body mb-4">
+                <div className="flex items-center gap-2 p-3 rounded-btn bg-red-50 dark:bg-red-900/20 text-danger text-body mb-4">
                   <XCircle className="w-4 h-4 flex-shrink-0" />
                   {regError}
                 </div>
@@ -511,7 +513,7 @@ export default function JoinPage() {
                           <div
                             key={i}
                             className={`h-1 flex-1 rounded-full transition-all duration-200 ${
-                              i <= pwdStrength.level ? pwdStrength.color : 'bg-gray-100'
+                              i <= pwdStrength.level ? pwdStrength.color : 'bg-gray-100 dark:bg-[#28282c]'
                             }`}
                           />
                         ))}

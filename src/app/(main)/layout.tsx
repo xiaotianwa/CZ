@@ -4,6 +4,7 @@ import AnnouncementPopup from '@/components/AnnouncementPopup';
 import MusicPlayer from '@/components/MusicPlayer';
 import SplashScreen from '@/components/SplashScreen';
 import MobileUXEnhancer from '@/components/MobileUXEnhancer';
+import ToastProvider from '@/components/ToastProvider';
 import { getSiteConfig } from '@/lib/site-data';
 
 export const dynamic = 'force-dynamic';
@@ -18,7 +19,7 @@ export default async function MainLayout({
   const siteDescription = cfg.site_description || `${profileName}的专属粉丝社区`;
 
   return (
-    <>
+    <ToastProvider>
       <Navbar profileName={profileName} />
       <main className="relative isolate bg-bg-page pb-20 md:pb-0">
         <div className="pointer-events-none fixed inset-0 overflow-hidden select-none z-0" aria-hidden="true">
@@ -62,6 +63,6 @@ export default async function MainLayout({
       <AnnouncementPopup />
       <MusicPlayer />
       <SplashScreen />
-    </>
+    </ToastProvider>
   );
 }

@@ -142,7 +142,7 @@ export default function GalleryPage() {
                 {filteredAlbums.map((album: any) => (
                   <div
                     key={album.id}
-                    className="group cursor-pointer rounded-card overflow-hidden bg-white/40 backdrop-blur-md border border-white/70 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5),0_4px_24px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 hover:bg-white/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6),0_8px_32px_rgba(0,0,0,0.10)] transition-all duration-200"
+                    className="group cursor-pointer rounded-card overflow-hidden bg-white/40 dark:bg-[#1e1e22]/80 backdrop-blur-md border border-white/70 dark:border-[#333] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5),0_4px_24px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.3)] hover:-translate-y-0.5 hover:bg-white/50 dark:hover:bg-[#1e1e22] hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6),0_8px_32px_rgba(0,0,0,0.10)] transition-all duration-200"
                     onClick={() => setOpenAlbumId(album.id)}
                   >
                     <div className="relative aspect-[4/3] overflow-hidden bg-gray-100 dark:bg-[#28282c]">
@@ -186,7 +186,7 @@ export default function GalleryPage() {
                 {openAlbum.photos.map((photo: any, idx: number) => (
                   <div
                     key={photo.id}
-                    className="relative rounded-card overflow-hidden cursor-pointer group break-inside-avoid bg-white/40 backdrop-blur-md border border-white/70 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5),0_2px_12px_rgba(0,0,0,0.06)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.10)] transition-all duration-200"
+                    className="relative rounded-card overflow-hidden cursor-pointer group break-inside-avoid bg-white/40 dark:bg-[#1e1e22]/80 backdrop-blur-md border border-white/70 dark:border-[#333] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5),0_2px_12px_rgba(0,0,0,0.06)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.3)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.10)] transition-all duration-200"
                     onClick={() => setLightbox({ albumId: openAlbum.id, photoIndex: idx })}
                   >
                     <div className={`relative ${idx % 3 === 0 ? 'aspect-[3/4]' : idx % 3 === 1 ? 'aspect-square' : 'aspect-[4/3]'}`}>

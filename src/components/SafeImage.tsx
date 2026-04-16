@@ -28,7 +28,7 @@ export default function SafeImage({
       );
     }
     return (
-      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-50 to-gray-100">
+      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-50 to-gray-100 dark:from-[#1e1e22] dark:to-[#28282c]">
         <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="1.5">
           <rect x="3" y="3" width="18" height="18" rx="3" />
           <circle cx="8.5" cy="8.5" r="1.5" />
@@ -38,5 +38,5 @@ export default function SafeImage({
     );
   }
 
-  return <Image src={src} alt={alt} {...imageProps} onError={() => setError(true)} />;
+  return <Image src={src} alt={alt} loading="lazy" {...imageProps} onError={() => setError(true)} />;
 }

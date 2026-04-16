@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
-import { Menu, X, Search, LogIn, LogOut, User as UserIcon, Bell, MessageCircle, Heart, Pin, Info } from 'lucide-react';
+import { Menu, X, Search, LogIn, LogOut, User as UserIcon, Bell, MessageCircle, Heart, Pin, Info, ChevronDown } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 
 interface UserInfo {
@@ -21,12 +21,18 @@ export default function Navbar({ profileName }: { profileName: string }) {
   const navLinks = [
     { href: '/', label: '首页' },
     { href: '/profile', label: `关于${profileName}` },
-    { href: '/gallery', label: '相册' },
     { href: '/community', label: '社区' },
     { href: '/games', label: '最近在玩' },
-    { href: '/events', label: '活动' },
     { href: '/fan-map', label: '粉丝地图' },
   ];
+  const moreLinks = [
+    { href: '/gallery', label: '相册' },
+    { href: '/memes', label: '梗百科' },
+    { href: '/fan-works', label: '二创作品' },
+    { href: '/events', label: '活动' },
+  ];
+  const allLinks = [...navLinks, ...moreLinks];
+  const isMoreActive = moreLinks.some((l) => pathname === l.href);
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [user, setUser] = useState<UserInfo | null>(null);
@@ -36,6 +42,8 @@ export default function Navbar({ profileName }: { profileName: string }) {
   const [notifications, setNotifications] = useState<{ id: string; type: string; title: string; content: string; link?: string | null; isRead: boolean; fromAvatar?: string | null; createdAt: string }[]>([]);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
+  const moreRef = useRef<HTMLDivElement>(null);
+  const [moreOpen, setMoreOpen] = useState(false);
   const mobileMenuId = 'mobile-nav-menu';
 
   useEffect(() => {
@@ -95,6 +103,9 @@ export default function Navbar({ profileName }: { profileName: string }) {
       }
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
         setNotifOpen(false);
+      }
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
+        setMoreOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClick);
@@ -168,6 +179,46 @@ export default function Navbar({ profileName }: { profileName: string }) {
                 {link.label}
               </Link>
             ))}
+            {/* "发现" 下拉菜单 */}
+            <div className="relative" ref={moreRef}>
+              <button
+                onClick={() => setMoreOpen(!moreOpen)}
+                onMouseEnter={() => setMoreOpen(true)}
+                className={`inline-flex items-center gap-0.5 ${txtHover} transition-colors duration-150 whitespace-nowrap cursor-pointer ${isMoreActive ? (darkMode ? 'text-white' : 'text-primary') : ''}`}
+              >
+                发现
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-150 ${moreOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {moreOpen && (
+                <div
+                  className={`absolute left-1/2 -translate-x-1/2 top-full pt-2`}
+                  onMouseLeave={() => setMoreOpen(false)}
+                >
+                  <div className={`w-32 rounded-xl py-1.5 border backdrop-blur-md ${
+                    darkMode
+                      ? 'bg-[#1a1a1a]/90 border-white/15 shadow-[0_8px_24px_rgba(0,0,0,0.4)]'
+                      : 'bg-white/95 border-gray-200 shadow-dropdown'
+                  }`}>
+                    {moreLinks.map((link) => (
+                      <Link
+                        key={link.href}
+                        href={link.href}
+                        onClick={() => setMoreOpen(false)}
+                        className={`block px-4 py-2 text-[13px] font-medium transition-colors duration-150 ${
+                          pathname === link.href
+                            ? 'text-primary'
+                            : darkMode
+                              ? 'text-white/80 hover:text-white hover:bg-white/10'
+                              : 'text-text-body hover:text-primary hover:bg-gray-50'
+                        }`}
+                      >
+                        {link.label}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Center: logo — absolute positioned for true centering */}
@@ -344,6 +395,20 @@ export default function Navbar({ profileName }: { profileName: string }) {
                   {link.label}
                 </Link>
               ))}
+              {/* 移动端「发现」分组 */}
+              <div className={`mt-1 pt-1 border-t ${darkMode ? 'border-white/10' : 'border-gray-100'}`}>
+                <span className={`px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider ${darkMode ? 'text-white/40' : 'text-text-disabled'}`}>发现</span>
+                {moreLinks.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className={`px-3 py-2 rounded-lg text-[13px] font-medium ${darkMode ? 'text-white/90 hover:bg-white/10' : 'text-text-body hover:bg-gray-50 hover:text-primary'}`}
+                    onClick={() => setIsOpen(false)}
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </div>
               <div className={`mt-2 pt-2 border-t flex flex-col gap-1 ${darkMode ? 'border-white/15' : 'border-gray-200'}`}>
                 {user ? (
                   <>

@@ -135,9 +135,9 @@ function ConfirmModal({ open, title, message, loading, onConfirm, onCancel }: {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onCancel} />
-      <div className="relative bg-white rounded-card shadow-dropdown border border-divider w-full max-w-sm mx-4 p-6 animate-fade-in-up">
+      <div className="relative bg-white dark:bg-[#1e1e22] rounded-card shadow-dropdown border border-divider w-full max-w-sm mx-4 p-6 animate-fade-in-up">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center flex-shrink-0">
+          <div className="w-10 h-10 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center flex-shrink-0">
             <Trash2 className="w-5 h-5 text-danger" />
           </div>
           <div>
@@ -178,7 +178,7 @@ function Toast({ message, type, onClose }: { message: string; type: 'success' | 
   return (
     <div className="fixed top-20 right-4 z-50 animate-slide-in">
       <div className={`flex items-center gap-2 px-4 py-3 rounded-card shadow-dropdown border ${
-        type === 'success' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-danger'
+        type === 'success' ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800/40 text-green-700 dark:text-green-400' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/40 text-danger'
       }`}>
         {type === 'success' ? <Check className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
         <span className="text-body font-medium">{message}</span>
@@ -249,7 +249,7 @@ export default function MePage() {
       <section className="container-main px-4 sm:px-6 lg:px-8 -mt-12 relative z-10 animate-fade-in-up">
         <div className="card p-6">
           <div className="flex flex-col sm:flex-row items-center sm:items-end gap-4">
-            <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden border-3 border-white shadow-card -mt-12 sm:-mt-16 flex-shrink-0 bg-gray-100">
+            <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden border-3 border-white dark:border-[#28282c] shadow-card -mt-12 sm:-mt-16 flex-shrink-0 bg-gray-100 dark:bg-[#28282c]">
               {user.avatar ? (
                 <Image src={user.avatar} alt={user.name} fill className="object-cover" />
               ) : (
@@ -292,7 +292,7 @@ export default function MePage() {
                 className={`flex items-center gap-2.5 px-4 py-2.5 rounded-btn text-body font-medium transition-colors duration-150 cursor-pointer whitespace-nowrap ${
                   activeTab === tab.key
                     ? 'bg-primary text-white shadow-sm'
-                    : 'text-text-body hover:bg-gray-50 hover:text-primary'
+                    : 'text-text-body hover:bg-gray-50 dark:hover:bg-[#28282c] hover:text-primary'
                 }`}
               >
                 <tab.icon className="w-4 h-4" />
@@ -401,7 +401,7 @@ function ProfileTab({ user, onUpdate, showToast }: { user: UserProfile; onUpdate
         {/* Avatar */}
         <div className="flex items-center gap-4 pb-6 border-b border-divider">
           <div className="relative group">
-            <div className="w-16 h-16 rounded-full overflow-hidden bg-gray-100 flex-shrink-0">
+            <div className="w-16 h-16 rounded-full overflow-hidden bg-gray-100 dark:bg-[#28282c] flex-shrink-0">
               {user.avatar ? (
                 <Image src={user.avatar} alt={user.name} width={64} height={64} className="object-cover w-full h-full" />
               ) : (
@@ -435,7 +435,7 @@ function ProfileTab({ user, onUpdate, showToast }: { user: UserProfile; onUpdate
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 maxLength={20}
-                className="h-10 px-3 rounded-btn border border-border bg-white text-body text-text-title focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors duration-150"
+                className="h-10 px-3 rounded-btn border border-border bg-white dark:bg-[#28282c] text-body text-text-title focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors duration-150"
               />
             ) : (
               <p className="text-body text-text-title pt-2">{user.name}</p>
@@ -472,7 +472,7 @@ function ProfileTab({ user, onUpdate, showToast }: { user: UserProfile; onUpdate
                 maxLength={200}
                 rows={3}
                 placeholder="介绍一下你自己吧..."
-                className="px-3 py-2 rounded-btn border border-border bg-white text-body text-text-title placeholder:text-text-disabled resize-none focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors duration-150"
+                className="px-3 py-2 rounded-btn border border-border bg-white dark:bg-[#28282c] text-body text-text-title placeholder:text-text-disabled resize-none focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors duration-150"
               />
             ) : (
               <p className="text-body text-text-body pt-2">{user.bio || '暂未设置'}</p>
@@ -555,7 +555,7 @@ function PostsTab({ showToast }: { showToast: (msg: string, type: 'success' | 'e
                       </div>
                     )}
                   </div>
-                  <span className={`tag flex-shrink-0 ${post.status === 'published' ? 'bg-green-50 text-success' : post.status === 'hidden' ? 'bg-red-50 text-danger' : 'bg-gray-100 text-text-muted'}`}>
+                  <span className={`tag flex-shrink-0 ${post.status === 'published' ? 'bg-green-50 dark:bg-green-900/20 text-success' : post.status === 'hidden' ? 'bg-red-50 dark:bg-red-900/20 text-danger' : 'bg-gray-100 dark:bg-[#28282c] text-text-muted'}`}>
                     {post.status === 'published' ? '已发布' : post.status === 'hidden' ? '已隐藏' : '草稿'}
                   </span>
                 </div>
@@ -661,7 +661,7 @@ function CommentsTab({ showToast }: { showToast: (msg: string, type: 'success' |
           {comments.map((comment) => (
             <div key={comment.id} className="card">
               <p className="text-body text-text-body leading-relaxed">{comment.content}</p>
-              <div className="mt-3 p-3 rounded-btn bg-gray-50 border border-divider">
+              <div className="mt-3 p-3 rounded-btn bg-gray-50 dark:bg-[#28282c] border border-divider">
                 <div className="flex items-center gap-1 text-caption text-text-muted mb-1">
                   <ChevronRight className="w-3 h-3" /> 回复的帖子
                 </div>
@@ -774,7 +774,7 @@ function LevelTab({ user }: { user: UserProfile }) {
               <span className={`tag text-white ${levelInfo.color}`}>{levelInfo.name}</span>
             </div>
             <p className="text-caption text-text-muted mt-1">当前积分：{user.points}  ·  升级还需：{Math.max(0, nextPts - user.points)} 积分</p>
-            <div className="mt-3 h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div className="mt-3 h-2 bg-gray-100 dark:bg-[#28282c] rounded-full overflow-hidden">
               <div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />
             </div>
             <div className="flex justify-between mt-1">
@@ -825,7 +825,7 @@ function LevelTab({ user }: { user: UserProfile }) {
                     key={p}
                     onClick={() => fetchLogs(p)}
                     className={`w-8 h-8 rounded-btn text-caption font-medium transition-colors duration-150 cursor-pointer ${
-                      p === logPagination.page ? 'bg-primary text-white' : 'text-text-muted hover:bg-gray-50'
+                      p === logPagination.page ? 'bg-primary text-white' : 'text-text-muted hover:bg-gray-50 dark:hover:bg-[#28282c]'
                     }`}
                   >
                     {p}
@@ -844,7 +844,7 @@ function LevelTab({ user }: { user: UserProfile }) {
           {milestones.map((m) => {
             const reached = user.level >= m.level;
             return (
-              <div key={m.level} className={`flex items-center gap-3 p-3 rounded-btn ${reached ? 'bg-primary-bg' : 'bg-gray-50'}`}>
+              <div key={m.level} className={`flex items-center gap-3 p-3 rounded-btn ${reached ? 'bg-primary-bg' : 'bg-gray-50 dark:bg-[#28282c]'}`}>
                 <m.icon className={`w-5 h-5 ${reached ? m.color : 'text-text-disabled'}`} />
                 <div className="flex-1">
                   <span className={`text-body font-medium ${reached ? 'text-text-title' : 'text-text-disabled'}`}>Lv.{m.level} {m.name}</span>
@@ -877,7 +877,7 @@ function LevelTab({ user }: { user: UserProfile }) {
 // ===== Password Strength =====
 
 function getPasswordStrength(password: string): { level: 0 | 1 | 2 | 3; label: string; color: string; barColor: string } {
-  if (!password) return { level: 0, label: '', color: '', barColor: 'bg-gray-200' };
+  if (!password) return { level: 0, label: '', color: '', barColor: 'bg-gray-200 dark:bg-gray-700' };
   let score = 0;
   if (password.length >= 6) score++;
   if (password.length >= 10) score++;
@@ -901,7 +901,7 @@ function PasswordStrength({ password }: { password: string }) {
           <div
             key={i}
             className={`h-1.5 flex-1 rounded-full transition-colors duration-200 ${
-              i <= strength.level ? strength.barColor : 'bg-gray-200'
+              i <= strength.level ? strength.barColor : 'bg-gray-200 dark:bg-gray-700'
             }`}
           />
         ))}
@@ -986,7 +986,7 @@ function SecurityTab({ showToast }: { showToast: (msg: string, type: 'success' |
                 onChange={(e) => { setForm({ ...form, oldPassword: e.target.value }); setOldPwdStatus('idle'); }}
                 onBlur={verifyOldPassword}
                 placeholder="请输入当前密码"
-                className={`w-full h-10 pl-10 pr-10 rounded-btn border bg-white text-body text-text-title placeholder:text-text-disabled focus:outline-none focus:ring-2 transition-colors duration-150 ${
+                className={`w-full h-10 pl-10 pr-10 rounded-btn border bg-white dark:bg-[#28282c] text-body text-text-title placeholder:text-text-disabled focus:outline-none focus:ring-2 transition-colors duration-150 ${
                   oldPwdStatus === 'invalid'
                     ? 'border-danger focus:border-danger focus:ring-danger/20'
                     : oldPwdStatus === 'valid'
@@ -1023,7 +1023,7 @@ function SecurityTab({ showToast }: { showToast: (msg: string, type: 'success' |
                 value={form.newPassword}
                 onChange={(e) => setForm({ ...form, newPassword: e.target.value })}
                 placeholder="至少6位"
-                className="w-full h-10 pl-10 pr-10 rounded-btn border border-border bg-white text-body text-text-title placeholder:text-text-disabled focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors duration-150"
+                className="w-full h-10 pl-10 pr-10 rounded-btn border border-border bg-white dark:bg-[#28282c] text-body text-text-title placeholder:text-text-disabled focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors duration-150"
               />
               <button type="button" onClick={() => setShowNew(!showNew)} className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-body cursor-pointer">
                 {showNew ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -1042,7 +1042,7 @@ function SecurityTab({ showToast }: { showToast: (msg: string, type: 'success' |
                 value={form.confirmPassword}
                 onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
                 placeholder="再次输入新密码"
-                className={`w-full h-10 pl-10 pr-10 rounded-btn border bg-white text-body text-text-title placeholder:text-text-disabled focus:outline-none focus:ring-2 transition-colors duration-150 ${
+                className={`w-full h-10 pl-10 pr-10 rounded-btn border bg-white dark:bg-[#28282c] text-body text-text-title placeholder:text-text-disabled focus:outline-none focus:ring-2 transition-colors duration-150 ${
                   form.confirmPassword && form.newPassword !== form.confirmPassword
                     ? 'border-danger focus:border-danger focus:ring-danger/20'
                     : 'border-border focus:border-primary focus:ring-primary/20'
@@ -1135,7 +1135,7 @@ function CitySelect({ value, onChange }: { value: string; onChange: (v: string) 
   return (
     <div className="relative" ref={containerRef}>
       <div
-        className={`flex items-center h-10 rounded-btn border bg-white transition-colors duration-150 ${
+        className={`flex items-center h-10 rounded-btn border bg-white dark:bg-[#28282c] transition-colors duration-150 ${
           open ? 'border-primary ring-2 ring-primary/20' : 'border-border'
         }`}
       >
@@ -1162,7 +1162,7 @@ function CitySelect({ value, onChange }: { value: string; onChange: (v: string) 
       </div>
 
       {open && (
-        <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-divider rounded-card shadow-dropdown max-h-64 overflow-y-auto">
+        <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white dark:bg-[#1e1e22] border border-divider rounded-card shadow-dropdown max-h-64 overflow-y-auto">
           {hasCustomOption ? (
             <div className="py-1">
               <button
@@ -1195,7 +1195,7 @@ function CitySelect({ value, onChange }: { value: string; onChange: (v: string) 
               )}
               {filtered.map(group => (
                 <div key={group.province}>
-                  <div className="sticky top-0 bg-gray-50 px-3 py-1.5 text-caption font-medium text-text-muted border-b border-divider">
+                  <div className="sticky top-0 bg-gray-50 dark:bg-[#28282c] px-3 py-1.5 text-caption font-medium text-text-muted border-b border-divider">
                     {group.province}
                   </div>
                   <div className="py-1">
@@ -1207,7 +1207,7 @@ function CitySelect({ value, onChange }: { value: string; onChange: (v: string) 
                         className={`w-full text-left px-4 py-2 text-body transition-colors duration-100 cursor-pointer ${
                           city === value
                             ? 'text-primary bg-primary/5 font-medium'
-                            : 'text-text-body hover:bg-gray-50 hover:text-primary'
+                            : 'text-text-body hover:bg-gray-50 dark:hover:bg-[#28282c] hover:text-primary'
                         }`}
                       >
                         {city}
@@ -1285,7 +1285,7 @@ function BookmarksTab() {
         return (
           <div key={b.id} className="card flex items-start gap-3">
             {imgUrl && (
-              <div className="relative w-16 h-16 rounded-btn overflow-hidden flex-shrink-0 bg-gray-100">
+              <div className="relative w-16 h-16 rounded-btn overflow-hidden flex-shrink-0 bg-gray-100 dark:bg-[#28282c]">
                 <Image src={imgUrl} alt="" fill className="object-cover" />
               </div>
             )}

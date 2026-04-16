@@ -128,7 +128,7 @@ export default function EventsPage() {
 
       {featured && (
         <div className="container-main px-4 sm:px-6 lg:px-8 mb-8 mt-6">
-          <Link href={`/events/${featured.id}`} className="grid cursor-pointer overflow-hidden rounded-card bg-white/40 backdrop-blur-md border border-white/70 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5),0_4px_24px_rgba(0,0,0,0.06)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6),0_8px_32px_rgba(0,0,0,0.10)] md:grid-cols-2">
+          <Link href={`/events/${featured.id}`} className="grid cursor-pointer overflow-hidden rounded-card bg-white/40 dark:bg-[#1e1e22]/80 backdrop-blur-md border border-white/70 dark:border-[#333] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5),0_4px_24px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.3)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/50 dark:hover:bg-[#1e1e22] hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6),0_8px_32px_rgba(0,0,0,0.10)] md:grid-cols-2">
             <div className="relative aspect-video md:aspect-auto md:min-h-[280px] bg-gray-100 dark:bg-[#28282c]">
               <Image src={featured.cover} alt={featured.title} fill className="object-cover" />
             </div>
@@ -162,7 +162,7 @@ export default function EventsPage() {
         <div className="container-main relative z-10">
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger-children">
           {filteredEvents.map((event: any) => (
-            <div key={event.id} className="overflow-hidden rounded-card bg-white/40 backdrop-blur-md border border-white/70 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5),0_4px_24px_rgba(0,0,0,0.06)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6),0_8px_32px_rgba(0,0,0,0.10)]">
+            <div key={event.id} className="overflow-hidden rounded-card bg-white/40 dark:bg-[#1e1e22]/80 backdrop-blur-md border border-white/70 dark:border-[#333] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5),0_4px_24px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.3)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/50 dark:hover:bg-[#1e1e22] hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6),0_8px_32px_rgba(0,0,0,0.10)]">
               <div className="relative aspect-video bg-gray-100 dark:bg-[#28282c]">
                 <Image src={event.cover} alt={event.title} fill className="object-cover" />
                 <div className="absolute top-2 left-2">

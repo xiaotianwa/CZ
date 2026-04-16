@@ -95,11 +95,11 @@ function GameCard({ game, expanded, onToggle }: { game: GameItem; expanded: bool
   const status = statusLabel[game.status] || { text: game.status, className: 'bg-gray-400 text-white' };
   const links: { label: string; url: string }[] = (() => { try { return JSON.parse(game.downloadLinks || '[]'); } catch { return []; } })();
   return (
-    <div className="rounded-card p-0 overflow-hidden bg-white/40 backdrop-blur-md border border-white/70 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5),0_4px_24px_rgba(0,0,0,0.06)] hover:bg-white/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6),0_8px_32px_rgba(0,0,0,0.10)] transition-all duration-200">
+    <div className="rounded-card p-0 overflow-hidden bg-white/40 dark:bg-[#1e1e22]/80 backdrop-blur-md border border-white/70 dark:border-[#333] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5),0_4px_24px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.3)] hover:bg-white/50 dark:hover:bg-[#1e1e22] hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6),0_8px_32px_rgba(0,0,0,0.10)] transition-all duration-200">
       {/* 概要行（可点击） */}
-      <div className="flex flex-row cursor-pointer hover:bg-white/30 transition-colors duration-150" onClick={onToggle}>
+      <div className="flex flex-row cursor-pointer hover:bg-white/30 dark:hover:bg-white/[0.03] transition-colors duration-150" onClick={onToggle}>
         {/* 封面 */}
-        <div className="relative w-20 sm:w-24 flex-shrink-0 bg-gray-100">
+        <div className="relative w-20 sm:w-24 flex-shrink-0 bg-gray-100 dark:bg-[#28282c]">
           <Image src={game.cover} alt={game.name} fill className="object-cover" />
         </div>
         {/* 信息 */}
@@ -118,7 +118,7 @@ function GameCard({ game, expanded, onToggle }: { game: GameItem; expanded: bool
               {Array.from({ length: 5 }).map((_, i) => (
                 <Star
                   key={i}
-                  className={`w-3.5 h-3.5 ${i < game.rating ? 'text-warning fill-warning' : 'text-gray-200'}`}
+                  className={`w-3.5 h-3.5 ${i < game.rating ? 'text-warning fill-warning' : 'text-gray-200 dark:text-gray-600'}`}
                 />
               ))}
             </div>
@@ -129,7 +129,7 @@ function GameCard({ game, expanded, onToggle }: { game: GameItem; expanded: bool
 
       {/* 展开详情 */}
       {expanded && (
-        <div className="border-t border-white/50 px-5 py-4 bg-white/20">
+        <div className="border-t border-white/50 dark:border-[#333] px-5 py-4 bg-white/20 dark:bg-[#1a1a1e]/60">
           {/* 移动端显示平台和评分 */}
           <div className="flex sm:hidden items-center gap-3 mb-3 text-caption text-text-muted">
             <span className="inline-flex items-center gap-1">
@@ -139,7 +139,7 @@ function GameCard({ game, expanded, onToggle }: { game: GameItem; expanded: bool
             <span className="tag-muted">{game.genre}</span>
             <div className="flex items-center gap-0.5">
               {Array.from({ length: 5 }).map((_, i) => (
-                <Star key={i} className={`w-3.5 h-3.5 ${i < game.rating ? 'text-warning fill-warning' : 'text-gray-200'}`} />
+                <Star key={i} className={`w-3.5 h-3.5 ${i < game.rating ? 'text-warning fill-warning' : 'text-gray-200 dark:text-gray-600'}`} />
               ))}
             </div>
           </div>
@@ -170,7 +170,7 @@ function GameCard({ game, expanded, onToggle }: { game: GameItem; expanded: bool
                 href={link.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 h-9 px-4 rounded-btn text-body font-medium border border-primary text-primary bg-white hover:bg-primary hover:text-white transition-colors duration-150 cursor-pointer"
+                className="inline-flex items-center gap-1.5 h-9 px-4 rounded-btn text-body font-medium border border-primary text-primary bg-white dark:bg-[#1e1e22] hover:bg-primary hover:text-white transition-colors duration-150 cursor-pointer"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
                 {link.label}
