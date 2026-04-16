@@ -10,6 +10,7 @@ export async function GET(req: Request) {
     const type = searchParams.get('type') || 'all'; // all | posts | users
     const tagId = searchParams.get('tagId') || '';
     const authorId = searchParams.get('authorId') || '';
+    const sort = searchParams.get('sort') || 'relevant'; // relevant | new | hot
     const page = Math.max(1, Number(searchParams.get('page')) || 1);
     const pageSize = Math.min(50, Math.max(1, Number(searchParams.get('pageSize')) || 20));
 
@@ -52,6 +53,7 @@ export async function GET(req: Request) {
         postWhere.OR = [
           { content: { contains: q } },
           { postTags: { some: { tag: { name: { contains: q } } } } },
+          { author: { name: { contains: q } } },
         ];
       }
       if (tagId) {
@@ -75,7 +77,9 @@ export async function GET(req: Request) {
             postTags: { select: { tag: { select: { id: true, name: true, color: true } } } },
             _count: { select: { comments: true } },
           },
-          orderBy: { createdAt: 'desc' },
+          orderBy: sort === 'hot' ? { hotScore: 'desc' as const }
+                 : sort === 'new' ? { createdAt: 'desc' as const }
+                 : { createdAt: 'desc' as const },
           skip,
           take: pageSize,
         }),

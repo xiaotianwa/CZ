@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Search, FileText, Users, MessageCircle, Heart, TrendingUp, Hash, X, ArrowRight } from 'lucide-react';
+import { Search, FileText, Users, MessageCircle, Heart, TrendingUp, Hash, X, ArrowRight, Clock, Flame, Loader2 } from 'lucide-react';
 
 interface PostResult {
   id: string;
@@ -105,6 +105,34 @@ export default function SearchPage() {
   const [filterTagName, setFilterTagName] = useState<string>('');
   const [filterAuthorId, setFilterAuthorId] = useState<string>('');
   const [filterAuthorName, setFilterAuthorName] = useState<string>('');
+  const [sortBy, setSortBy] = useState<'relevant' | 'new' | 'hot'>('relevant');
+  const [searchHistory, setSearchHistory] = useState<string[]>([]);
+  const [page, setPage] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const PAGE_SIZE = 20;
+
+  // 加载搜索历史
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('search_history_v1');
+      if (stored) setSearchHistory(JSON.parse(stored));
+    } catch {}
+  }, []);
+
+  const saveToHistory = useCallback((keyword: string) => {
+    const trimmed = keyword.trim();
+    if (!trimmed) return;
+    setSearchHistory((prev) => {
+      const next = [trimmed, ...prev.filter((h) => h !== trimmed)].slice(0, 10);
+      localStorage.setItem('search_history_v1', JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const clearHistory = useCallback(() => {
+    setSearchHistory([]);
+    localStorage.removeItem('search_history_v1');
+  }, []);
 
   // 获取热门数据（无关键词时）
   useEffect(() => {
@@ -136,13 +164,13 @@ export default function SearchPage() {
     }
   }, [q]);
 
-  const doSearch = useCallback(async (keyword: string, type: TabKey) => {
+  const doSearch = useCallback(async (keyword: string, type: TabKey, pageNum: number = 1, append: boolean = false) => {
     const normalizedKeyword = keyword.trim();
     if (!normalizedKeyword && !filterTagId && !filterAuthorId) return;
 
-    const cacheKey = `${normalizedKeyword}__${type}__${filterTagId}__${filterAuthorId}`;
+    const cacheKey = `${normalizedKeyword}__${type}__${filterTagId}__${filterAuthorId}__${sortBy}__${pageNum}`;
     const cached = cacheRef.current.get(cacheKey);
-    if (cached) {
+    if (cached && !append) {
       setPosts(cached.posts);
       setUsers(cached.users);
       setPostTotal(cached.postTotal);
@@ -150,9 +178,9 @@ export default function SearchPage() {
       return;
     }
 
-    setLoading(true);
+    if (append) setLoadingMore(true); else setLoading(true);
     try {
-      const params = new URLSearchParams({ q: normalizedKeyword, type, pageSize: '30' });
+      const params = new URLSearchParams({ q: normalizedKeyword, type, pageSize: String(PAGE_SIZE), page: String(pageNum), sort: sortBy });
       if (filterTagId) params.set('tagId', filterTagId);
       if (filterAuthorId) params.set('authorId', filterAuthorId);
       const res = await fetch(`/api/public/search?${params}`);
@@ -162,27 +190,34 @@ export default function SearchPage() {
         const nextUsers = json.data.users || [];
         const nextPostTotal = json.data.postTotal ?? 0;
         const nextUserTotal = json.data.userTotal ?? 0;
-        setPosts(nextPosts);
-        setUsers(nextUsers);
+        if (append) {
+          setPosts((prev) => [...prev, ...nextPosts]);
+          setUsers((prev) => [...prev, ...nextUsers]);
+        } else {
+          setPosts(nextPosts);
+          setUsers(nextUsers);
+        }
         setPostTotal(nextPostTotal);
         setUserTotal(nextUserTotal);
         cacheRef.current.set(cacheKey, {
-          posts: nextPosts,
-          users: nextUsers,
+          posts: append ? [...posts, ...nextPosts] : nextPosts,
+          users: append ? [...users, ...nextUsers] : nextUsers,
           postTotal: nextPostTotal,
           userTotal: nextUserTotal,
         });
       }
     } catch { /* ignore */ }
     setLoading(false);
-  }, [filterTagId, filterAuthorId]);
+    setLoadingMore(false);
+  }, [filterTagId, filterAuthorId, sortBy, posts, users, PAGE_SIZE]);
 
   useEffect(() => {
     setQuery(q);
+    setPage(1);
     if (q || filterTagId || filterAuthorId) {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
       debounceTimerRef.current = setTimeout(() => {
-        doSearch(q, activeTab);
+        doSearch(q, activeTab, 1, false);
       }, 300);
     } else {
       setPosts([]);
@@ -193,17 +228,25 @@ export default function SearchPage() {
     return () => {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     };
-  }, [q, activeTab, filterTagId, filterAuthorId, doSearch]);
+  }, [q, activeTab, filterTagId, filterAuthorId, sortBy, doSearch]);
+
+  const loadMore = useCallback(() => {
+    const nextPage = page + 1;
+    setPage(nextPage);
+    doSearch(q, activeTab, nextPage, true);
+  }, [page, q, activeTab, doSearch]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (query.trim()) {
+      saveToHistory(query.trim());
       router.push(`/search?q=${encodeURIComponent(query.trim())}`);
     }
   };
 
   const handleTagClick = (tagName: string) => {
     setQuery(tagName);
+    saveToHistory(tagName);
     router.push(`/search?q=${encodeURIComponent(tagName)}`);
   };
 
@@ -244,9 +287,14 @@ export default function SearchPage() {
 
   const handleTabChange = (tab: TabKey) => {
     setActiveTab(tab);
+    setPage(1);
     setPosts([]);
     setUsers([]);
   };
+
+  const hasMorePosts = posts.length < postTotal;
+  const hasMoreUsers = users.length < userTotal;
+  const hasMore = hasMorePosts || hasMoreUsers;
 
   const showPosts = activeTab === 'all' || activeTab === 'posts';
   const showUsers = activeTab === 'all' || activeTab === 'users';
@@ -307,24 +355,39 @@ export default function SearchPage() {
           )}
 
           {(q || filterTagId || filterAuthorId) && (
-            <div className="flex gap-1 mt-3 max-w-2xl mx-auto">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.key}
-                  onClick={() => handleTabChange(tab.key)}
-                  className={`h-8 px-4 rounded-full text-caption font-medium transition-colors duration-150 cursor-pointer inline-flex items-center gap-1.5 ${
-                    activeTab === tab.key
-                      ? 'bg-primary text-white'
-                      : 'text-text-body hover:bg-gray-100'
-                  }`}
-                >
-                  <tab.icon className="w-3.5 h-3.5" />
-                  {tab.label}
-                  {tab.key === 'posts' && postTotal > 0 && <span className="opacity-70">({postTotal})</span>}
-                  {tab.key === 'users' && userTotal > 0 && <span className="opacity-70">({userTotal})</span>}
-                  {tab.key === 'all' && (postTotal + userTotal) > 0 && <span className="opacity-70">({postTotal + userTotal})</span>}
-                </button>
-              ))}
+            <div className="flex items-center justify-between mt-3 max-w-2xl mx-auto">
+              <div className="flex gap-1">
+                {tabs.map((tab) => (
+                  <button
+                    key={tab.key}
+                    onClick={() => handleTabChange(tab.key)}
+                    className={`h-8 px-4 rounded-full text-caption font-medium transition-colors duration-150 cursor-pointer inline-flex items-center gap-1.5 ${
+                      activeTab === tab.key
+                        ? 'bg-primary text-white'
+                        : 'text-text-body hover:bg-gray-100 dark:hover:bg-[#28282c]'
+                    }`}
+                  >
+                    <tab.icon className="w-3.5 h-3.5" />
+                    {tab.label}
+                    {tab.key === 'posts' && postTotal > 0 && <span className="opacity-70">({postTotal})</span>}
+                    {tab.key === 'users' && userTotal > 0 && <span className="opacity-70">({userTotal})</span>}
+                    {tab.key === 'all' && (postTotal + userTotal) > 0 && <span className="opacity-70">({postTotal + userTotal})</span>}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-1 rounded-full bg-gray-50 dark:bg-[#28282c] p-1">
+                {([['relevant', '相关'], ['new', '最新'], ['hot', '最热']] as const).map(([key, label]) => (
+                  <button
+                    key={key}
+                    onClick={() => setSortBy(key)}
+                    className={`h-6 px-2.5 rounded-full text-[11px] font-medium whitespace-nowrap transition-colors duration-150 cursor-pointer ${
+                      sortBy === key ? 'bg-white dark:bg-[#1e1e22] text-primary shadow-sm' : 'text-text-muted hover:text-primary'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -335,6 +398,33 @@ export default function SearchPage() {
         {!q && !filterTagId && !filterAuthorId ? (
           /* ========= 无搜索词：展示发现页 ========= */
           <div className="max-w-2xl mx-auto space-y-8">
+            {/* 搜索历史 */}
+            {searchHistory.length > 0 && (
+              <div className="animate-fade-in-up">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-body font-medium text-text-title flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-text-muted" />
+                    搜索历史
+                  </h2>
+                  <button onClick={clearHistory} className="text-caption text-text-disabled hover:text-danger transition-colors cursor-pointer">
+                    清空
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {searchHistory.map((h) => (
+                    <button
+                      key={h}
+                      onClick={() => handleTagClick(h)}
+                      className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-full bg-white dark:bg-[#1e1e22] border border-divider text-caption text-text-body hover:border-primary hover:text-primary transition-all cursor-pointer"
+                    >
+                      <Clock className="w-3 h-3 text-text-disabled" />
+                      {h}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* 热门标签 */}
             {hotTags.length > 0 && (
               <div className="animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
@@ -558,6 +648,23 @@ export default function SearchPage() {
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* 加载更多 */}
+            {hasMore && !loading && (
+              <div className="text-center pt-4">
+                <button
+                  onClick={loadMore}
+                  disabled={loadingMore}
+                  className="inline-flex items-center gap-2 h-10 px-6 rounded-full border border-divider text-body text-text-body font-medium hover:border-primary hover:text-primary transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {loadingMore ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> 加载中...</>
+                  ) : (
+                    '加载更多'
+                  )}
+                </button>
               </div>
             )}
           </div>
