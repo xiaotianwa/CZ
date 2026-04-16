@@ -36,6 +36,7 @@ export default function Navbar({ profileName }: { profileName: string }) {
   const [notifications, setNotifications] = useState<{ id: string; type: string; title: string; content: string; link?: string | null; isRead: boolean; fromAvatar?: string | null; createdAt: string }[]>([]);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
+  const mobileMenuId = 'mobile-nav-menu';
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -146,7 +147,7 @@ export default function Navbar({ profileName }: { profileName: string }) {
   const txtMuted = darkMode ? 'text-white/70' : 'text-text-muted';
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50">
+    <nav className="fixed top-0 left-0 right-0 z-50" aria-label="主导航">
       <div className="container-main px-4 sm:px-6 lg:px-8 pt-3">
         {/* ─── Desktop ─── */}
         <div className={`hidden md:flex items-center justify-between relative transition-all duration-300 ${
@@ -218,7 +219,7 @@ export default function Navbar({ profileName }: { profileName: string }) {
                             >
                               <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-primary-bg">
                                 {n.fromAvatar ? (
-                                  <Image src={n.fromAvatar} alt="" width={32} height={32} className="rounded-full object-cover" />
+                                  <Image src={n.fromAvatar} alt="通知来源头像" width={32} height={32} className="rounded-full object-cover" />
                                 ) : (
                                   <Icon className="w-4 h-4 text-primary" />
                                 )}
@@ -318,6 +319,8 @@ export default function Navbar({ profileName }: { profileName: string }) {
               className={`p-1.5 transition-colors duration-150 ${darkMode ? 'text-white/80 hover:text-white' : 'text-text-muted hover:text-text-title'}`}
               onClick={() => setIsOpen(!isOpen)}
               aria-label={isOpen ? '关闭菜单' : '打开菜单'}
+              aria-expanded={isOpen}
+              aria-controls={mobileMenuId}
             >
               {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
@@ -325,7 +328,7 @@ export default function Navbar({ profileName }: { profileName: string }) {
         </div>
 
         {isOpen && (
-          <div className={`md:hidden mt-2 rounded-xl p-3 backdrop-blur-md ${
+          <div id={mobileMenuId} className={`md:hidden mt-2 rounded-xl p-3 backdrop-blur-md ${
             darkMode
               ? 'bg-[#1a1a1a]/90 border border-white/15'
               : 'bg-white/95 border border-gray-200 shadow-dropdown'

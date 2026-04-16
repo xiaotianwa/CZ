@@ -445,7 +445,7 @@ export default function SearchPage() {
                               <div className="flex gap-2 mt-2.5">
                                 {imageUrls.slice(0, 3).map((url, i) => (
                                   <div key={i} className="relative w-16 h-16 rounded-btn overflow-hidden bg-gray-100 flex-shrink-0">
-                                    <Image src={url} alt="" fill className="object-cover" />
+                                    <Image src={url} alt={`搜索结果图片 ${i + 1}`} fill className="object-cover" />
                                   </div>
                                 ))}
                                 {imageUrls.length > 3 && (

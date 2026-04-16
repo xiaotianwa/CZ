@@ -87,7 +87,7 @@ export default async function HomePage() {
 
                           {videoUrls.length === 0 && imageUrls.length > 0 && (
                             <div className="mt-3 rounded-card overflow-hidden relative aspect-video bg-gray-100">
-                              <Image src={imageUrls[0]} alt="" fill className="object-cover" />
+                              <Image src={imageUrls[0]} alt="帖子预览图" fill className="object-cover" />
                             </div>
                           )}
 

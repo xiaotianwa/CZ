@@ -613,7 +613,7 @@ export default function PostDetailPage() {
             </button>
           )}
 
-          <Image src={imageUrls[lightbox]} alt="" width={1200} height={800} className="max-w-[90vw] max-h-[90vh] object-contain" priority />
+          <Image src={imageUrls[lightbox]} alt={`帖子大图 ${lightbox + 1}`} width={1200} height={800} className="max-w-[90vw] max-h-[90vh] object-contain" priority />
 
           {imageUrls.length > 1 && (
             <button
