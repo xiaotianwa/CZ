@@ -19,7 +19,43 @@ export default async function MainLayout({
   return (
     <>
       <Navbar profileName={profileName} />
-      <main>{children}</main>
+      <main className="relative isolate bg-bg-page">
+        <div className="pointer-events-none fixed inset-0 overflow-hidden select-none z-0" aria-hidden="true">
+          {/* 亮色模式：1103 水印（带 primary 色调） */}
+          <span
+            className="absolute -left-10 top-24 text-[200px] font-bold leading-none text-primary/[0.06] dark:hidden"
+            style={{ fontFamily: "'Blazed', sans-serif" }}
+          >
+            1103
+          </span>
+          <span
+            className="absolute left-[12%] top-[50%] text-[240px] font-bold leading-none text-primary/[0.05] rotate-6 dark:hidden"
+            style={{ fontFamily: "'Blazed', sans-serif" }}
+          >
+            1103
+          </span>
+          <span
+            className="absolute bottom-16 right-[-20px] text-[180px] font-bold leading-none text-primary/[0.06] -rotate-12 dark:hidden"
+            style={{ fontFamily: "'Blazed', sans-serif" }}
+          >
+            1103
+          </span>
+          {/* 暗色模式：ChenZe 水印（带 primary 色调） */}
+          <span
+            className="absolute right-[-36px] top-[18%] text-[128px] leading-none text-primary/[0.12] rotate-[-8deg] tracking-[0.12em] hidden dark:block"
+            style={{ fontFamily: "'Blazed', sans-serif" }}
+          >
+            ChenZe
+          </span>
+          <span
+            className="absolute bottom-16 right-[8%] text-[120px] leading-none text-primary/[0.10] tracking-[0.14em] hidden dark:block"
+            style={{ fontFamily: "'Blazed', sans-serif" }}
+          >
+            ChenZe
+          </span>
+        </div>
+        <div className="relative z-10">{children}</div>
+      </main>
       <Footer profileName={profileName} siteDescription={siteDescription} />
       <AnnouncementPopup />
       <MusicPlayer />

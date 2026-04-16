@@ -41,33 +41,41 @@ export default function GamesPage() {
     setExpandedId((prev) => (prev === id ? null : id));
   };
 
+
   return (
-    <div className="pt-14">
-      {/* Header */}
-      <section className="bg-gray-900 py-16 sm:py-20 relative overflow-hidden animate-fade-in-up">
-        <div className="absolute inset-0 opacity-10">
-          <div
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[200px] leading-none font-bold text-white select-none"
-            style={{ fontFamily: "'Blazed', sans-serif" }}
-          >
-            1103
-          </div>
+    <div className="pb-16">
+      {/* Cover Banner */}
+      <section className="relative h-48 sm:h-56 bg-gray-900 overflow-hidden mt-14">
+        <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900" />
+        <div className="absolute inset-0 flex items-center justify-center gap-4 sm:gap-6 select-none pointer-events-none">
+          <span className="text-[56px] sm:text-[80px] leading-none font-bold text-white/10" style={{ fontFamily: "'Blazed', sans-serif" }}>1103</span>
+          <span className="text-[28px] sm:text-[40px] leading-none text-primary/50 tracking-[0.15em]" style={{ fontFamily: "'Blazed', sans-serif" }}>ChenZe</span>
         </div>
-        <div className="container-main px-4 sm:px-6 lg:px-8 relative z-10 text-center">
-          <div className="inline-flex items-center gap-2 bg-primary/15 border border-primary/30 rounded-full px-4 py-1.5 mb-4">
+        <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-bg-page to-transparent" />
+        <div className="container-main px-4 sm:px-6 lg:px-8 relative z-10 h-full flex flex-col items-center justify-center text-center">
+          <div className="inline-flex items-center gap-2 bg-primary/15 border border-primary/30 rounded-full px-4 py-1.5 mb-3">
             <Gamepad2 className="w-4 h-4 text-primary" />
             <span className="text-caption font-medium text-primary">游戏世界</span>
           </div>
           <h1 className="text-heading-lg text-white">最近在玩</h1>
-          <p className="text-body text-gray-400 mt-2 max-w-md mx-auto">
-            陈泽最近在直播和日常中玩的游戏，看看泽哥又在整什么活儿
+          <p className="text-body text-gray-400 mt-1.5 max-w-md mx-auto">
+            把直播常玩的、最近碰过的和最爱的游戏统一整理出来，看看泽哥又在整什么活儿。
           </p>
         </div>
       </section>
 
       {/* 游戏列表 */}
-      <section className="section-block animate-fade-in-up">
-        <div className="container-main">
+      <section className="section-block relative overflow-hidden animate-fade-in-up">
+        <div className="absolute inset-0 pointer-events-none" style={{
+          background: 'radial-gradient(ellipse 80% 60% at 20% 30%, rgba(24,144,255,0.06) 0%, transparent 60%), radial-gradient(ellipse 60% 50% at 80% 70%, rgba(250,173,20,0.05) 0%, transparent 60%)',
+        }} />
+        <div className="container-main relative z-10">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="section-title">游戏列表</h2>
+              <p className="section-desc">点击查看详情和泽哥评价</p>
+            </div>
+          </div>
           <div className="flex flex-col gap-3 stagger-children">
             {loading ? (
               <p className="text-body text-text-muted text-center py-12">加载中...</p>
@@ -87,9 +95,9 @@ function GameCard({ game, expanded, onToggle }: { game: GameItem; expanded: bool
   const status = statusLabel[game.status] || { text: game.status, className: 'bg-gray-400 text-white' };
   const links: { label: string; url: string }[] = (() => { try { return JSON.parse(game.downloadLinks || '[]'); } catch { return []; } })();
   return (
-    <div className="card p-0 overflow-hidden">
+    <div className="rounded-card p-0 overflow-hidden bg-white/40 backdrop-blur-md border border-white/70 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5),0_4px_24px_rgba(0,0,0,0.06)] hover:bg-white/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6),0_8px_32px_rgba(0,0,0,0.10)] transition-all duration-200">
       {/* 概要行（可点击） */}
-      <div className="flex flex-row cursor-pointer hover:bg-gray-50 transition-colors duration-150" onClick={onToggle}>
+      <div className="flex flex-row cursor-pointer hover:bg-white/30 transition-colors duration-150" onClick={onToggle}>
         {/* 封面 */}
         <div className="relative w-20 sm:w-24 flex-shrink-0 bg-gray-100">
           <Image src={game.cover} alt={game.name} fill className="object-cover" />
@@ -121,7 +129,7 @@ function GameCard({ game, expanded, onToggle }: { game: GameItem; expanded: bool
 
       {/* 展开详情 */}
       {expanded && (
-        <div className="border-t border-divider px-5 py-4 bg-gray-50/50">
+        <div className="border-t border-white/50 px-5 py-4 bg-white/20">
           {/* 移动端显示平台和评分 */}
           <div className="flex sm:hidden items-center gap-3 mb-3 text-caption text-text-muted">
             <span className="inline-flex items-center gap-1">

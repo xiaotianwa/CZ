@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
+  darkMode: 'class',
   content: [
     './src/**/*.{js,ts,jsx,tsx,mdx}',
   ],
@@ -14,7 +15,7 @@ module.exports = {
         warning: '#faad14',
         border: '#e5e7eb',
         divider: '#f0f0f0',
-        'bg-page': '#FAFAFA',
+        'bg-page': '#F0F1F3',
         'bg-card': '#FFFFFF',
         'text-title': '#1a1a1a',
         'text-body': '#374151',
@@ -22,7 +23,9 @@ module.exports = {
         'text-disabled': '#d9d9d9',
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        sans: ['var(--font-inter)', 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', 'Hiragino Sans GB', 'system-ui', '-apple-system', 'sans-serif'],
+        blazed: ['Blazed', 'sans-serif'],
+        logo: ['var(--font-caveat)', 'cursive'],
       },
       fontSize: {
         'heading-lg': ['28px', { lineHeight: '1.3', fontWeight: '700' }],

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
 import { Menu, X, Search, LogIn, LogOut, User as UserIcon, Bell, MessageCircle, Heart, Pin, Info } from 'lucide-react';
+import ThemeToggle from './ThemeToggle';
 
 interface UserInfo {
   id: string;
@@ -133,52 +134,54 @@ export default function Navbar({ profileName }: { profileName: string }) {
       });
   };
 
-  return (
-    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-      solid
-        ? 'bg-white/95 backdrop-blur-md border-b border-divider shadow-sm'
-        : 'bg-transparent border-b border-transparent'
-    }`}>
-      <div className="container-main px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-14">
-          <Link href="/" className={`text-heading-sm cursor-pointer transition-colors duration-150 ${solid ? 'text-text-title hover:text-primary' : 'text-white hover:text-primary'}`} style={{ fontFamily: "'Blazed', sans-serif" }}>
-            1103
-          </Link>
+  // Capsule mode: scrolled on home, or any non-home page
+  const capsule = solid;
+  // Dark capsule only on home (scrolled); light capsule on other pages
+  const darkMode = isHome;
 
-          <div className="hidden md:flex items-center gap-1">
+  // Shared color tokens
+  const txtPrimary = darkMode ? 'text-white/80' : 'text-text-body';
+  const txtHover = darkMode ? 'hover:text-white' : 'hover:text-primary';
+  const txtLogo = darkMode ? 'text-white' : 'text-text-title';
+  const txtMuted = darkMode ? 'text-white/70' : 'text-text-muted';
+
+  return (
+    <nav className="fixed top-0 left-0 right-0 z-50">
+      <div className="container-main px-4 sm:px-6 lg:px-8 pt-3">
+        {/* ─── Desktop ─── */}
+        <div className={`hidden md:flex items-center justify-between relative transition-all duration-300 ${
+          capsule
+            ? darkMode
+              ? 'h-12 rounded-full bg-[#1a1a1a]/75 border border-white/15 shadow-[0_12px_28px_rgba(0,0,0,0.35)] backdrop-blur-md px-5'
+              : 'h-12 rounded-full bg-white/90 border border-gray-200 shadow-[0_4px_16px_rgba(0,0,0,0.08)] backdrop-blur-md px-5'
+            : 'h-14 px-1'
+        }`}>
+          {/* Left: nav links */}
+          <div className={`flex items-center gap-5 text-[13px] font-medium ${txtPrimary}`}>
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`px-3 py-1.5 rounded-btn text-body font-medium transition-colors duration-150 cursor-pointer ${
-                  solid
-                    ? 'text-text-body hover:text-primary hover:bg-gray-50'
-                    : 'text-white/80 hover:text-white hover:bg-white/10'
-                }`}
+                className={`${txtHover} transition-colors duration-150 whitespace-nowrap`}
               >
                 {link.label}
               </Link>
             ))}
           </div>
 
-          <div className="hidden md:flex items-center gap-2">
-            <Link
-              href="/search"
-              className={`inline-flex items-center gap-2 h-8 px-3 rounded-full text-caption transition-all duration-150 cursor-pointer ${
-                solid
-                  ? 'bg-gray-100 text-text-muted hover:bg-gray-200'
-                  : 'bg-white/10 text-white/60 hover:bg-white/20 hover:text-white/80'
-              }`}
-            >
-              <Search className="w-3.5 h-3.5" />
-              <span>搜索</span>
-            </Link>
+          {/* Center: logo — absolute positioned for true centering */}
+          <Link href="/" className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 ${txtLogo} text-[22px] leading-none font-bold tracking-normal font-logo`}>
+            1103 - Chenze
+          </Link>
 
+          {/* Right: actions */}
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
             {user && (
               <div className="relative" ref={notifRef}>
                 <button
                   onClick={() => { setNotifOpen(!notifOpen); setDropdownOpen(false); }}
-                  className={`relative p-2 rounded-btn transition-colors duration-150 cursor-pointer ${solid ? 'text-text-muted hover:text-text-body hover:bg-gray-50' : 'text-white/70 hover:text-white hover:bg-white/10'}`}
+                  className={`relative p-1.5 rounded-full ${txtMuted} ${txtHover} transition-colors duration-150 cursor-pointer`}
                   aria-label="通知"
                 >
                   <Bell className="w-4 h-4" />
@@ -190,7 +193,7 @@ export default function Navbar({ profileName }: { profileName: string }) {
                 </button>
 
                 {notifOpen && (
-                  <div className="absolute right-0 top-full mt-1.5 w-80 bg-white rounded-card border border-divider shadow-dropdown">
+                  <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-card border border-divider shadow-dropdown">
                     <div className="flex items-center justify-between px-4 py-3 border-b border-divider">
                       <span className="text-body font-medium text-text-title">消息通知</span>
                       {unreadCount > 0 && (
@@ -246,20 +249,20 @@ export default function Navbar({ profileName }: { profileName: string }) {
               <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setDropdownOpen(!dropdownOpen)}
-                  className={`flex items-center gap-2 h-9 pl-1 pr-3 rounded-full transition-colors duration-150 cursor-pointer ${solid ? 'hover:bg-gray-50' : 'hover:bg-white/10'}`}
+                  className={`flex items-center gap-2 h-8 pl-0.5 pr-2.5 rounded-full transition-colors duration-150 cursor-pointer ${darkMode ? 'text-white/80 hover:text-white hover:bg-white/10' : 'text-text-body hover:text-text-title hover:bg-gray-100'}`}
                 >
-                  <div className="w-7 h-7 rounded-full overflow-hidden bg-primary-bg flex items-center justify-center flex-shrink-0">
+                  <div className={`w-7 h-7 rounded-full overflow-hidden flex items-center justify-center flex-shrink-0 ${darkMode ? 'bg-white/20' : 'bg-primary-bg'}`}>
                     {user.avatar ? (
                       <Image src={user.avatar} alt={user.name} width={28} height={28} className="object-cover" />
                     ) : (
-                      <span className="text-caption font-bold text-primary">{user.name[0]}</span>
+                      <span className={`text-caption font-bold ${darkMode ? 'text-white' : 'text-primary'}`}>{user.name[0]}</span>
                     )}
                   </div>
-                  <span className={`text-body font-medium max-w-[80px] truncate ${solid ? 'text-text-title' : 'text-white'}`}>{user.name}</span>
+                  <span className={`text-[13px] font-medium max-w-[80px] truncate ${darkMode ? 'text-white' : 'text-text-title'}`}>{user.name}</span>
                 </button>
 
                 {dropdownOpen && (
-                  <div className="absolute right-0 top-full mt-1.5 w-48 bg-white rounded-card border border-divider shadow-dropdown py-1">
+                  <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-card border border-divider shadow-dropdown py-1">
                     <div className="px-3 py-2 border-b border-divider">
                       <p className="text-body font-medium text-text-title truncate">{user.name}</p>
                       <p className="text-caption text-text-muted">{user.role === 'star' ? '董事长' : user.role === 'assistant' ? '传媒成员' : '粉丝'}</p>
@@ -283,66 +286,80 @@ export default function Navbar({ profileName }: { profileName: string }) {
                 )}
               </div>
             ) : (
-              <Link
-                href="/login"
-                className={`inline-flex items-center gap-1.5 h-9 px-5 rounded-full text-body font-medium transition-all duration-150 cursor-pointer ${
-                  solid
-                    ? 'bg-primary text-white hover:bg-primary/90'
-                    : 'bg-white/15 text-white border border-white/30 hover:bg-white/25'
-                }`}
-              >
-                <LogIn className="w-3.5 h-3.5" />
-                登录 / 加入
-              </Link>
+              <>
+                <Link href="/login" className={`text-[13px] font-medium ${txtPrimary} ${txtHover} transition-colors duration-150`}>
+                  登录
+                </Link>
+                <Link href="/join" className={`h-8 px-4 rounded-full border text-[13px] font-medium inline-flex items-center transition-colors duration-150 whitespace-nowrap ${
+                  darkMode ? 'border-white/40 text-white hover:bg-white/10' : 'border-gray-300 text-text-title hover:bg-gray-100'
+                }`}>
+                  加入社区
+                </Link>
+              </>
             )}
-          </div>
 
-          <button
-            className={`md:hidden p-2 rounded-btn transition-colors duration-150 cursor-pointer ${solid ? 'text-text-muted hover:text-text-body' : 'text-white/70 hover:text-white'}`}
-            onClick={() => setIsOpen(!isOpen)}
-            aria-label={isOpen ? '关闭菜单' : '打开菜单'}
-          >
-            {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </button>
+          </div>
+        </div>
+
+        {/* ─── Mobile ─── */}
+        <div className={`md:hidden flex items-center justify-between transition-all duration-300 ${
+          capsule
+            ? darkMode
+              ? 'h-11 rounded-full bg-[#1a1a1a]/75 border border-white/15 backdrop-blur-md px-4'
+              : 'h-11 rounded-full bg-white/90 border border-gray-200 shadow-sm backdrop-blur-md px-4'
+            : 'h-14 px-1'
+        }`}>
+          <Link href="/" className={`${txtLogo} text-[18px] leading-none font-bold font-logo`}>
+            1103 - Chenze
+          </Link>
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
+            <button
+              className={`p-1.5 transition-colors duration-150 ${darkMode ? 'text-white/80 hover:text-white' : 'text-text-muted hover:text-text-title'}`}
+              onClick={() => setIsOpen(!isOpen)}
+              aria-label={isOpen ? '关闭菜单' : '打开菜单'}
+            >
+              {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+          </div>
         </div>
 
         {isOpen && (
-          <div className="md:hidden pb-3 border-t border-divider mt-1 pt-3">
-            <div className="flex flex-col gap-0.5">
+          <div className={`md:hidden mt-2 rounded-xl p-3 backdrop-blur-md ${
+            darkMode
+              ? 'bg-[#1a1a1a]/90 border border-white/15'
+              : 'bg-white/95 border border-gray-200 shadow-dropdown'
+          }`}>
+            <div className="flex flex-col gap-1">
               {navLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className="px-3 py-2.5 rounded-btn text-body font-medium text-text-body hover:text-primary hover:bg-gray-50 transition-colors duration-150 cursor-pointer"
+                  className={`px-3 py-2 rounded-lg text-[13px] font-medium ${darkMode ? 'text-white/90 hover:bg-white/10' : 'text-text-body hover:bg-gray-50 hover:text-primary'}`}
                   onClick={() => setIsOpen(false)}
                 >
                   {link.label}
                 </Link>
               ))}
-              <div className="mt-2 px-3 space-y-2">
+              <div className={`mt-2 pt-2 border-t flex flex-col gap-1 ${darkMode ? 'border-white/15' : 'border-gray-200'}`}>
                 {user ? (
                   <>
-                    <Link
-                      href="/me"
-                      onClick={() => setIsOpen(false)}
-                      className="btn-outline w-full inline-flex items-center justify-center gap-1.5"
-                    >
-                      <UserIcon className="w-4 h-4" />
+                    <Link href="/me" onClick={() => setIsOpen(false)} className={`px-3 py-2 rounded-lg text-[13px] font-medium ${darkMode ? 'text-white/90 hover:bg-white/10' : 'text-text-body hover:bg-gray-50'}`}>
                       个人中心
                     </Link>
-                    <button
-                      onClick={() => { handleLogout(); setIsOpen(false); }}
-                      className="btn-outline w-full inline-flex items-center justify-center gap-1.5"
-                    >
-                      <LogOut className="w-4 h-4" />
+                    <button onClick={() => { handleLogout(); setIsOpen(false); }} className={`px-3 py-2 rounded-lg text-[13px] font-medium text-left ${darkMode ? 'text-red-400 hover:bg-white/10' : 'text-danger hover:bg-red-50'}`}>
                       退出登录
                     </button>
                   </>
                 ) : (
-                  <Link href="/login" className="btn-primary w-full inline-flex items-center justify-center gap-1.5" onClick={() => setIsOpen(false)}>
-                    <LogIn className="w-4 h-4" />
-                    登录 / 加入
-                  </Link>
+                  <>
+                    <Link href="/login" onClick={() => setIsOpen(false)} className={`px-3 py-2 rounded-lg text-[13px] font-medium ${darkMode ? 'text-white/90 hover:bg-white/10' : 'text-text-body hover:bg-gray-50'}`}>
+                      登录
+                    </Link>
+                    <Link href="/join" onClick={() => setIsOpen(false)} className={`px-3 py-2 rounded-lg text-[13px] font-medium ${darkMode ? 'text-white/90 hover:bg-white/10' : 'text-text-body hover:bg-gray-50'}`}>
+                      加入社区
+                    </Link>
+                  </>
                 )}
               </div>
             </div>

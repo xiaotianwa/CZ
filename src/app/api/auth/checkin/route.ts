@@ -31,19 +31,23 @@ export async function GET(req: NextRequest) {
 
     if (!user || !user.isActive) return fail('用户不存在或已被禁用，请重新登录', 401);
 
-    // 计算连续签到天数（往前查30天）
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    // 查询当月签到记录（用于日历可视化）
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
 
     const logs = await prisma.pointLog.findMany({
       where: {
         userId: payload.id,
         action: 'daily_login',
-        createdAt: { gte: thirtyDaysAgo },
+        createdAt: { gte: monthStart, lte: monthEnd },
       },
       orderBy: { createdAt: 'desc' },
       select: { createdAt: true },
     });
+
+    // 当月签到日期列表 (day numbers)
+    const checkedDays = Array.from(new Set(logs.map((l) => new Date(l.createdAt).getDate())));
 
     // 计算连续天数
     let streak = 0;
@@ -67,6 +71,10 @@ export async function GET(req: NextRequest) {
       streak,
       points: user.points,
       level: user.level,
+      checkedDays,
+      month: now.getMonth() + 1,
+      year: now.getFullYear(),
+      monthTotal: checkedDays.length,
     });
   } catch (err) {
     return handleError(err);

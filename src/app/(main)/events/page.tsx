@@ -77,36 +77,58 @@ export default function EventsPage() {
 
   return (
     <>
-      <section className="section-block pb-6 pt-20 animate-fade-in-up">
-        <div className="container-main">
-          <h1 className="section-title">活动公告</h1>
-          <p className="section-desc">精彩活动，不要错过</p>
-
-          <div className="flex gap-1.5 mt-6">
-            {[
-              { key: 'all', label: '全部' },
-              { key: 'upcoming', label: '即将开始' },
-              { key: 'ongoing', label: '进行中' },
-              { key: 'ended', label: '已结束' },
-            ].map((f) => (
-              <button
-                key={f.key}
-                onClick={() => setFilter(f.key as typeof filter)}
-                className={`h-8 px-3 rounded-btn text-body font-medium transition-colors duration-150 cursor-pointer ${
-                  filter === f.key ? 'bg-primary text-white' : 'bg-white border border-divider text-text-body hover:border-primary hover:text-primary'
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
+      {/* Cover Banner */}
+      <section className="relative h-48 sm:h-56 bg-gray-900 overflow-hidden mt-14">
+        <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900" />
+        <div className="absolute inset-0 flex items-center justify-center gap-4 sm:gap-6 select-none pointer-events-none">
+          <span className="text-[56px] sm:text-[80px] leading-none font-bold text-white/10" style={{ fontFamily: "'Blazed', sans-serif" }}>1103</span>
+          <span className="text-[28px] sm:text-[40px] leading-none text-primary/50 tracking-[0.15em]" style={{ fontFamily: "'Blazed', sans-serif" }}>ChenZe</span>
+        </div>
+        <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-bg-page to-transparent" />
+        <div className="container-main px-4 sm:px-6 lg:px-8 relative z-10 h-full flex flex-col items-center justify-center text-center">
+          <div className="inline-flex items-center gap-2 bg-primary/15 border border-primary/30 rounded-full px-4 py-1.5 mb-3">
+            <Calendar className="w-4 h-4 text-primary" />
+            <span className="text-caption font-medium text-primary">1103 活动日历</span>
           </div>
+          <h1 className="text-heading-lg text-white">活动公告</h1>
+          <p className="text-body text-gray-400 mt-1.5 max-w-md mx-auto">
+            把即将开始、进行中和已经结束的活动集中展示。
+          </p>
         </div>
       </section>
 
-      {/* Featured */}
+      <div className="container-main px-4 sm:px-6 lg:px-8 mt-6">
+        <div className="sticky top-16 z-20 -mx-1 rounded-card border border-divider bg-white/95 p-3 shadow-sm backdrop-blur sm:mx-0 sm:p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-caption font-medium text-text-title">{filter === 'all' ? '全部活动' : filter === 'upcoming' ? '即将开始' : filter === 'ongoing' ? '进行中' : '已结束'}</p>
+              <p className="mt-1 text-caption leading-6 text-text-muted">切换活动状态，快速筛选你当前最关心的活动内容。</p>
+            </div>
+            <div className="flex flex-wrap gap-1 rounded-full bg-gray-50 p-1">
+              {[
+                { key: 'all', label: '全部' },
+                { key: 'upcoming', label: '即将开始' },
+                { key: 'ongoing', label: '进行中' },
+                { key: 'ended', label: '已结束' },
+              ].map((f) => (
+                <button
+                  key={f.key}
+                  onClick={() => setFilter(f.key as typeof filter)}
+                  className={`h-8 rounded-full px-3 text-body font-medium transition-colors duration-150 cursor-pointer ${
+                    filter === f.key ? 'bg-white text-primary shadow-sm' : 'text-text-muted hover:text-primary'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {featured && (
-        <div className="container-main px-4 sm:px-6 lg:px-8 mb-8">
-          <Link href={`/events/${featured.id}`} className="card p-0 overflow-hidden grid md:grid-cols-2 cursor-pointer">
+        <div className="container-main px-4 sm:px-6 lg:px-8 mb-8 mt-6">
+          <Link href={`/events/${featured.id}`} className="grid cursor-pointer overflow-hidden rounded-card bg-white/40 backdrop-blur-md border border-white/70 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5),0_4px_24px_rgba(0,0,0,0.06)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6),0_8px_32px_rgba(0,0,0,0.10)] md:grid-cols-2">
             <div className="relative aspect-video md:aspect-auto md:min-h-[280px] bg-gray-100">
               <Image src={featured.cover} alt={featured.title} fill className="object-cover" />
             </div>
@@ -133,11 +155,14 @@ export default function EventsPage() {
         </div>
       )}
 
-      {/* Event List */}
-      <div className="container-main px-4 sm:px-6 lg:px-8 pb-16">
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="section-block relative overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none" style={{
+          background: 'radial-gradient(ellipse 80% 60% at 20% 30%, rgba(24,144,255,0.06) 0%, transparent 60%), radial-gradient(ellipse 60% 50% at 80% 70%, rgba(250,173,20,0.05) 0%, transparent 60%)',
+        }} />
+        <div className="container-main relative z-10">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger-children">
           {filteredEvents.map((event: any) => (
-            <div key={event.id} className="card p-0 overflow-hidden">
+            <div key={event.id} className="overflow-hidden rounded-card bg-white/40 backdrop-blur-md border border-white/70 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5),0_4px_24px_rgba(0,0,0,0.06)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6),0_8px_32px_rgba(0,0,0,0.10)]">
               <div className="relative aspect-video bg-gray-100">
                 <Image src={event.cover} alt={event.title} fill className="object-cover" />
                 <div className="absolute top-2 left-2">
@@ -166,6 +191,7 @@ export default function EventsPage() {
               </div>
             </div>
           ))}
+        </div>
         </div>
       </div>
     </>

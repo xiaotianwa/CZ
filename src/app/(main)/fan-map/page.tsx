@@ -1,18 +1,24 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { MapPin, Users, Globe, Crown, Loader2, Check, Navigation } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { MapPin, Users, Globe, Loader2, Check, RefreshCw, AlertCircle, Compass, LocateFixed } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import { getCityDisplayName } from '@/data/city-coords';
 
-const WorldDotMap = dynamic(() => import('@/components/WorldDotMap'), {
+const AmapFanMap = dynamic(() => import('@/components/AmapFanMap'), {
   ssr: false,
-  loading: () => <div className="aspect-[2/1] bg-slate-900 rounded-2xl animate-pulse" />,
+  loading: () => <div className="h-[560px] rounded-card bg-gray-100 animate-pulse" />,
 });
+
+interface CityUserPreview {
+  name: string;
+  avatar?: string | null;
+}
 
 interface CityItem {
   city: string;
   count: number;
-  users?: string[];
+  users?: Array<string | CityUserPreview>;
   coord: [number, number] | null;
 }
 
@@ -20,45 +26,275 @@ interface FanMapData {
   cities: CityItem[];
   totalFans: number;
   filledCount: number;
+  mappedCount: number;
+  mappedCityCount: number;
+  unmappedCount: number;
+  unmappedCities: Array<{ city: string; count: number }>;
+  coverageRate: number;
+}
+
+interface ReverseGeocodeApiResponse {
+  code?: number;
+  message?: string;
+  data?: {
+    city?: string;
+    district?: string;
+  } | null;
+}
+
+interface LocateRuntimeContext {
+  permissionState: PermissionState | 'unsupported' | 'unknown';
+  isSecureContext: boolean;
+  protocol: string;
+  hostname: string;
+}
+
+function buildLocationValue(city: string, district: string): string {
+  const nextCity = city.trim();
+  const nextDistrict = district.trim();
+
+  if (!nextCity) {
+    return '';
+  }
+
+  return nextDistrict ? `${nextCity}/${nextDistrict}` : nextCity;
+}
+
+function parseLocationValue(value: string): { city: string; district: string } {
+  const rawValue = value.trim();
+
+  if (!rawValue) {
+    return { city: '', district: '' };
+  }
+
+  const normalizedValue = rawValue.replace(/[，]/g, ',').replace(/[｜|]/g, '/');
+  const parts = normalizedValue.split(/[,/]/).map((part) => part.trim()).filter(Boolean);
+  const resolvedCity = getCityDisplayName(rawValue);
+  const cityIndex = parts.findIndex((part) => getCityDisplayName(part) === resolvedCity || part === resolvedCity);
+  const districtParts = cityIndex >= 0 ? parts.slice(cityIndex + 1) : parts.slice(1);
+  const district = districtParts.join('/');
+  const city = resolvedCity || parts[0] || rawValue;
+
+  return {
+    city,
+    district,
+  };
+}
+
+function getCurrentPosition(): Promise<GeolocationPosition> {
+  return new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 300000,
+    });
+  });
+}
+
+async function reverseGeocodeLocation(longitude: number, latitude: number): Promise<{ city: string; district: string }> {
+  const url = new URL('/api/public/geocodes/reverse', window.location.origin);
+  url.searchParams.set('location', `${longitude},${latitude}`);
+
+  const response = await fetch(url.toString(), { cache: 'no-store' });
+  const data = await response.json() as ReverseGeocodeApiResponse;
+
+  if (!response.ok || data.code !== 0 || !data.data?.city) {
+    throw new Error(data.message || 'reverse-geocode-failed');
+  }
+
+  return {
+    city: data.data.city,
+    district: data.data.district?.trim() || '',
+  };
+}
+
+async function getLocateRuntimeContext(): Promise<LocateRuntimeContext> {
+  const fallbackContext: LocateRuntimeContext = {
+    permissionState: 'unsupported',
+    isSecureContext: typeof window !== 'undefined' ? window.isSecureContext : false,
+    protocol: typeof window !== 'undefined' ? window.location.protocol : '',
+    hostname: typeof window !== 'undefined' ? window.location.hostname : '',
+  };
+
+  if (typeof navigator === 'undefined' || !(navigator.permissions && navigator.permissions.query)) {
+    return fallbackContext;
+  }
+
+  try {
+    const status = await navigator.permissions.query({ name: 'geolocation' });
+    return {
+      ...fallbackContext,
+      permissionState: status.state,
+    };
+  } catch {
+    return {
+      ...fallbackContext,
+      permissionState: 'unknown',
+    };
+  }
+}
+
+function isLocalhostHost(hostname: string): boolean {
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+}
+
+function getLocateErrorCode(error: unknown): number | null {
+  if (typeof error === 'object' && error !== null && 'code' in error) {
+    return typeof (error as { code?: unknown }).code === 'number' ? (error as { code: number }).code : null;
+  }
+
+  return null;
+}
+
+function formatPermissionState(state: LocateRuntimeContext['permissionState']): string {
+  if (state === 'granted') {
+    return '已允许';
+  }
+
+  if (state === 'prompt') {
+    return '待确认';
+  }
+
+  if (state === 'denied') {
+    return '已拒绝';
+  }
+
+  if (state === 'unknown') {
+    return '未知';
+  }
+
+  return '不支持检测';
+}
+
+function buildLocateDiagnostic(error: unknown, context: LocateRuntimeContext): string {
+  const parts = [
+    `权限状态：${formatPermissionState(context.permissionState)}`,
+    `安全上下文：${context.isSecureContext ? '是' : '否'}`,
+    `协议：${context.protocol || '未知'}`,
+  ];
+  const errorCode = getLocateErrorCode(error);
+
+  if (errorCode !== null) {
+    parts.push(`错误码：${errorCode}`);
+  }
+
+  if (error instanceof Error && error.message) {
+    parts.push(`原因：${error.message}`);
+  }
+
+  return parts.join(' · ');
+}
+
+function getLocateErrorMessage(error: unknown, context: LocateRuntimeContext): string {
+  const code = getLocateErrorCode(error);
+
+  if (code === 1) {
+    if (!context.isSecureContext && !isLocalhostHost(context.hostname)) {
+      return '当前页面不是安全上下文，浏览器不会放行定位。请使用 localhost 或 HTTPS 访问后再重试。';
+    }
+
+    if (context.permissionState === 'denied') {
+      return '当前站点的定位权限仍被浏览器标记为已拒绝，请修改站点设置后刷新页面再试。';
+    }
+
+    if (context.permissionState === 'granted') {
+      return '浏览器站点权限已允许，但定位接口仍返回拒绝。这通常是系统定位服务、企业安全策略，或当前页面运行环境拦截导致。';
+    }
+
+    return '浏览器返回了定位拒绝。若你已开启权限，请优先确认当前页面是否通过 HTTPS 或 localhost 访问。';
+  }
+
+  if (code === 2) {
+    return '当前设备暂时无法获取定位信息，请检查系统定位服务是否真的可用，或稍后重试。';
+  }
+
+  if (code === 3) {
+    return '定位请求超时，请检查网络、代理环境或系统定位服务后再试。';
+  }
+
+  if (error instanceof Error) {
+    if (error.message === 'location-city-empty') {
+      return '暂时无法解析当前位置对应的城市，请稍后重试。';
+    }
+
+    if (error.message === 'geolocation-unsupported') {
+      return '当前浏览器不支持定位，请更换浏览器后重试。';
+    }
+
+    if (error.message === 'geolocation-insecure-context') {
+      return '当前页面不是安全上下文，浏览器不会提供定位。请改用 localhost 或 HTTPS 地址访问。';
+    }
+
+    if (error.message === 'geolocation-permission-denied') {
+      return '浏览器权限状态仍显示为已拒绝，请修改站点定位权限后刷新页面再试。';
+    }
+
+    if (error.message) {
+      return error.message;
+    }
+  }
+
+  return '自动定位失败，请稍后再试。';
 }
 
 export default function FanMapPage() {
   const [data, setData] = useState<FanMapData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [myCity, setMyCity] = useState('');
-  const [cityInput, setCityInput] = useState('');
+  const [locationDraft, setLocationDraft] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [locationFeedback, setLocationFeedback] = useState('');
+  const [locationDiagnostic, setLocationDiagnostic] = useState('');
+  const [locationFeedbackType, setLocationFeedbackType] = useState<'default' | 'success' | 'error'>('default');
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [mapResetToken, setMapResetToken] = useState(0);
 
   // 获取地图数据
-  const fetchData = () => {
-    fetch('/api/public/fan-map')
-      .then((r) => r.json())
-      .then((json) => {
-        if (json.code === 0) setData(json.data);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+  const fetchData = async (showLoading: boolean = true) => {
+    if (showLoading) {
+      setLoading(true);
+    }
+
+    setError('');
+
+    try {
+      const response = await fetch('/api/public/fan-map', { cache: 'no-store' });
+      const json = await response.json();
+
+      if (!response.ok || json.code !== 0) {
+        throw new Error(json.msg || '粉丝地图加载失败');
+      }
+
+      setData(json.data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '粉丝地图加载失败');
+    } finally {
+      if (showLoading) {
+        setLoading(false);
+      }
+    }
   };
 
   useEffect(() => {
-    fetchData();
+    void fetchData();
     // 获取当前用户信息
-    fetch('/api/auth/me', { credentials: 'same-origin' })
+    void fetch('/api/auth/me', { credentials: 'same-origin' })
       .then((r) => r.json())
       .then((json) => {
         if (json.code === 0 && json.data) {
           setIsLoggedIn(true);
-          setMyCity(json.data.city || '');
-          setCityInput(json.data.city || '');
+          const currentCity = typeof json.data.city === 'string' ? json.data.city : '';
+          setMyCity(currentCity);
         }
       })
       .catch(() => {});
   }, []);
 
   const handleSaveCity = async () => {
-    const trimmed = cityInput.trim();
+    const trimmed = locationDraft.trim();
     if (!trimmed || trimmed === myCity) return;
     setSaving(true);
     try {
@@ -74,288 +310,265 @@ export default function FanMapPage() {
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
         // 刷新地图数据
-        setTimeout(fetchData, 500);
+        await fetchData(false);
       }
     } catch { /* ignore */ }
     setSaving(false);
   };
 
-  const maxCount = data?.cities[0]?.count || 1;
+  const handleAutoLocate = async (): Promise<void> => {
+    let runtimeContext = await getLocateRuntimeContext();
 
-  // 有坐标的位置用于地图
-  const mapLocations = (data?.cities || []).filter((c) => c.coord !== null) as (CityItem & { coord: [number, number] })[];
+    setSaved(false);
+    setLocationDiagnostic('');
+    setLocationFeedback('正在识别当前位置...');
+    setLocationFeedbackType('default');
+    setLocating(true);
+
+    try {
+      if (!runtimeContext.isSecureContext && !isLocalhostHost(runtimeContext.hostname)) {
+        throw new Error('geolocation-insecure-context');
+      }
+
+      if (runtimeContext.permissionState === 'denied') {
+        throw new Error('geolocation-permission-denied');
+      }
+
+      if (typeof navigator === 'undefined' || !navigator.geolocation) {
+        throw new Error('geolocation-unsupported');
+      }
+
+      const position = await getCurrentPosition();
+      const detected = await reverseGeocodeLocation(position.coords.longitude, position.coords.latitude);
+      const nextLocation = buildLocationValue(detected.city, detected.district);
+
+      setLocationDraft(nextLocation);
+      setLocationFeedback(`已识别为 ${nextLocation}，确认无误后可直接更新。`);
+      setLocationFeedbackType('success');
+    } catch (error) {
+      runtimeContext = await getLocateRuntimeContext();
+      setLocationDiagnostic(buildLocateDiagnostic(error, runtimeContext));
+      setLocationFeedback(getLocateErrorMessage(error, runtimeContext));
+      setLocationFeedbackType('error');
+    } finally {
+      setLocating(false);
+    }
+  };
+
+  const mapLocations = useMemo(
+    () => (data?.cities || []).filter((c) => c.coord !== null) as (CityItem & { coord: [number, number] })[],
+    [data]
+  );
+  const unmappedPreview = useMemo(() => data?.unmappedCities.slice(0, 6) || [], [data]);
+  const draftLocationDisplay = useMemo(() => {
+    if (!locationDraft) {
+      return '';
+    }
+
+    const parsed = parseLocationValue(locationDraft);
+    const displayCity = getCityDisplayName(parsed.city) || parsed.city;
+    return parsed.district ? `${displayCity}/${parsed.district}` : displayCity;
+  }, [locationDraft]);
+  const myCityDisplay = useMemo(() => {
+    if (!myCity) {
+      return '';
+    }
+
+    const parsed = parseLocationValue(myCity);
+    const displayCity = getCityDisplayName(parsed.city) || parsed.city;
+    return parsed.district ? `${displayCity}/${parsed.district}` : displayCity;
+  }, [myCity]);
+  const canSaveLocatedDraft = useMemo(() => Boolean(locationDraft.trim()) && locationDraft.trim() !== myCity, [locationDraft, myCity]);
 
   return (
     <>
-      {/* Hero */}
-      <section className="relative bg-gray-900 overflow-hidden pt-14">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-gray-900 to-gray-900" />
-        <div className="absolute inset-0 flex items-center justify-center select-none pointer-events-none">
-          <span
-            className="text-[120px] sm:text-[200px] leading-none font-bold text-white/[0.03]"
-            style={{ fontFamily: "'Blazed', sans-serif" }}
-          >
-            MAP
-          </span>
+      {/* Cover Banner */}
+      <section className="relative h-48 sm:h-56 bg-gray-900 overflow-hidden mt-14">
+        <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900" />
+        <div className="absolute inset-0 flex items-center justify-center gap-4 sm:gap-6 select-none pointer-events-none">
+          <span className="text-[56px] sm:text-[80px] leading-none font-bold text-white/10" style={{ fontFamily: "'Blazed', sans-serif" }}>1103</span>
+          <span className="text-[28px] sm:text-[40px] leading-none text-primary/50 tracking-[0.15em]" style={{ fontFamily: "'Blazed', sans-serif" }}>ChenZe</span>
         </div>
-        <div className="container-main px-4 sm:px-6 lg:px-8 relative z-10 py-16 sm:py-20 text-center">
-          <div className="animate-fade-in-up inline-flex items-center gap-2 bg-primary/15 border border-primary/30 rounded-full px-4 py-1.5 mb-4">
-            <Globe className="w-4 h-4 text-primary" />
-            <span className="text-caption font-medium text-primary">全球泽小将分布</span>
+        <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-bg-page to-transparent" />
+        <div className="container-main px-4 sm:px-6 lg:px-8 relative z-10 h-full flex flex-col items-center justify-center text-center">
+          <div className="inline-flex items-center gap-2 bg-primary/15 border border-primary/30 rounded-full px-4 py-1.5 mb-3">
+            <Globe className="h-4 w-4 text-primary" />
+            <span className="text-caption font-medium text-primary">全球粉丝地图</span>
           </div>
-          <h1 className="animate-fade-in-up text-heading text-white" style={{ animationDelay: '0.1s' }}>
-            泽小将都在哪？
-          </h1>
-          <p className="animate-fade-in-up text-body text-gray-400 mt-2 max-w-md mx-auto" style={{ animationDelay: '0.2s' }}>
-            标记你的位置，看看全球泽小将的分布
+          <h1 className="text-heading-lg text-white">看看泽小将都落在了世界的哪些角落</h1>
+          <p className="text-body text-gray-400 mt-1.5 max-w-md mx-auto">
+            用一张更清爽的地图查看当前已点亮的城市分布。
           </p>
-
-          {/* 内联定位输入 */}
-          {isLoggedIn && (
-            <div className="animate-fade-in-up mt-6 max-w-sm mx-auto" style={{ animationDelay: '0.3s' }}>
-              <div className="flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-2 py-1.5">
-                <Navigation className="w-4 h-4 text-primary ml-2 flex-shrink-0" />
-                <input
-                  type="text"
-                  value={cityInput}
-                  onChange={(e) => { setCityInput(e.target.value); setSaved(false); }}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSaveCity()}
-                  placeholder="输入你的位置，如：北京、Tokyo、London"
-                  maxLength={50}
-                  className="flex-1 bg-transparent text-sm text-white placeholder:text-white/40 focus:outline-none min-w-0"
-                />
-                <button
-                  onClick={handleSaveCity}
-                  disabled={saving || !cityInput.trim() || cityInput.trim() === myCity}
-                  className="h-8 px-4 rounded-full bg-primary text-white text-caption font-medium hover:bg-primary/90 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5 flex-shrink-0"
-                >
-                  {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : saved ? <Check className="w-3.5 h-3.5" /> : null}
-                  {saving ? '保存中' : saved ? '已保存' : '标记'}
-                </button>
-              </div>
-              {myCity && (
-                <p className="text-caption text-white/40 mt-2">
-                  当前位置：<span className="text-primary/80">{myCity}</span>
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* 统计卡片 */}
-          {data && (
-            <div className="animate-fade-in-up flex flex-wrap items-center justify-center gap-3 mt-8" style={{ animationDelay: '0.4s' }}>
-              <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-card px-4 py-3">
-                <Users className="w-4 h-4 text-primary" />
-                <span className="text-heading-sm text-white">{data.totalFans}</span>
-                <span className="text-caption text-gray-400">泽小将</span>
-              </div>
-              <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-card px-4 py-3">
-                <MapPin className="w-4 h-4 text-primary" />
-                <span className="text-heading-sm text-white">{data.filledCount}</span>
-                <span className="text-caption text-gray-400">已标记</span>
-              </div>
-              <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-card px-4 py-3">
-                <Globe className="w-4 h-4 text-primary" />
-                <span className="text-heading-sm text-white">{data.cities.length}</span>
-                <span className="text-caption text-gray-400">覆盖位置</span>
-              </div>
-            </div>
-          )}
         </div>
-        <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#FAFAFA] to-transparent" />
       </section>
 
       {/* 地图区域 */}
-      <section className="section-block">
-        <div className="container-main">
-          {loading ? (
-            <div className="aspect-[2/1] bg-slate-900 rounded-2xl animate-pulse" />
-          ) : mapLocations.length > 0 ? (
-            <div className="animate-fade-in-up">
-              <h2 className="section-title mb-6">全球分布地图</h2>
-              <WorldDotMap locations={mapLocations} />
-            </div>
-          ) : null}
-        </div>
-      </section>
-
-      {/* 位置排行 */}
-      <section className="section-block border-t border-divider">
-        <div className="container-main">
-          {!loading && data && data.cities.length > 0 ? (
-            <div className="animate-fade-in-up" style={{ animationDelay: '0.15s' }}>
-              <h2 className="section-title mb-6">位置排行榜</h2>
-              <div className="grid lg:grid-cols-2 gap-4">
-                {/* 左侧：TOP 排行列表 */}
-                <div className="space-y-2">
-                  {data.cities.map((item, idx) => {
-                    const pct = Math.round((item.count / maxCount) * 100);
-                    const isTop3 = idx < 3;
-                    return (
-                      <div
-                        key={item.city}
-                        className={`animate-fade-in-up relative flex items-center gap-3 px-4 py-3 rounded-xl border transition-colors duration-150 ${
-                          isTop3
-                            ? 'bg-primary/[0.04] border-primary/20'
-                            : 'bg-white border-divider hover:border-primary/30'
-                        }`}
-                        style={{ animationDelay: `${idx * 0.05}s` }}
-                      >
-                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-caption font-bold ${
-                          idx === 0 ? 'bg-amber-400 text-white' :
-                          idx === 1 ? 'bg-gray-300 text-white' :
-                          idx === 2 ? 'bg-orange-400 text-white' :
-                          'bg-gray-100 text-text-muted'
-                        }`}>
-                          {idx < 3 ? <Crown className="w-3.5 h-3.5" /> : idx + 1}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className={`text-body font-medium ${isTop3 ? 'text-text-title' : 'text-text-body'}`}>
-                              {item.city}
-                            </span>
-                            <span className={`text-caption font-medium ${isTop3 ? 'text-primary' : 'text-text-muted'}`}>
-                              {item.count} 人
-                            </span>
-                          </div>
-                          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                            <div
-                              className={`h-full rounded-full transition-all duration-500 ${
-                                idx === 0 ? 'bg-amber-400' :
-                                idx === 1 ? 'bg-gray-400' :
-                                idx === 2 ? 'bg-orange-400' :
-                                'bg-primary/60'
-                              }`}
-                              style={{ width: `${pct}%` }}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* 右侧：圆环图 */}
-                <div className="bg-white rounded-card border border-divider p-6">
-                  <h3 className="text-body font-semibold text-text-title mb-4">位置占比</h3>
-                  <div className="flex items-center justify-center py-4">
-                    <CityDonut cities={data.cities.slice(0, 8)} total={data.filledCount} />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 mt-4">
-                    {data.cities.slice(0, 8).map((item, idx) => (
-                      <div key={item.city} className="flex items-center gap-2">
-                        <span
-                          className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: CHART_COLORS[idx % CHART_COLORS.length] }}
-                        />
-                        <span className="text-caption text-text-body truncate">{item.city}</span>
-                        <span className="text-caption text-text-muted ml-auto">{Math.round((item.count / data.filledCount) * 100)}%</span>
-                      </div>
-                    ))}
-                    {data.cities.length > 8 && (
-                      <div className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-gray-200" />
-                        <span className="text-caption text-text-muted">其他位置</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
+      <section className="section-block relative overflow-hidden">
+        <div className="absolute inset-0 pointer-events-none" style={{
+          background: 'radial-gradient(ellipse 80% 60% at 20% 30%, rgba(24,144,255,0.06) 0%, transparent 60%), radial-gradient(ellipse 60% 50% at 80% 70%, rgba(250,173,20,0.05) 0%, transparent 60%)',
+        }} />
+        <div className="container-main relative z-10 grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="rounded-card bg-white/40 backdrop-blur-md border border-white/70 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5),0_4px_24px_rgba(0,0,0,0.06)] p-5 sm:p-6">
+            <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <div className="max-w-2xl">
+                <h2 className="section-title mb-0">全球分布地图</h2>
+                <p className="mt-2 text-caption leading-6 text-text-muted">支持拖拽、缩放与点击点位查看位置详情。点位越大，代表当前位置记录的粉丝越多。</p>
               </div>
+              <button
+                type="button"
+                onClick={() => setMapResetToken((value) => value + 1)}
+                className="inline-flex h-9 items-center justify-center rounded-full border border-divider bg-white dark:bg-[#1e1e22] dark:border-[#37373c] px-4 text-caption text-text-body transition-colors hover:bg-[#fafafa] dark:hover:bg-[#2a2a2e]"
+              >
+                重置全球视角
+              </button>
             </div>
-          ) : !loading ? (
-            <div className="text-center py-20">
-              <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
-                <MapPin className="w-7 h-7 text-text-disabled" />
+
+            <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-card border border-divider bg-[#fafafa] dark:bg-[#232326]/80 dark:border-[#37373c] px-4 py-3 text-caption text-text-muted">
+              <span className="font-medium text-text-title">地图说明</span>
+              <span>拖拽查看区域</span>
+              <span>点击城市看详情</span>
+              <span>已上图 {loading ? '--' : mapLocations.length} 个位置</span>
+            </div>
+
+            {loading ? (
+              <div className="h-[560px] rounded-card bg-gray-100 animate-pulse" />
+            ) : error ? (
+              <div className="flex h-[560px] flex-col items-center justify-center rounded-card border border-dashed border-divider bg-[#fafafa] dark:bg-[#1e1e22] dark:border-[#37373c] px-6 text-center">
+                <AlertCircle className="h-10 w-10 text-[#ff4d4f]" />
+                <p className="mt-4 text-body font-medium text-text-title">粉丝地图加载失败</p>
+                <p className="mt-2 max-w-md text-caption text-text-muted">{error}</p>
+                <button
+                  onClick={() => void fetchData()}
+                  className="mt-5 inline-flex h-10 items-center justify-center gap-2 rounded-full bg-primary px-5 text-caption font-medium text-white transition-colors hover:bg-primary/90"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  重新加载
+                </button>
               </div>
-              <p className="text-body font-medium text-text-body">还没有泽小将标记位置</p>
-              <p className="text-caption text-text-muted mt-1">
-                {isLoggedIn ? '在上方输入你的位置，成为第一个吧！' : '登录后即可标记你的位置'}
-              </p>
-              {!isLoggedIn && (
-                <a href="/login" className="btn-primary inline-flex items-center justify-center mt-4 h-10 px-6">
-                  登录 / 加入
+            ) : mapLocations.length > 0 ? (
+              <AmapFanMap locations={mapLocations} resetToken={mapResetToken} />
+            ) : (
+              <div className="flex h-[560px] flex-col items-center justify-center rounded-card border border-dashed border-divider bg-[#fafafa] dark:bg-[#1e1e22] dark:border-[#37373c] px-6 text-center">
+                <MapPin className="h-10 w-10 text-text-disabled" />
+                <p className="mt-4 text-body font-medium text-text-title">还没有可显示的位置</p>
+                <p className="mt-2 max-w-md text-caption text-text-muted">
+                  {isLoggedIn ? '先在右侧填写你的城市，成为第一个出现在地图上的泽小将。' : '登录后填写你的位置，就能出现在全球地图上。'}
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            <div className="rounded-card bg-white/40 backdrop-blur-md border border-white/70 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5),0_4px_24px_rgba(0,0,0,0.06)] p-5">
+              <h3 className="text-body font-semibold text-text-title">标记我的位置</h3>
+              <p className="mt-1 text-caption leading-6 text-text-muted">当前仅支持自动定位识别当前位置。识别成功后，你可以直接更新到粉丝地图。</p>
+
+              {isLoggedIn ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => void handleAutoLocate()}
+                    disabled={locating || saving}
+                    className="mt-4 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-primary px-5 text-caption font-medium text-white transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {locating ? <Loader2 className="h-4 w-4 animate-spin" /> : <LocateFixed className="h-4 w-4" />}
+                    <span>{locating ? '定位中' : '自动定位当前位置'}</span>
+                  </button>
+
+                  <div className="mt-4 rounded-xl bg-[#fafafa] dark:bg-[#232326]/80 p-4">
+                    <p className="text-caption text-text-muted">最近识别结果</p>
+                    <p className={`mt-1 text-body font-medium ${draftLocationDisplay ? 'text-text-title' : 'text-text-muted'}`}>
+                      {draftLocationDisplay || '尚未成功识别位置，请点击上方按钮开始定位。'}
+                    </p>
+                    <p className="mt-2 text-caption leading-6 text-text-muted">
+                      {draftLocationDisplay ? '识别成功后会按 城市/区县 的格式保存。' : '如果浏览器仍然拒绝定位，当前页面将无法继续自动识别。'}
+                    </p>
+                  </div>
+
+                  {locationFeedback ? (
+                    <p className={`mt-3 text-caption leading-6 ${locationFeedbackType === 'error' ? 'text-danger' : locationFeedbackType === 'success' ? 'text-primary' : 'text-text-muted'}`}>
+                      {locationFeedback}
+                    </p>
+                  ) : null}
+                  {locationDiagnostic ? (
+                    <p className="mt-1 text-caption leading-6 text-text-muted">
+                      {locationDiagnostic}
+                    </p>
+                  ) : null}
+
+                  <button
+                    onClick={handleSaveCity}
+                    disabled={saving || !canSaveLocatedDraft}
+                    className="mt-4 inline-flex h-10 items-center justify-center gap-1.5 rounded-full bg-primary px-5 text-caption font-medium text-white transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : saved ? <Check className="h-3.5 w-3.5" /> : null}
+                    {saving ? '保存中' : saved ? '已保存' : '更新'}
+                  </button>
+                  <p className="mt-3 text-caption text-text-muted">
+                    当前填写：<span className="text-primary">{myCity ? myCityDisplay || myCity : '未填写'}</span>
+                  </p>
+                </>
+              ) : (
+                <a href="/login" className="btn-primary mt-4 inline-flex h-10 items-center justify-center px-5">
+                  登录后标记位置
                 </a>
               )}
             </div>
-          ) : null}
+
+            <div className="rounded-card bg-white/40 backdrop-blur-md border border-white/70 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5),0_4px_24px_rgba(0,0,0,0.06)] p-5">
+              <h3 className="text-body font-semibold text-text-title">地图概览</h3>
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <div className="rounded-xl bg-[#fafafa] dark:bg-[#232326]/80 px-4 py-3">
+                  <p className="text-caption text-text-muted">覆盖率</p>
+                  <p className="mt-1 text-body font-semibold text-text-title">{loading ? '--' : `${data?.coverageRate ?? 0}%`}</p>
+                </div>
+                <div className="rounded-xl bg-[#fafafa] dark:bg-[#232326]/80 px-4 py-3">
+                  <p className="text-caption text-text-muted">已上图城市</p>
+                  <p className="mt-1 text-body font-semibold text-text-title">{loading ? '--' : data?.mappedCityCount ?? 0}</p>
+                </div>
+                <div className="rounded-xl bg-[#fafafa] dark:bg-[#232326]/80 px-4 py-3">
+                  <p className="text-caption text-text-muted">已上图人数</p>
+                  <p className="mt-1 text-body font-semibold text-text-title">{loading ? '--' : data?.mappedCount ?? 0}</p>
+                </div>
+                <div className="rounded-xl bg-[#fafafa] dark:bg-[#232326]/80 px-4 py-3">
+                  <p className="text-caption text-text-muted">待补充解析</p>
+                  <p className="mt-1 text-body font-semibold text-text-title">{loading ? '--' : data?.unmappedCount ?? 0}</p>
+                </div>
+              </div>
+              <div className="mt-4 h-2 overflow-hidden rounded-full bg-gray-100">
+                <div
+                  className="h-full rounded-full bg-primary transition-all duration-500"
+                  style={{ width: `${data?.coverageRate ?? 0}%` }}
+                />
+              </div>
+              <p className="mt-3 text-caption leading-6 text-text-muted">
+                {data?.unmappedCount ? `还有 ${data.unmappedCount} 位粉丝的位置待补充解析。` : '当前已填写的位置都能正常显示在地图中。'}
+              </p>
+            </div>
+
+            <div className="rounded-card bg-white/40 backdrop-blur-md border border-white/70 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5),0_4px_24px_rgba(0,0,0,0.06)] p-5">
+              <div className="flex items-center justify-between gap-4">
+                <h3 className="text-body font-semibold text-text-title">待补充位置解析</h3>
+                <span className="text-caption text-text-muted">{loading ? '--' : `${unmappedPreview.length} 个位置`}</span>
+              </div>
+              {data && unmappedPreview.length > 0 ? (
+                <div className="mt-4 space-y-2">
+                  {unmappedPreview.map((item) => (
+                    <div key={item.city} className="flex items-center justify-between rounded-lg bg-[#fafafa] dark:bg-[#232326]/80 px-3 py-2 text-caption">
+                      <span className="truncate text-text-body">{item.city}</span>
+                      <span className="ml-3 flex-shrink-0 text-text-muted">{item.count} 人</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-4 text-caption text-text-muted">当前已填写的位置都能正常显示在地图中。</p>
+              )}
+              <p className="mt-4 text-caption leading-6 text-text-muted">这些地点还没有成功匹配到坐标，后续只需补充别名或坐标映射，就能进一步提高覆盖率。</p>
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* CTA */}
-      {!isLoggedIn && (
-        <section className="section-block border-t border-divider bg-white">
-          <div className="container-main text-center max-w-md mx-auto">
-            <Globe className="w-8 h-8 text-primary mx-auto mb-3" />
-            <h3 className="text-heading-sm text-text-title">标记你的位置</h3>
-            <p className="text-body text-text-muted mt-1">
-              登录后在页面顶部输入你的位置，即可出现在全球粉丝地图上
-            </p>
-            <a href="/login" className="btn-primary inline-flex items-center justify-center mt-4 h-10 px-6">
-              登录 / 加入
-            </a>
-          </div>
-        </section>
-      )}
     </>
-  );
-}
-
-// ===== 圆环图组件 =====
-
-const CHART_COLORS = [
-  '#3b82f6', '#22c55e', '#f59e0b', '#ef4444',
-  '#06b6d4', '#8b5cf6', '#f97316', '#ec4899',
-];
-
-function CityDonut({ cities, total }: { cities: CityItem[]; total: number }) {
-  const size = 180;
-  const strokeWidth = 28;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-
-  let accumulated = 0;
-  const segments = cities.map((item, idx) => {
-    const pct = item.count / total;
-    const offset = accumulated;
-    accumulated += pct;
-    return { ...item, pct, offset, color: CHART_COLORS[idx % CHART_COLORS.length] };
-  });
-
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="transform -rotate-90">
-      <circle
-        cx={size / 2} cy={size / 2} r={radius}
-        fill="none" stroke="#f0f0f0" strokeWidth={strokeWidth}
-      />
-      {segments.map((seg) => (
-        <circle
-          key={seg.city}
-          cx={size / 2} cy={size / 2} r={radius}
-          fill="none"
-          stroke={seg.color}
-          strokeWidth={strokeWidth}
-          strokeDasharray={`${seg.pct * circumference} ${circumference}`}
-          strokeDashoffset={-seg.offset * circumference}
-          strokeLinecap="butt"
-          className="transition-all duration-500"
-        />
-      ))}
-      <text
-        x={size / 2} y={size / 2 - 6}
-        textAnchor="middle" dominantBaseline="middle"
-        className="fill-[#1a1a1a] text-[24px] font-bold"
-        transform={`rotate(90, ${size / 2}, ${size / 2})`}
-      >
-        {total}
-      </text>
-      <text
-        x={size / 2} y={size / 2 + 16}
-        textAnchor="middle" dominantBaseline="middle"
-        className="fill-[#999] text-[12px]"
-        transform={`rotate(90, ${size / 2}, ${size / 2})`}
-      >
-        已标记
-      </text>
-    </svg>
   );
 }

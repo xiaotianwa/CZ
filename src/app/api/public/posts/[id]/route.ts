@@ -15,9 +15,18 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
           select: { tag: { select: { id: true, name: true, color: true } } },
         },
         comments: {
+          where: { parentId: null },
           include: {
             author: {
               select: { id: true, name: true, avatar: true, role: true, level: true, badge: true },
+            },
+            replies: {
+              include: {
+                author: {
+                  select: { id: true, name: true, avatar: true, role: true, level: true, badge: true },
+                },
+              },
+              orderBy: { createdAt: 'asc' },
             },
           },
           orderBy: { createdAt: 'desc' },

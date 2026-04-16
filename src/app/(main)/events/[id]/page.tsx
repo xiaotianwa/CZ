@@ -1,8 +1,14 @@
+import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Calendar, MapPin, Users, ArrowLeft } from 'lucide-react';
 import { prisma } from '@/lib/db';
 import { notFound } from 'next/navigation';
+
+export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+  const event = await prisma.event.findUnique({ where: { id: params.id }, select: { title: true } });
+  return { title: event?.title || '活动详情' };
+}
 
 function formatNum(num: number): string {
   if (num >= 10000) return (num / 10000).toFixed(1) + '万';

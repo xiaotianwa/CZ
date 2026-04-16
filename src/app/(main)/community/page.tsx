@@ -81,7 +81,10 @@ interface CommentItem {
   content: string;
   likes: number;
   createdAt: string;
+  parentId: string | null;
+  replyToName: string | null;
   author: { id: string; name: string; avatar: string | null; role: string; level: number; badge: string | null };
+  replies?: CommentItem[];
 }
 
 // ===== Post Composer =====
@@ -463,7 +466,7 @@ function PostComposer({ topics, onPostCreated, onTopicCreated, isLoggedIn }: { t
   };
 
   return (
-    <div className="bg-white rounded-card p-3 sm:p-5 shadow-card border border-divider">
+    <div className="rounded-card p-3 sm:p-5">
       <LoginRequiredModal open={loginModal} redirectTo="/community" onCancel={() => setLoginModal(false)} />
       <div className="relative">
         <textarea
@@ -650,6 +653,7 @@ function CommentSection({ postId, onToast, isLoggedIn }: { postId: string; onToa
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const [loginModal, setLoginModal] = useState(false);
+  const [replyTo, setReplyTo] = useState<{ id: string; name: string } | null>(null);
 
   const fetchComments = useCallback(async () => {
     try {
@@ -671,16 +675,28 @@ function CommentSection({ postId, onToast, isLoggedIn }: { postId: string; onToa
     setSending(true);
     setError('');
     try {
+      const body: Record<string, string> = { postId, content: content.trim() };
+      if (replyTo) {
+        body.parentId = replyTo.id;
+        body.replyToName = replyTo.name;
+      }
       const res = await fetch('/api/auth/comments', {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ postId, content: content.trim() }),
+        body: JSON.stringify(body),
       });
       const json = await res.json();
       if (json.code !== 0) throw new Error(json.message);
-      setComments((prev) => [json.data, ...prev]);
+      if (replyTo) {
+        setComments((prev) => prev.map((c) =>
+          c.id === replyTo.id ? { ...c, replies: [...(c.replies || []), json.data] } : c
+        ));
+      } else {
+        setComments((prev) => [{ ...json.data, replies: [] }, ...prev]);
+      }
       setContent('');
+      setReplyTo(null);
       onToast('评论发布成功', 'success');
     } catch (err) {
       const msg = err instanceof Error ? err.message : '评论失败';
@@ -694,13 +710,20 @@ function CommentSection({ postId, onToast, isLoggedIn }: { postId: string; onToa
   return (
     <div className="mt-3 pt-3 border-t border-divider">
       <LoginRequiredModal open={loginModal} redirectTo="/community" onCancel={() => setLoginModal(false)} />
+      {/* Reply indicator */}
+      {replyTo && (
+        <div className="flex items-center gap-2 mb-2 text-[11px] text-primary bg-primary-bg rounded-btn px-2.5 py-1">
+          <span>回复 <strong>{replyTo.name}</strong></span>
+          <button onClick={() => setReplyTo(null)} className="ml-auto p-0.5 rounded hover:bg-primary/10 cursor-pointer"><X className="w-3 h-3" /></button>
+        </div>
+      )}
       {/* Comment Input */}
       <div className="flex gap-2 mb-3">
         <input
           value={content}
           onChange={(e) => { setContent(e.target.value); setError(''); }}
           onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-          placeholder="写评论..."
+          placeholder={replyTo ? `回复 ${replyTo.name}...` : '写评论...'}
           maxLength={500}
           className="flex-1 h-8 px-3 rounded-btn border border-border bg-white text-caption text-text-body placeholder:text-text-disabled focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors duration-150"
         />
@@ -726,22 +749,51 @@ function CommentSection({ postId, onToast, isLoggedIn }: { postId: string; onToa
       ) : (
         <div className="space-y-2.5">
           {comments.map((c) => (
-            <div key={c.id} className="flex items-start gap-2">
-              <div className="relative w-6 h-6 rounded-full overflow-hidden flex-shrink-0 bg-gray-100 mt-0.5">
-                {c.author?.avatar ? (
-                  <Image src={c.author.avatar} alt={c.author.name} fill className="object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-primary-bg text-[10px] font-bold text-primary">{c.author.name[0]}</div>
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1">
-                  <span className="text-caption font-medium text-text-title">{c.author.name}</span>
-                  <RoleBadge role={c.author.role} />
-                  <span className="text-[11px] text-text-disabled ml-auto">{timeAgo(c.createdAt)}</span>
+            <div key={c.id}>
+              <div className="flex items-start gap-2">
+                <div className="relative w-6 h-6 rounded-full overflow-hidden flex-shrink-0 bg-gray-100 mt-0.5">
+                  {c.author?.avatar ? (
+                    <Image src={c.author.avatar} alt={c.author.name} fill className="object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-primary-bg text-[10px] font-bold text-primary">{c.author.name[0]}</div>
+                  )}
                 </div>
-                <p className="text-caption text-text-body mt-0.5">{c.content}</p>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1">
+                    <span className="text-caption font-medium text-text-title">{c.author.name}</span>
+                    <RoleBadge role={c.author.role} />
+                    <span className="text-[11px] text-text-disabled ml-auto">{timeAgo(c.createdAt)}</span>
+                  </div>
+                  <p className="text-caption text-text-body mt-0.5">{c.content}</p>
+                  <button
+                    onClick={() => setReplyTo({ id: c.id, name: c.author.name })}
+                    className="mt-0.5 text-[11px] text-text-muted hover:text-primary cursor-pointer transition-colors inline-flex items-center gap-0.5"
+                  >
+                    <MessageCircle className="w-2.5 h-2.5" /> 回复
+                  </button>
+                </div>
               </div>
+              {/* Nested replies */}
+              {c.replies && c.replies.length > 0 && (
+                <div className="ml-8 mt-1.5 pl-2.5 border-l-2 border-primary/10 space-y-1.5">
+                  {c.replies.map((r) => (
+                    <div key={r.id} className="flex items-start gap-1.5">
+                      <div className="relative w-5 h-5 rounded-full overflow-hidden flex-shrink-0 bg-gray-100 mt-0.5">
+                        {r.author?.avatar ? (
+                          <Image src={r.author.avatar} alt={r.author.name} fill className="object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-primary-bg text-[9px] font-bold text-primary">{r.author.name[0]}</div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-[11px] font-medium text-text-title">{r.author.name}</span>
+                        {r.replyToName && <span className="text-[11px] text-text-muted"> 回复 <span className="text-primary">{r.replyToName}</span></span>}
+                        <p className="text-[11px] text-text-body">{r.content}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -760,6 +812,10 @@ function CheckinCard() {
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(true);
   const [loginModal, setLoginModal] = useState(false);
+  const [checkedDays, setCheckedDays] = useState<number[]>([]);
+  const [calMonth, setCalMonth] = useState(0);
+  const [calYear, setCalYear] = useState(0);
+  const [monthTotal, setMonthTotal] = useState(0);
 
   useEffect(() => {
     fetch('/api/auth/checkin', { credentials: 'same-origin' })
@@ -768,6 +824,10 @@ function CheckinCard() {
         if (json.code === 0 && json.data) {
           setCheckedIn(json.data.checkedIn);
           setStreak(json.data.streak);
+          setCheckedDays(json.data.checkedDays || []);
+          setCalMonth(json.data.month || new Date().getMonth() + 1);
+          setCalYear(json.data.year || new Date().getFullYear());
+          setMonthTotal(json.data.monthTotal || 0);
         } else if (json.code !== 0) {
           setIsLoggedIn(false);
         }
@@ -789,6 +849,9 @@ function CheckinCard() {
       if (json.code === 0) {
         setCheckedIn(true);
         setStreak((s) => s + 1);
+        const today = new Date().getDate();
+        setCheckedDays((prev) => prev.includes(today) ? prev : [...prev, today]);
+        setMonthTotal((prev) => prev + 1);
         setToast({ msg: `签到成功！+5积分${json.data?.levelUp ? ' 🎉 升级了！' : ''}`, ok: true });
         setTimeout(() => setToast(null), 3000);
       } else if (res.status === 401) {
@@ -806,12 +869,35 @@ function CheckinCard() {
     }
   };
 
+  // 生成日历网格
+  const calendarGrid = (() => {
+    if (!calYear || !calMonth) return [];
+    const firstDay = new Date(calYear, calMonth - 1, 1).getDay(); // 0=Sun
+    const daysInMonth = new Date(calYear, calMonth, 0).getDate();
+    const today = new Date().getDate();
+    const isCurrentMonth = calYear === new Date().getFullYear() && calMonth === new Date().getMonth() + 1;
+    const grid: { day: number; checked: boolean; isToday: boolean; isPast: boolean }[] = [];
+    // 填充空白
+    for (let i = 0; i < firstDay; i++) grid.push({ day: 0, checked: false, isToday: false, isPast: false });
+    for (let d = 1; d <= daysInMonth; d++) {
+      grid.push({
+        day: d,
+        checked: checkedDays.includes(d),
+        isToday: isCurrentMonth && d === today,
+        isPast: isCurrentMonth ? d < today : true,
+      });
+    }
+    return grid;
+  })();
+
   if (loading) return null;
 
+  const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
+
   return (
-    <div className="card">
+    <div className="rounded-card bg-white/40 backdrop-blur-md border border-white/70 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5),0_4px_24px_rgba(0,0,0,0.06)] p-5">
       <LoginRequiredModal open={loginModal} redirectTo="/community" onCancel={() => setLoginModal(false)} />
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between">
         <h3 className="text-body font-semibold text-text-title flex items-center gap-1.5">
           <Gift className="w-4 h-4 text-primary" /> 每日签到
         </h3>
@@ -821,17 +907,60 @@ function CheckinCard() {
           </span>
         )}
       </div>
+
+      {/* Stats row */}
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="rounded-lg bg-primary/[0.06] px-3 py-2 text-center">
+          <p className="text-heading-sm text-primary">{monthTotal}</p>
+          <p className="text-[11px] text-text-muted">{calMonth}月签到</p>
+        </div>
+        <div className="rounded-lg bg-orange-500/[0.06] px-3 py-2 text-center">
+          <p className="text-heading-sm text-orange-500">{streak}</p>
+          <p className="text-[11px] text-text-muted">连续天数</p>
+        </div>
+      </div>
+
+      {/* Calendar grid */}
+      {isLoggedIn && calendarGrid.length > 0 && (
+        <div className="mt-3">
+          <p className="text-caption text-text-muted mb-2">{calYear}年{calMonth}月</p>
+          <div className="grid grid-cols-7 gap-0.5 text-center">
+            {WEEKDAYS.map((w) => (
+              <div key={w} className="text-[10px] text-text-disabled py-0.5">{w}</div>
+            ))}
+            {calendarGrid.map((cell, i) => (
+              <div
+                key={i}
+                className={`w-full aspect-square flex items-center justify-center rounded-full text-[11px] transition-colors ${
+                  cell.day === 0
+                    ? ''
+                    : cell.checked
+                      ? 'bg-primary text-white font-bold'
+                      : cell.isToday
+                        ? 'ring-1 ring-primary text-primary font-medium'
+                        : cell.isPast
+                          ? 'text-text-disabled'
+                          : 'text-text-muted'
+                }`}
+              >
+                {cell.day > 0 ? cell.day : ''}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <button
         onClick={handleCheckin}
         disabled={(isLoggedIn && checkedIn) || doing}
-        className={`w-full h-9 rounded-btn font-medium text-body transition-all duration-200 inline-flex items-center justify-center gap-2 ${
+        className={`mt-4 inline-flex h-10 w-full items-center justify-center gap-2 rounded-btn font-medium text-body transition-all duration-200 ${
           isLoggedIn && checkedIn
             ? 'bg-gray-100 text-text-muted cursor-not-allowed'
             : 'bg-primary text-white hover:bg-primary/90 cursor-pointer shadow-sm'
         }`}
       >
         {doing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className={`w-4 h-4 ${isLoggedIn && checkedIn ? 'text-success' : ''}`} />}
-        {!isLoggedIn ? '登录后签到' : checkedIn ? '今日已签到' : '立即签到 +5积分'}
+        {!isLoggedIn ? '登录后签到' : checkedIn ? '今日已签到 ✓' : '立即签到 +5积分'}
       </button>
       {toast && <p className={`text-caption mt-2 text-center ${toast.ok ? 'text-success' : 'text-danger'}`}>{toast.msg}</p>}
     </div>
@@ -845,12 +974,16 @@ export default function CommunityPage() {
   const [posts, setPosts] = useState<PostItem[]>([]);
   const [topics, setTopics] = useState<TopicItem[]>([]);
   const [hotTopics, setHotTopics] = useState<TopicItem[]>([]);
-  const [communityStats, setCommunityStats] = useState({ totalFans: 0, todayPosts: 0, onlineNow: 0 });
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
   const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
   const [toast, setToast] = useState<{ open: boolean; message: string; type: 'success' | 'error' }>({ open: false, message: '', type: 'success' });
   const [isLoggedIn, setIsLoggedIn] = useState(true);
   const [loginModal, setLoginModal] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const PAGE_SIZE = 20;
 
   const showToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
     setToast({ open: true, message, type });
@@ -875,20 +1008,52 @@ export default function CommunityPage() {
   }, []);
 
   // Fetch posts (re-fetch when topic filter changes)
-  useEffect(() => {
-    setLoading(true);
-    const params = new URLSearchParams({ pageSize: '50' });
-    if (activeTopicId) params.set('tagId', activeTopicId);
-
-    Promise.all([
-      fetch(`/api/public/posts?${params}`).then((r) => r.json()),
-      fetch('/api/public/config').then((r) => r.json()),
-    ]).then(([postsRes, configRes]) => {
-      if (postsRes.data?.list) setPosts(postsRes.data.list);
-      if (configRes.data?.communityStats) setCommunityStats(configRes.data.communityStats);
-      setLoading(false);
-    }).catch(() => setLoading(false));
+  const fetchPosts = useCallback(async (pageNum: number, append: boolean) => {
+    if (pageNum === 1) setLoading(true); else setLoadingMore(true);
+    try {
+      const params = new URLSearchParams({ page: String(pageNum), pageSize: String(PAGE_SIZE) });
+      if (activeTopicId) params.set('tagId', activeTopicId);
+      const res = await fetch(`/api/public/posts?${params}`);
+      const json = await res.json();
+      if (json.data?.list) {
+        if (append) {
+          setPosts((prev) => [...prev, ...json.data.list]);
+        } else {
+          setPosts(json.data.list);
+        }
+        const { pagination } = json.data;
+        setHasMore(pagination.page < pagination.totalPages);
+      }
+    } catch { /* ignore */ }
+    setLoading(false);
+    setLoadingMore(false);
   }, [activeTopicId]);
+
+  useEffect(() => {
+    setPage(1);
+    setHasMore(true);
+    fetchPosts(1, false);
+  }, [activeTopicId, fetchPosts]);
+
+  // IntersectionObserver for infinite scroll
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loading && !loadingMore) {
+          setPage((prev) => {
+            const next = prev + 1;
+            fetchPosts(next, true);
+            return next;
+          });
+        }
+      },
+      { rootMargin: '200px' }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasMore, loading, loadingMore, fetchPosts]);
 
   const toggleLike = async (postId: string) => {
     if (!isLoggedIn) {
@@ -950,61 +1115,100 @@ export default function CommunityPage() {
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
 
+  const activeTopicName = activeTopicId ? topics.find((topic) => topic.id === activeTopicId)?.name ?? '当前话题' : '全部动态';
+
   return (
     <>
       <Toast open={toast.open} message={toast.message} type={toast.type} onClose={() => setToast((t) => ({ ...t, open: false }))} />
       <LoginRequiredModal open={loginModal} redirectTo="/community" onCancel={() => setLoginModal(false)} />
-      <section className="hidden sm:block px-4 sm:px-6 lg:px-8 pt-20 pb-6 animate-fade-in-up">
-        <div className="container-main">
-          <h1 className="section-title" style={{ fontFamily: "'Blazed', sans-serif" }}>1103</h1>
-          <p className="section-desc">老铁们一起唠嗑、整活、开黑</p>
+
+      {/* Cover Banner — 与关于/相册页保持一致 */}
+      <section className="relative h-48 sm:h-56 bg-gray-900 overflow-hidden mt-14">
+        <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900" />
+        <div className="absolute inset-0 flex items-center justify-center gap-4 sm:gap-6 select-none pointer-events-none">
+          <span
+            className="text-[56px] sm:text-[80px] leading-none font-bold text-white/10"
+            style={{ fontFamily: "'Blazed', sans-serif" }}
+          >
+            1103
+          </span>
+          <span
+            className="text-[28px] sm:text-[40px] leading-none text-primary/50 tracking-[0.15em]"
+            style={{ fontFamily: "'Blazed', sans-serif" }}
+          >
+            ChenZe
+          </span>
+        </div>
+        <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-bg-page to-transparent" />
+        <div className="container-main px-4 sm:px-6 lg:px-8 relative z-10 h-full flex flex-col items-center justify-center text-center">
+          <div className="inline-flex items-center gap-2 bg-primary/15 border border-primary/30 rounded-full px-4 py-1.5 mb-3">
+            <MessageCircle className="w-4 h-4 text-primary" />
+            <span className="text-caption font-medium text-primary">1103 社区</span>
+          </div>
+          <h1 className="text-heading-lg text-white">老铁们一起唠嗑、整活、开黑</h1>
+          <p className="text-body text-gray-400 mt-1.5 max-w-md mx-auto">
+            发布动态、参与热门话题、分享追星现场
+          </p>
         </div>
       </section>
 
-      <div className="container-main px-3 sm:px-6 lg:px-8 pt-[60px] sm:pt-0 pb-16">
-        <div className="grid lg:grid-cols-[1fr_280px] gap-4 sm:gap-6">
-          <div className="space-y-3 sm:space-y-4">
-            {/* New Post */}
-            <PostComposer topics={topics} onPostCreated={handlePostCreated} onTopicCreated={handleTopicCreated} isLoggedIn={isLoggedIn} />
 
-            {/* Mobile: community stats (hidden on lg) */}
-            <div className="flex items-center gap-4 text-caption text-text-muted lg:hidden">
-              <span>成员 <strong className="text-text-title">{formatNum(communityStats.totalFans)}</strong></span>
-              <span>今日 <strong className="text-text-title">{formatNum(communityStats.todayPosts)}</strong></span>
-              <span>在线 <strong className="text-text-title">{formatNum(communityStats.onlineNow)}</strong></span>
+      <section className="section-block relative animate-fade-in-up">
+        {/* 柔和渐变背景 */}
+        <div className="absolute inset-0 pointer-events-none" style={{
+          background: 'radial-gradient(ellipse 80% 60% at 20% 30%, rgba(24,144,255,0.06) 0%, transparent 60%), radial-gradient(ellipse 60% 50% at 80% 70%, rgba(250,173,20,0.05) 0%, transparent 60%)',
+        }} />
+      <div className="container-main relative z-10">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px] xl:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="space-y-4 sm:space-y-5">
+            {/* New Post */}
+            <div className="rounded-card bg-white/40 backdrop-blur-md border border-white/70 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5),0_4px_24px_rgba(0,0,0,0.06)] p-0">
+              <PostComposer topics={topics} onPostCreated={handlePostCreated} onTopicCreated={handleTopicCreated} isLoggedIn={isLoggedIn} />
             </div>
 
+
             {/* Filters: dropdown + sort */}
-            <div className="flex items-center justify-between gap-3">
-              <div className="relative flex-shrink-0">
-                <select
-                  value={activeTopicId || ''}
-                  onChange={(e) => setActiveTopicId(e.target.value || null)}
-                  className="h-8 pl-3 pr-8 rounded-btn border border-border bg-white text-caption font-medium text-text-body appearance-none cursor-pointer focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors"
-                >
-                  <option value="">全部分类</option>
-                  {topics.map((topic) => (
-                    <option key={topic.id} value={topic.id}>{topic.name}</option>
-                  ))}
-                </select>
-                <ChevronDown className="w-3.5 h-3.5 text-text-muted absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
-              <div className="flex gap-1 flex-shrink-0">
-                {(['hot', 'new'] as const).map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => setSortBy(s)}
-                    className={`h-8 px-3 rounded-btn text-caption font-medium whitespace-nowrap transition-colors duration-150 cursor-pointer ${sortBy === s ? 'text-primary bg-primary-bg' : 'text-text-muted hover:text-primary'}`}
-                  >
-                    {s === 'hot' ? '热门' : '最新'}
-                  </button>
-                ))}
+            <div className="sticky top-16 z-20 -mx-1 rounded-card bg-white/60 backdrop-blur-md border border-white/70 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5),0_4px_16px_rgba(0,0,0,0.06)] p-3 sm:mx-0 sm:p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-caption font-medium text-text-title">{activeTopicName}</p>
+                  <p className="mt-1 text-caption leading-6 text-text-muted">按话题筛选并切换热门或最新排序，快速找到你想看的社区动态。</p>
+                </div>
+                <div className="flex items-center justify-between gap-3 sm:justify-end">
+                  <div className="relative flex-shrink-0">
+                    <select
+                      value={activeTopicId || ''}
+                      onChange={(e) => setActiveTopicId(e.target.value || null)}
+                      className="h-9 appearance-none rounded-btn border border-border bg-white pl-3 pr-9 text-caption font-medium text-text-body transition-colors cursor-pointer focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    >
+                      <option value="">全部分类</option>
+                      {topics.map((topic) => (
+                        <option key={topic.id} value={topic.id}>{topic.name}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" />
+                  </div>
+                  <div className="flex gap-1 rounded-full bg-gray-50 p-1">
+                    {(['hot', 'new'] as const).map((s) => (
+                      <button
+                        key={s}
+                        onClick={() => setSortBy(s)}
+                        className={`h-8 rounded-full px-3 text-caption font-medium whitespace-nowrap transition-colors duration-150 cursor-pointer ${sortBy === s ? 'bg-white text-primary shadow-sm' : 'text-text-muted hover:text-primary'}`}
+                      >
+                        {s === 'hot' ? '热门' : '最新'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
 
             {/* Posts */}
-            {loading ? (
-              <p className="text-body text-text-muted text-center py-12">加载中...</p>
+            {loading && posts.length === 0 ? (
+              <div className="text-center py-12 space-y-3">
+                <Loader2 className="w-6 h-6 text-primary animate-spin mx-auto" />
+                <p className="text-body text-text-muted">加载中...</p>
+              </div>
             ) : sortedPosts.length === 0 ? (
               <p className="text-body text-text-muted text-center py-12">暂无帖子</p>
             ) : sortedPosts.map((post) => {
@@ -1012,9 +1216,9 @@ export default function CommunityPage() {
               const images = mediaUrls.filter((u) => !u.match(/\.(mp4|webm|mov)$/i));
               const videos = mediaUrls.filter((u) => u.match(/\.(mp4|webm|mov)$/i));
               return (
-                <article key={post.id} className="bg-white rounded-card p-3 sm:p-5 shadow-card border border-divider transition-shadow duration-150 hover:shadow-card-hover">
+                <article key={post.id} className="group rounded-card bg-white/40 backdrop-blur-md border border-white/70 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5),0_4px_24px_rgba(0,0,0,0.06)] p-4 transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6),0_8px_32px_rgba(0,0,0,0.10)] sm:p-5">
                   <div className="flex items-start gap-3">
-                    <div className="relative w-9 h-9 rounded-full overflow-hidden flex-shrink-0 bg-gray-100">
+                    <div className="relative h-10 w-10 rounded-full overflow-hidden flex-shrink-0 bg-gray-100">
                       {post.author?.avatar ? (
                         <Image src={post.author.avatar} alt={post.author.name} fill className="object-cover" />
                       ) : (
@@ -1022,21 +1226,31 @@ export default function CommunityPage() {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-body font-medium text-text-title">{post.author.name}</span>
-                        <RoleBadge role={post.author.role} />
-                        {post.isPinned && (
-                          <span className="inline-flex items-center gap-0.5 text-danger text-caption font-medium">
-                            <Pin className="w-3 h-3" /> 置顶
-                          </span>
-                        )}
-                        <span className="text-caption text-text-muted ml-auto">{timeAgo(post.createdAt)}</span>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-body font-medium text-text-title">{post.author.name}</span>
+                            <RoleBadge role={post.author.role} />
+                            {post.isPinned && (
+                              <span className="inline-flex items-center gap-0.5 text-danger text-caption font-medium">
+                                <Pin className="w-3 h-3" /> 置顶
+                              </span>
+                            )}
+                          </div>
+                          <span className="mt-1 inline-flex text-caption text-text-muted">{timeAgo(post.createdAt)}</span>
+                        </div>
+                        <Link
+                          href={`/community/${post.id}`}
+                          className="hidden text-caption text-text-muted transition-colors duration-150 hover:text-primary sm:inline-flex"
+                        >
+                          查看详情
+                        </Link>
                       </div>
 
-                      <p className="text-body text-text-body mt-2 leading-relaxed whitespace-pre-wrap">{post.content}</p>
+                      <p className="mt-3 text-body text-text-body leading-7 whitespace-pre-wrap">{post.content}</p>
 
                       {post.postTags && post.postTags.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mt-2">
+                        <div className="mt-3 flex flex-wrap gap-2">
                           {post.postTags.map((pt) => (
                             <button
                               key={pt.tag.id}
@@ -1053,10 +1267,10 @@ export default function CommunityPage() {
 
                       {/* Images */}
                       {images.length > 0 && (
-                        <div className={`mt-3 grid gap-2 ${images.length === 1 ? 'grid-cols-1 max-w-md' : 'grid-cols-2'}`}>
+                        <div className={`mt-4 grid gap-2 ${images.length === 1 ? 'grid-cols-1 max-w-2xl' : 'grid-cols-2'}`}>
                           {images.map((img, idx) => (
-                            <div key={idx} className="relative rounded-card overflow-hidden aspect-video bg-gray-100 cursor-pointer">
-                              <Image src={img} alt="" fill className="object-cover" />
+                            <div key={idx} className="relative rounded-xl overflow-hidden aspect-video bg-gray-100 cursor-pointer">
+                              <Image src={img} alt="" fill className="object-cover transition-transform duration-200 group-hover:scale-[1.01]" />
                             </div>
                           ))}
                         </div>
@@ -1064,17 +1278,17 @@ export default function CommunityPage() {
 
                       {/* Videos */}
                       {videos.length > 0 && (
-                        <div className="mt-3 space-y-2">
+                        <div className="mt-4 space-y-2">
                           {videos.map((vid, idx) => (
-                            <video key={idx} src={vid} controls className="w-full max-w-md rounded-card bg-black" />
+                            <video key={idx} src={vid} controls className="w-full max-w-2xl rounded-xl bg-black" />
                           ))}
                         </div>
                       )}
 
-                      <div className="flex items-center gap-5 mt-3 pt-3 border-t border-divider">
+                      <div className="mt-4 flex items-center gap-2 rounded-xl bg-gray-50 px-3 py-2.5">
                         <button
                           onClick={() => toggleLike(post.id)}
-                          className={`flex items-center gap-1 text-caption transition-colors duration-150 cursor-pointer ${
+                          className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-caption transition-colors duration-150 cursor-pointer ${
                             likedPosts.has(post.id) ? 'text-danger' : 'text-text-muted hover:text-danger'
                           }`}
                         >
@@ -1083,7 +1297,7 @@ export default function CommunityPage() {
                         </button>
                         <button
                           onClick={() => toggleComments(post.id)}
-                          className={`flex items-center gap-1 text-caption transition-colors duration-150 cursor-pointer ${
+                          className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-caption transition-colors duration-150 cursor-pointer ${
                             expandedComments.has(post.id) ? 'text-primary' : 'text-text-muted hover:text-primary'
                           }`}
                         >
@@ -1091,7 +1305,7 @@ export default function CommunityPage() {
                         </button>
                         <Link
                           href={`/community/${post.id}`}
-                          className="flex items-center gap-1 text-caption text-text-muted hover:text-primary transition-colors duration-150 ml-auto"
+                          className="ml-auto inline-flex items-center gap-1 rounded-lg px-2 py-1 text-caption text-text-muted transition-colors duration-150 hover:text-primary sm:hidden"
                         >
                           查看详情 →
                         </Link>
@@ -1104,84 +1318,84 @@ export default function CommunityPage() {
                 </article>
               );
             })}
+
+            {/* Infinite scroll sentinel */}
+            <div ref={sentinelRef} className="h-1" />
+            {loadingMore && (
+              <div className="flex items-center justify-center py-6 gap-2">
+                <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                <span className="text-caption text-text-muted">加载更多...</span>
+              </div>
+            )}
+            {!hasMore && posts.length > 0 && (
+              <p className="text-caption text-text-disabled text-center py-6">— 没有更多了 —</p>
+            )}
           </div>
 
           {/* Sidebar */}
-          <aside className="space-y-4 hidden lg:block">
-            <CheckinCard />
+          <aside className="hidden lg:block self-start sticky top-20">
+            <div className="max-h-[calc(100vh-6rem)] overflow-y-auto scrollbar-hide space-y-4 stagger-children pb-4">
+              <CheckinCard />
 
-            <div className="card">
-              <h3 className="text-body font-semibold text-text-title mb-3">社区数据</h3>
-              <div className="space-y-2">
-                {[
-                  { label: '社区成员', value: formatNum(communityStats.totalFans) },
-                  { label: '今日帖子', value: formatNum(communityStats.todayPosts) },
-                  { label: '在线人数', value: formatNum(communityStats.onlineNow) },
-                ].map((stat) => (
-                  <div key={stat.label} className="flex justify-between items-center">
-                    <span className="text-caption text-text-muted">{stat.label}</span>
-                    <span className="text-body font-medium text-text-title">{stat.value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
 
-            <div className="card">
-              <h3 className="text-body font-semibold text-text-title mb-3">热门话题</h3>
-              <div className="flex flex-wrap gap-1.5">
-                {hotTopics.map((topic) => (
-                  <button
-                    key={topic.id}
-                    onClick={() => setActiveTopicId(topic.id)}
-                    className={`tag-primary cursor-pointer transition-colors duration-150 ${
-                      activeTopicId === topic.id ? 'ring-2 ring-primary/30' : ''
-                    }`}
-                  >
-                    #{topic.name}
-                  </button>
-                ))}
-                {hotTopics.length === 0 && (
-                  <span className="text-caption text-text-disabled">暂无话题</span>
-                )}
-              </div>
-            </div>
-
-            {/* Upload Limits Info */}
-            <div className="card">
-              <h3 className="text-body font-semibold text-text-title mb-3">发帖须知</h3>
-              <div className="space-y-1.5 text-caption text-text-muted">
-                <p>· 图片：JPG/PNG/WebP/GIF，≤5MB</p>
-                <p>· 视频：MP4/WebM，≤50MB</p>
-                <p>· 每帖最多{MAX_FILES}个附件</p>
-                <p>· 内容不得包含违禁词</p>
-              </div>
-            </div>
-
-            <div className="bg-primary/5 border-2 border-primary/30 rounded-card p-5">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-                  <ShieldCheck className="w-4 h-4 text-white" />
+              <div className="rounded-card bg-white/40 backdrop-blur-md border border-white/70 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5),0_4px_24px_rgba(0,0,0,0.06)] p-5">
+                <h3 className="mb-3 text-body font-semibold text-text-title">热门话题</h3>
+                <div className="flex flex-wrap gap-2">
+                  {hotTopics.map((topic) => (
+                    <button
+                      key={topic.id}
+                      onClick={() => setActiveTopicId(topic.id)}
+                      className={`tag-primary cursor-pointer transition-colors duration-150 ${
+                        activeTopicId === topic.id ? 'ring-2 ring-primary/30' : ''
+                      }`}
+                    >
+                      #{topic.name}
+                    </button>
+                  ))}
+                  {hotTopics.length === 0 && (
+                    <span className="text-caption text-text-disabled">暂无话题</span>
+                  )}
                 </div>
-                <h3 className="text-body font-bold text-primary">社区公约</h3>
               </div>
-              <ol className="space-y-2 text-caption text-text-body list-none">
-                {[
-                  '友善交流，互相尊重',
-                  '禁止发布不实信息',
-                  '尊重明星隐私',
-                  '原创内容请标注来源',
-                  '禁止商业推广和广告',
-                ].map((rule, i) => (
-                  <li key={i} className="flex items-start gap-2">
-                    <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-[11px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
-                    <span>{rule}</span>
-                  </li>
-                ))}
-              </ol>
+
+              {/* Upload Limits Info */}
+              <div className="rounded-card bg-white/40 backdrop-blur-md border border-white/70 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5),0_4px_24px_rgba(0,0,0,0.06)] p-5">
+                <h3 className="mb-3 text-body font-semibold text-text-title">发帖须知</h3>
+                <div className="space-y-2 text-caption text-text-muted leading-6">
+                  <p>· 图片：JPG/PNG/WebP/GIF，≤5MB</p>
+                  <p>· 视频：MP4/WebM，≤50MB</p>
+                  <p>· 每帖最多{MAX_FILES}个附件</p>
+                  <p>· 内容不得包含违禁词</p>
+                </div>
+              </div>
+
+              <div className="rounded-card border-2 border-primary/30 bg-primary/5 backdrop-blur-md p-5">
+                <div className="mb-3 flex items-center gap-2">
+                  <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-primary">
+                    <ShieldCheck className="w-4 h-4 text-white" />
+                  </div>
+                  <h3 className="text-body font-bold text-primary">社区公约</h3>
+                </div>
+                <ol className="list-none space-y-2 text-caption text-text-body">
+                  {[
+                    '友善交流，互相尊重',
+                    '禁止发布不实信息',
+                    '尊重明星隐私',
+                    '原创内容请标注来源',
+                    '禁止商业推广和广告',
+                  ].map((rule, i) => (
+                    <li key={i} className="flex items-start gap-2">
+                      <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-[11px] font-bold">{i + 1}</span>
+                      <span>{rule}</span>
+                    </li>
+                  ))}
+                </ol>
+              </div>
             </div>
           </aside>
         </div>
       </div>
+      </section>
     </>
   );
 }

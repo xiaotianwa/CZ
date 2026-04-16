@@ -84,19 +84,24 @@ model Post {
 }
 
 model Comment {
-  id        String   @id @default(cuid())
-  content   String
-  likes     Int      @default(0)
-  postId    String
-  authorId  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  content     String
+  likes       Int      @default(0)
+  postId      String
+  authorId    String
+  parentId    String?  // 父评论ID，null表示顶级评论
+  replyToName String?  // 被回复人的名称（冗余存储，避免关联查询）
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
-  author User @relation(fields: [authorId], references: [id])
+  post     Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author   User      @relation(fields: [authorId], references: [id])
+  parent   Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies  Comment[] @relation("CommentReplies")
 
   @@index([postId])
   @@index([authorId])
+  @@index([parentId])
 }
 
 model Tag {

@@ -11,6 +11,8 @@ import { notifyComment } from '@/lib/notification';
 const createCommentSchema = z.object({
   postId: z.string().min(1, '帖子ID不能为空'),
   content: z.string().min(1, '评论不能为空').max(500, '评论最多500字'),
+  parentId: z.string().optional(),
+  replyToName: z.string().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -26,7 +28,18 @@ export async function POST(req: NextRequest) {
       return fail(parsed.error.issues[0].message);
     }
 
-    const { postId, content } = parsed.data;
+    const { postId, content, parentId, replyToName } = parsed.data;
+
+    // 验证父评论存在
+    if (parentId) {
+      const parentComment = await prisma.comment.findUnique({
+        where: { id: parentId },
+        select: { id: true, postId: true },
+      });
+      if (!parentComment || parentComment.postId !== postId) {
+        return fail('父评论不存在或不属于该帖子');
+      }
+    }
 
     // 本地违禁词检测
     const banned = await checkBannedWords(content);
@@ -55,6 +68,8 @@ export async function POST(req: NextRequest) {
         content,
         postId,
         authorId: payload.id,
+        parentId: parentId || null,
+        replyToName: replyToName || null,
       },
       include: {
         author: {

@@ -2,8 +2,8 @@ import { FileText, UserPlus, ShieldCheck, BookOpen, ServerCrash, AlertTriangle, 
 import Link from 'next/link';
 
 export const metadata = {
-  title: '使用条款 - 1103社区',
-  description: '1103社区使用条款，了解您在使用社区服务时的权利和义务。',
+  title: '使用条款',
+  description: '幺幺零叁使用条款，了解您在使用社区服务时的权利和义务。',
 };
 
 const sections = [

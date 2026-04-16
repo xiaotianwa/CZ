@@ -180,33 +180,101 @@ const COORDS: Record<string, [number, number]> = {
   '卡萨布兰卡': [-7.6, 33.6], '亚的斯亚贝巴': [38.7, 9.0],
 };
 
+function normalizeCityName(cityName: string): string {
+  return cityName
+    .trim()
+    .replace(/[，]/g, ',')
+    .replace(/[｜|]/g, '/')
+    .replace(/\s*[（(].*?[)）]\s*/g, '')
+    .replace(/\s+/g, ' ')
+    .replace(/(特别行政区|自治区|自治州|地区|盟|州|省|市)$/, '')
+    .trim();
+}
+
+function isChineseName(name: string): boolean {
+  return /[\u4e00-\u9fff]/.test(name);
+}
+
+function buildDisplayNameMap(): Record<string, string> {
+  const preferredNames = new Map<string, string>();
+
+  for (const [name, coord] of Object.entries(COORDS)) {
+    const coordKey = `${coord[0]},${coord[1]}`;
+    const current = preferredNames.get(coordKey);
+
+    if (!current || (isChineseName(name) && !isChineseName(current))) {
+      preferredNames.set(coordKey, name);
+    }
+  }
+
+  return Object.entries(COORDS).reduce<Record<string, string>>((result, [name, coord]) => {
+    const coordKey = `${coord[0]},${coord[1]}`;
+    result[normalizeCityName(name).toLowerCase()] = preferredNames.get(coordKey) ?? name;
+    return result;
+  }, {});
+}
+
+const DISPLAY_NAME_MAP = buildDisplayNameMap();
+
+function findMatchedCoord(cityName: string): [number, number] | null {
+  if (COORDS[cityName]) return COORDS[cityName];
+
+  const lowerName = cityName.toLowerCase();
+
+  for (const [key, coord] of Object.entries(COORDS)) {
+    if (key.toLowerCase() === lowerName) return coord;
+  }
+
+  for (const [key, coord] of Object.entries(COORDS)) {
+    const lowerKey = key.toLowerCase();
+    if (lowerName.includes(lowerKey) || lowerKey.includes(lowerName)) return coord;
+  }
+
+  return null;
+}
+
 /**
  * 根据城市名查询经纬度 [经度, 纬度]
  * 支持精确匹配和模糊匹配（包含关系）
  */
 export function getCityLngLat(cityName: string): [number, number] | null {
   if (!cityName) return null;
-  const name = cityName.trim();
+  const name = normalizeCityName(cityName);
 
-  // 精确匹配
-  if (COORDS[name]) return COORDS[name];
+  const directMatch = findMatchedCoord(name);
+  if (directMatch) return directMatch;
 
-  // 模糊匹配：输入包含已知城市名，或已知城市名包含输入
-  for (const [key, coord] of Object.entries(COORDS)) {
-    if (name.includes(key) || key.includes(name)) return coord;
-  }
+  const parts = name
+    .split(/[,/]/)
+    .map((part) => normalizeCityName(part))
+    .filter(Boolean);
 
-  // 处理 "城市, 国家" 格式，只取城市部分
-  const comma = name.indexOf(',');
-  if (comma > 0) {
-    const cityPart = name.substring(0, comma).trim();
-    if (COORDS[cityPart]) return COORDS[cityPart];
-    for (const [key, coord] of Object.entries(COORDS)) {
-      if (cityPart.includes(key) || key.includes(cityPart)) return coord;
-    }
+  for (const part of parts) {
+    const matched = findMatchedCoord(part);
+    if (matched) return matched;
   }
 
   return null;
+}
+
+export function getCityDisplayName(cityName: string): string {
+  if (!cityName) return '';
+
+  const name = normalizeCityName(cityName);
+  const directMatch = DISPLAY_NAME_MAP[name.toLowerCase()];
+  if (directMatch) return directMatch;
+
+  const parts = name
+    .split(/[,/]/)
+    .map((part) => normalizeCityName(part))
+    .filter(Boolean);
+
+  for (const part of parts) {
+    const matched = DISPLAY_NAME_MAP[part.toLowerCase()];
+    if (matched) return matched;
+  }
+
+  return name;
 }
 
 /**

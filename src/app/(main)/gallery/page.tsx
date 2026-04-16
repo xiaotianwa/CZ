@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import { X, ChevronLeft, ChevronRight, Camera, ImageIcon } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, Camera, ImageIcon, ArrowLeft } from 'lucide-react';
 
 interface PhotoItem {
   id: string;
@@ -45,32 +45,52 @@ export default function GalleryPage() {
   const currentAlbum = lightbox ? albums.find((a) => a.id === lightbox.albumId) : null;
   const currentPhoto = currentAlbum?.photos[lightbox?.photoIndex ?? 0];
 
-  const navigate = (direction: 'prev' | 'next') => {
+  const navigate = useCallback((direction: 'prev' | 'next') => {
     if (!lightbox || !currentAlbum) return;
     const max = currentAlbum.photos.length - 1;
     const next = direction === 'prev' ? Math.max(0, lightbox.photoIndex - 1) : Math.min(max, lightbox.photoIndex + 1);
     setLightbox({ ...lightbox, photoIndex: next });
-  };
+  }, [lightbox, currentAlbum]);
+
+  // 键盘导航 Lightbox
+  useEffect(() => {
+    if (!lightbox) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') navigate('prev');
+      else if (e.key === 'ArrowRight') navigate('next');
+      else if (e.key === 'Escape') setLightbox(null);
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [lightbox, navigate]);
 
   return (
     <>
-      {/* 页头 */}
-      <section className="bg-gray-900 pt-14 py-16 sm:py-20 relative overflow-hidden animate-fade-in-up">
-        <div className="absolute inset-0 opacity-10">
-          <div
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[200px] leading-none font-bold text-white select-none"
+      {/* 页头 — 与关于页保持一致的 cover 风格 */}
+      <section className="relative h-48 sm:h-56 bg-gray-900 overflow-hidden mt-14">
+        <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900" />
+        <div className="absolute inset-0 flex items-center justify-center gap-4 sm:gap-6 select-none pointer-events-none">
+          <span
+            className="text-[56px] sm:text-[80px] leading-none font-bold text-white/10"
             style={{ fontFamily: "'Blazed', sans-serif" }}
           >
             1103
-          </div>
+          </span>
+          <span
+            className="text-[28px] sm:text-[40px] leading-none text-primary/50 tracking-[0.15em]"
+            style={{ fontFamily: "'Blazed', sans-serif" }}
+          >
+            ChenZe
+          </span>
         </div>
-        <div className="container-main px-4 sm:px-6 lg:px-8 relative z-10 text-center">
-          <div className="inline-flex items-center gap-2 bg-primary/15 border border-primary/30 rounded-full px-4 py-1.5 mb-4">
+        <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-bg-page to-transparent" />
+        <div className="container-main px-4 sm:px-6 lg:px-8 relative z-10 h-full flex flex-col items-center justify-center text-center">
+          <div className="inline-flex items-center gap-2 bg-primary/15 border border-primary/30 rounded-full px-4 py-1.5 mb-3">
             <Camera className="w-4 h-4 text-primary" />
             <span className="text-caption font-medium text-primary">精选相册</span>
           </div>
           <h1 className="text-heading-lg text-white">记录每一个精彩瞬间</h1>
-          <p className="text-body text-gray-400 mt-2 max-w-md mx-auto">
+          <p className="text-body text-gray-400 mt-1.5 max-w-md mx-auto">
             直播高光、赛事现场、日常生活、粉丝投稿
           </p>
         </div>
@@ -98,55 +118,76 @@ export default function GalleryPage() {
       {/* 相册网格 / 照片视图 */}
       <section className="section-block animate-fade-in-up">
         <div className="container-main">
-          {!openAlbum ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-              {filteredAlbums.map((album: any) => (
-                <div
-                  key={album.id}
-                  className="group cursor-pointer"
-                  onClick={() => setOpenAlbumId(album.id)}
-                >
-                  <div className="relative aspect-[4/3] rounded-card overflow-hidden bg-gray-100">
-                    <Image src={album.cover} alt={album.title} fill className="object-cover transition-transform duration-300 group-hover:scale-105" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
-                    <div className="absolute bottom-0 left-0 right-0 p-3">
-                      <h3 className="text-body font-semibold text-white">{album.title}</h3>
-                      <span className="text-caption text-white/70 inline-flex items-center gap-1 mt-0.5">
+          {loading ? (
+            /* 骨架屏 */
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="animate-pulse">
+                  <div className="aspect-[4/3] rounded-card bg-gray-200" />
+                  <div className="mt-3 h-4 bg-gray-200 rounded w-3/4" />
+                  <div className="mt-1.5 h-3 bg-gray-100 rounded w-1/2" />
+                </div>
+              ))}
+            </div>
+          ) : !openAlbum ? (
+            filteredAlbums.length === 0 ? (
+              /* 空状态 */
+              <div className="text-center py-16">
+                <Camera className="w-10 h-10 text-text-disabled mx-auto mb-3" />
+                <p className="text-body text-text-muted">暂无相册</p>
+              </div>
+            ) : (
+              /* 相册卡片网格 — 与首页卡片风格统一 */
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5 stagger-children">
+                {filteredAlbums.map((album: any) => (
+                  <div
+                    key={album.id}
+                    className="group cursor-pointer rounded-card overflow-hidden bg-white/40 backdrop-blur-md border border-white/70 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5),0_4px_24px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 hover:bg-white/50 hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6),0_8px_32px_rgba(0,0,0,0.10)] transition-all duration-200"
+                    onClick={() => setOpenAlbumId(album.id)}
+                  >
+                    <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
+                      <Image src={album.cover} alt={album.title} fill className="object-cover transition-transform duration-300 group-hover:scale-105" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+                    </div>
+                    <div className="p-3.5">
+                      <h3 className="text-body font-semibold text-text-title truncate">{album.title}</h3>
+                      <span className="text-caption text-text-muted inline-flex items-center gap-1 mt-1">
                         <ImageIcon className="w-3 h-3" />
                         {album.photos.length} 张
                       </span>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )
           ) : (
             <>
               <div className="flex items-center gap-3 mb-6">
                 <button
                   onClick={() => setOpenAlbumId(null)}
-                  className="text-body text-primary hover:underline cursor-pointer"
+                  className="inline-flex items-center gap-1.5 text-body text-primary hover:underline cursor-pointer"
                 >
-                  ← 返回相册
+                  <ArrowLeft className="w-4 h-4" />
+                  返回相册
                 </button>
                 <span className="text-text-muted">/</span>
                 <h2 className="text-heading-sm text-text-title">{openAlbum.title}</h2>
                 <span className="tag-muted">{openAlbum.photos.length} 张</span>
               </div>
 
-              <div className="columns-2 sm:columns-3 lg:columns-4 gap-3 space-y-3">
+              <div className="columns-2 sm:columns-3 lg:columns-4 gap-4 space-y-4">
                 {openAlbum.photos.map((photo: any, idx: number) => (
                   <div
                     key={photo.id}
-                    className="relative rounded-card overflow-hidden cursor-pointer group break-inside-avoid bg-gray-100"
+                    className="relative rounded-card overflow-hidden cursor-pointer group break-inside-avoid bg-white/40 backdrop-blur-md border border-white/70 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5),0_2px_12px_rgba(0,0,0,0.06)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.10)] transition-all duration-200"
                     onClick={() => setLightbox({ albumId: openAlbum.id, photoIndex: idx })}
                   >
                     <div className={`relative ${idx % 3 === 0 ? 'aspect-[3/4]' : idx % 3 === 1 ? 'aspect-square' : 'aspect-[4/3]'}`}>
-                      <Image src={photo.url} alt={photo.description} fill className="object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
+                      <Image src={photo.url} alt={photo.description || ''} fill className="object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
                     </div>
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors duration-200" />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200" />
                     <div className="absolute bottom-0 left-0 right-0 p-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                      <p className="text-caption text-white font-medium truncate">{photo.description}</p>
+                      <p className="text-caption text-white font-medium truncate drop-shadow-sm">{photo.description}</p>
                     </div>
                   </div>
                 ))}
@@ -158,9 +199,9 @@ export default function GalleryPage() {
 
       {/* Lightbox */}
       {lightbox && currentPhoto && currentAlbum && (
-        <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center" onClick={() => setLightbox(null)}>
-          <button className="absolute top-4 right-4 p-2 text-white/60 hover:text-white transition-colors duration-150 cursor-pointer z-10" onClick={() => setLightbox(null)} aria-label="关闭">
-            <X className="w-6 h-6" />
+        <div className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center backdrop-blur-sm" onClick={() => setLightbox(null)}>
+          <button className="absolute top-4 right-4 p-2.5 rounded-full bg-white/10 text-white/60 hover:bg-white/20 hover:text-white transition-colors duration-150 cursor-pointer z-10" onClick={() => setLightbox(null)} aria-label="关闭">
+            <X className="w-5 h-5" />
           </button>
           {lightbox.photoIndex > 0 && (
             <button className="absolute left-4 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-white/10 text-white/70 hover:bg-white/20 hover:text-white cursor-pointer transition-colors duration-150" onClick={(e) => { e.stopPropagation(); navigate('prev'); }} aria-label="上一张">

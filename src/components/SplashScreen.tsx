@@ -63,7 +63,7 @@ export default function SplashScreen() {
         </span>
       </div>
 
-      <p className="text-sm text-white/20 mb-12">1103 社区</p>
+      <p className="text-sm text-white/30 mb-12 tracking-widest">始于热爱，聚于 1103。</p>
 
       {/* Loading / Enter */}
       {phase === 'loading' && (

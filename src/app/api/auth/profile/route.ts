@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { ok, fail, handleError } from '@/lib/api';
+import { invalidateCache } from '@/lib/cache';
 
 const updateProfileSchema = z.object({
   name: z.string().min(1, '昵称不能为空').max(20, '昵称最多20个字符').optional(),
@@ -51,6 +52,10 @@ export async function PUT(req: NextRequest) {
         createdAt: true,
       },
     });
+
+    if (parsed.data.city !== undefined) {
+      invalidateCache('public:fan-map');
+    }
 
     return ok(user);
   } catch (err) {

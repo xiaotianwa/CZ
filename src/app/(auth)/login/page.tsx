@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Eye, EyeOff, Mail, Lock, ArrowRight, Gamepad2, X } from 'lucide-react';
 
@@ -70,7 +69,6 @@ const privacyContent = {
 };
 
 export default function LoginPage() {
-  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
   const [modalType, setModalType] = useState<'terms' | 'privacy' | null>(null);
   const [loading, setLoading] = useState(false);
@@ -109,126 +107,85 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex animate-fade-in-up">
-      {/* 左侧品牌区域 */}
-      <div className="hidden lg:flex lg:w-[480px] xl:w-[540px] relative bg-gradient-to-br from-[#1890ff] to-[#096dd9] flex-col justify-between p-12 overflow-hidden">
-        {/* 装饰圆圈 */}
-        <div className="absolute -top-20 -right-20 w-80 h-80 rounded-full bg-white/5" />
-        <div className="absolute -bottom-32 -left-16 w-96 h-96 rounded-full bg-white/5" />
-        <div className="absolute top-1/2 right-12 w-40 h-40 rounded-full bg-white/5" />
-
-        {/* Logo */}
-        <div className="relative z-10">
-          <Link
-            href="/"
-            className="text-[36px] font-bold text-white tracking-tight"
-            style={{ fontFamily: "'Blazed', sans-serif" }}
-          >
-            1103
-          </Link>
-        </div>
-
-        {/* 中间标语 */}
-        <div className="relative z-10 -mt-8">
-          <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-2 mb-6">
-            <Gamepad2 className="w-4 h-4 text-white" />
-            <span className="text-caption font-medium text-white/90">1103社区 · 老铁聚集地</span>
-          </div>
-          <h1 className="text-[28px] leading-[1.3] font-bold text-white">
-            欢迎回来，
-            <br />
-            <span className="text-white/80">和老铁们一起整活儿</span>
-          </h1>
-          <p className="mt-4 text-[15px] leading-[1.8] text-white/60 max-w-sm">
-            登录你的账号，查看最新动态、参与社区互动、和老铁们一起看直播聊游戏。
-          </p>
-        </div>
-
-        {/* 底部信息 */}
-        <div className="relative z-10">
-          <p className="text-caption text-white/40">© 2026 ChenZe Community. All rights reserved.</p>
-        </div>
+    <div className="relative min-h-screen flex flex-col items-center justify-center px-4 py-12 overflow-hidden animate-fade-in-up">
+      {/* 1103 背景水印 */}
+      <div className="absolute inset-0 pointer-events-none select-none" aria-hidden="true">
+        <span className="absolute top-16 -left-8 text-[200px] font-bold text-gray-900/[0.07] leading-none" style={{ fontFamily: "'Blazed', sans-serif" }}>1103</span>
+        <span className="absolute bottom-10 -right-12 text-[280px] font-bold text-gray-900/[0.06] leading-none rotate-12" style={{ fontFamily: "'Blazed', sans-serif" }}>1103</span>
+        <span className="absolute top-[45%] right-[15%] text-[160px] font-bold text-gray-900/[0.04] leading-none -rotate-6" style={{ fontFamily: "'Blazed', sans-serif" }}>1103</span>
       </div>
 
-      {/* 右侧登录表单 */}
-      <div className="flex-1 flex items-center justify-center px-6 sm:px-12 py-12 bg-bg-page relative overflow-hidden">
-        {/* 1103 背景水印 */}
-        <div
-          className="absolute -bottom-12 -right-6 text-[260px] leading-none font-bold text-primary/[0.06] select-none pointer-events-none"
+      {/* 顶部品牌标识 */}
+      <div className="relative z-10 text-center mb-6">
+        <Link
+          href="/"
+          className="text-[48px] font-bold text-primary/90 tracking-tight inline-block"
           style={{ fontFamily: "'Blazed', sans-serif" }}
         >
           1103
-        </div>
-        <div
-          className="absolute -top-6 -right-4 text-[200px] leading-none font-bold text-primary/[0.05] select-none pointer-events-none -rotate-12"
-          style={{ fontFamily: "'Blazed', sans-serif" }}
-        >
-          1103
-        </div>
-        <div
-          className="absolute top-1/3 -left-16 text-[140px] leading-none font-bold text-primary/[0.03] select-none pointer-events-none rotate-6"
-          style={{ fontFamily: "'Blazed', sans-serif" }}
-        >
-          1103
-        </div>
-        <div className="w-full max-w-[400px] relative z-10">
-          {/* 品牌标题 */}
-          <div className="mb-8">
-            <Link
-              href="/"
-              className="text-[32px] font-bold text-primary tracking-tight inline-block mb-4"
-              style={{ fontFamily: "'Blazed', sans-serif" }}
-            >
-              1103
-            </Link>
-            <h2 className="text-heading text-text-title">登录账号</h2>
+        </Link>
+        <div className="w-12 h-0.5 bg-primary/30 mx-auto mt-1" />
+      </div>
+
+      {/* 登录卡片 */}
+      <div className="relative z-10 w-full max-w-[420px]">
+        <div className="card p-6 sm:p-8">
+          {/* 标题区域 */}
+          <div className="text-center mb-6">
+            <div className="inline-flex items-center gap-2 bg-primary-bg rounded-full px-4 py-1.5 mb-4">
+              <Gamepad2 className="w-3.5 h-3.5 text-primary" />
+              <span className="text-caption font-medium text-primary">1103社区 · 老铁聚集地</span>
+            </div>
+            <h2 className="text-heading text-text-title">欢迎回来</h2>
             <p className="text-body text-text-muted mt-1">登录以访问1103社区的全部功能</p>
           </div>
 
-          {/* 表单 */}
+          {/* 错误提示 */}
           {error && (
             <div className="flex items-center gap-2 p-3 rounded-btn bg-red-50 text-danger text-body mb-4">
               <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" /></svg>
               {error}
             </div>
           )}
-          <form onSubmit={handleSubmit} className="space-y-4">
-                {/* 邮箱 */}
-                <div>
-                  <label className="text-body font-medium text-text-title mb-1.5 block">邮箱</label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-                    <input
-                      type="email"
-                      placeholder="请输入邮箱地址"
-                      value={formData.email}
-                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                      className="w-full h-11 pl-10 pr-4 rounded-btn border border-border bg-white text-body text-text-title placeholder:text-text-disabled focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors duration-150"
-                    />
-                  </div>
-                </div>
 
-                {/* 密码 */}
-                <div>
-                  <label className="text-body font-medium text-text-title mb-1.5 block">密码</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      placeholder="请输入密码"
-                      value={formData.password}
-                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                      className="w-full h-11 pl-10 pr-11 rounded-btn border border-border bg-white text-body text-text-title placeholder:text-text-disabled focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors duration-150"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-body transition-colors duration-150 cursor-pointer"
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
+          {/* 表单 */}
+          <form onSubmit={handleSubmit} className="space-y-3">
+            {/* 邮箱 */}
+            <div>
+              <label className="text-caption font-medium text-text-body block mb-1">邮箱</label>
+              <div className="relative">
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                <input
+                  type="email"
+                  placeholder="请输入邮箱地址"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="w-full h-10 pl-10 pr-4 rounded-card border border-divider text-body text-text-title placeholder:text-text-muted focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-150"
+                />
+              </div>
+            </div>
+
+            {/* 密码 */}
+            <div>
+              <label className="text-caption font-medium text-text-body block mb-1">密码</label>
+              <div className="relative">
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="请输入密码"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  className="w-full h-10 pl-10 pr-11 rounded-card border border-divider text-body text-text-title placeholder:text-text-muted focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-150"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-body transition-colors duration-150 cursor-pointer"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
 
             {/* 记住我 & 忘记密码 */}
             <div className="flex items-center justify-between pt-1">
@@ -237,11 +194,11 @@ export default function LoginPage() {
                   type="checkbox"
                   className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20 cursor-pointer accent-primary"
                 />
-                <span className="text-body text-text-body">记住我</span>
+                <span className="text-caption text-text-body">记住我</span>
               </label>
               <Link
                 href="/forgot-password"
-                className="text-body text-primary hover:underline cursor-pointer"
+                className="text-caption text-primary hover:underline cursor-pointer"
               >
                 忘记密码？
               </Link>
@@ -266,22 +223,31 @@ export default function LoginPage() {
             </p>
           </form>
 
+          {/* 分割线 */}
+          <div className="border-t border-divider my-5" />
+
           {/* 注册入口 */}
-          <p className="text-center text-body text-text-muted mt-6">
+          <p className="text-center text-body text-text-muted">
             还没有账号？{' '}
             <Link href="/join" className="text-primary font-medium hover:underline cursor-pointer">
               加入社区
             </Link>
           </p>
+        </div>
 
-          {/* 返回首页 */}
-          <div className="text-center mt-4">
-            <Link href="/" className="text-caption text-text-muted hover:text-text-body transition-colors duration-150 cursor-pointer">
-              ← 返回首页
-            </Link>
-          </div>
+        {/* 返回首页 */}
+        <div className="text-center mt-5">
+          <Link href="/" className="text-caption text-text-muted hover:text-text-body transition-colors duration-150 cursor-pointer">
+            ← 返回首页
+          </Link>
         </div>
       </div>
+
+      {/* 底部版权 */}
+      <div className="relative z-10 mt-8">
+        <p className="text-caption text-text-disabled">© 2026 ChenZe Community. All rights reserved.</p>
+      </div>
+
       {/* 弹窗 */}
       {modalType && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

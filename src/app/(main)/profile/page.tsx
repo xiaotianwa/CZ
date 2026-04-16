@@ -1,6 +1,14 @@
+import type { Metadata } from 'next';
 import Image from 'next/image';
 import { MapPin, Cake, Ruler, Star, ExternalLink, Users, AtSign, Heart } from 'lucide-react';
-import { getProfilePageData } from '@/lib/site-data';
+import { getProfilePageData, getSiteConfig } from '@/lib/site-data';
+import StickyTimeline from '@/components/StickyTimeline';
+
+export async function generateMetadata(): Promise<Metadata> {
+  const cfg = await getSiteConfig();
+  const profileName = cfg.profile_name || '陈泽';
+  return { title: `关于${profileName}` };
+}
 
 function DouyinIcon({ className }: { className?: string }) {
   return (
@@ -221,24 +229,8 @@ export default async function ProfilePage() {
 
       {/* Timeline */}
       {timeline.length > 0 && (
-        <section className="section-block animate-fade-in-up">
-          <div className="container-main max-w-2xl">
-            <h2 className="section-title mb-1">成功之路步履蹒跚</h2>
-            <p className="section-title mb-8">举起呐喊 <span style={{ fontFamily: "'Blazed', sans-serif" }}>1103</span></p>
-
-            <div className="relative pl-6 border-l-2 border-divider space-y-6 stagger-children">
-              {timeline.map((event) => (
-                <div key={event.id} className="relative">
-                  <div className="absolute -left-[31px] top-1 w-4 h-4 rounded-full bg-white border-2 border-primary" />
-                  <div className="card">
-                    <div className="text-caption text-primary font-medium">{event.date}</div>
-                    <h3 className="text-body font-semibold text-text-title mt-1">{event.title}</h3>
-                    <p className="text-body text-text-muted mt-1">{event.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+        <section className="animate-fade-in-up">
+          <StickyTimeline events={timeline as any} />
         </section>
       )}
     </>

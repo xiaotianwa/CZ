@@ -180,12 +180,6 @@ export default function JoinPage() {
   if (step === 'done') {
     return (
       <div className="relative min-h-screen pt-20 pb-16 overflow-hidden animate-fade-in-up">
-        {/* 1103 Background watermarks */}
-        <div className="absolute inset-0 pointer-events-none select-none" aria-hidden="true">
-          <span className="absolute top-16 -left-8 text-[200px] font-bold text-gray-900/[0.07] leading-none" style={{ fontFamily: "'Blazed', sans-serif" }}>1103</span>
-          <span className="absolute bottom-10 -right-12 text-[280px] font-bold text-gray-900/[0.06] leading-none rotate-12" style={{ fontFamily: "'Blazed', sans-serif" }}>1103</span>
-        </div>
-
         <div className="container-main px-4 sm:px-6 lg:px-8 max-w-md mx-auto text-center relative z-10">
           <div className="card p-8 sm:p-10">
             <div className="w-16 h-16 rounded-full bg-green-50 flex items-center justify-center mx-auto">
@@ -213,13 +207,6 @@ export default function JoinPage() {
 
   return (
     <div className="relative min-h-screen pt-16 pb-8 overflow-hidden animate-fade-in-up">
-      {/* 1103 Background watermarks */}
-      <div className="absolute inset-0 pointer-events-none select-none" aria-hidden="true">
-        <span className="absolute top-12 -left-10 text-[220px] font-bold text-gray-900/[0.07] leading-none" style={{ fontFamily: "'Blazed', sans-serif" }}>1103</span>
-        <span className="absolute top-[40%] -right-16 text-[300px] font-bold text-gray-900/[0.06] leading-none -rotate-12" style={{ fontFamily: "'Blazed', sans-serif" }}>1103</span>
-        <span className="absolute -bottom-8 left-[20%] text-[180px] font-bold text-gray-900/[0.07] leading-none rotate-6" style={{ fontFamily: "'Blazed', sans-serif" }}>1103</span>
-      </div>
-
       <div className="container-main px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="max-w-2xl mx-auto text-center mb-5">
           <h1 className="text-[24px] sm:text-[28px] font-bold text-text-title">

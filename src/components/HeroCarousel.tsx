@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Users, TrendingUp, ArrowRight } from 'lucide-react';
+import { Check } from 'lucide-react';
 
 function formatNum(num: number): string {
   if (num >= 10000) return (num / 10000).toFixed(1) + '万';
@@ -46,13 +46,14 @@ export default function HeroCarousel({ slides, profile, communityStats }: HeroCa
   const next = useCallback(() => setCurrent((c) => (c + 1) % total), [total]);
 
   useEffect(() => {
+    if (total <= 1) return;
     const timer = setInterval(next, 5000);
     return () => clearInterval(timer);
-  }, [next]);
+  }, [next, total]);
 
   return (
-    <section className="relative h-screen overflow-hidden bg-gray-900">
-      {/* Carousel background slides */}
+    <section className="relative min-h-[100svh] overflow-hidden bg-[#0a0a0a]">
+      {/* Layer 1: Carousel background slides (base layer) */}
       {heroSlides.map((slide, idx) => (
         <div
           key={slide.id}
@@ -65,113 +66,85 @@ export default function HeroCarousel({ slides, profile, communityStats }: HeroCa
               src={slide.image}
               alt={slide.alt}
               fill
-              className="object-cover"
+              className="object-cover object-top sm:object-center"
               priority={idx === 0}
             />
           )}
         </div>
       ))}
 
-      {/* Dark overlay — left heavier for text, right lighter to show image */}
-      <div className="absolute inset-0 bg-gradient-to-r from-gray-900/90 via-gray-900/70 to-gray-900/40" />
-      <div className="absolute inset-0 bg-gradient-to-t from-gray-900/60 to-transparent" />
+      {/* Layer 2: Heavy dark wash to unify image into dark tone */}
+      <div className="absolute inset-0 bg-black/60" />
 
-      {/* Slide indicators */}
-      <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-20 flex gap-2">
-        {heroSlides.map((_, idx) => (
-          <button
-            key={idx}
-            onClick={() => setCurrent(idx)}
-            className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
-              idx === current ? 'w-7 bg-primary' : 'w-2 bg-white/30 hover:bg-white/50'
-            }`}
-            aria-label={`切换到第 ${idx + 1} 张`}
-          />
-        ))}
-      </div>
+      {/* Layer 3: Left vignette for text readability */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: 'linear-gradient(to right, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.25) 35%, rgba(0,0,0,0) 55%)',
+        }}
+      />
+      {/* Layer 5: Bottom vignette */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: 'linear-gradient(to top, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0) 35%)',
+        }}
+      />
 
-      {/* Content — centered & minimal */}
-      <div className="container-main px-4 sm:px-6 lg:px-8 relative z-10 flex flex-col items-center justify-center h-full text-center">
-        <div className="max-w-2xl">
-          {/* Avatar */}
-          {profile.avatar && (
-            <div
-              className="animate-fade-in-up relative w-20 h-20 mx-auto mb-6 rounded-full overflow-hidden ring-2 ring-primary/40 ring-offset-2 ring-offset-gray-900"
-              style={{ animationDelay: '0.1s' }}
-            >
-              <Image src={profile.avatar} alt={profile.name} fill className="object-cover" priority />
-            </div>
-          )}
-
-          <h1
-            className="animate-fade-in-up text-[36px] sm:text-[52px] leading-[1.1] font-bold text-white tracking-tight"
-            style={{ animationDelay: '0.2s' }}
+      {/* Content */}
+      <div className="container-main px-4 sm:px-6 lg:px-8 relative z-10 min-h-screen pt-24 sm:pt-32 pb-10 flex flex-col justify-between">
+        {/* Hero text block – left aligned */}
+        <div className="max-w-xl mt-8 sm:mt-16">
+          <p
+            className="animate-fade-in-up inline-flex items-center gap-2 text-white/75 text-sm font-medium"
+            style={{ animationDelay: '0.05s' }}
           >
-            <span className="text-primary">{profile.name}</span>的专属社区
+            <Check className="w-4 h-4" /> 1103  ·  幺幺零叁
+          </p>
+
+          <p
+            className="animate-fade-in-up mt-5 text-[20px] sm:text-[24px] lg:text-[28px] leading-[1.3] font-medium text-white/70 tracking-wide font-logo"
+            style={{ animationDelay: '0.14s' }}
+          >
+            成功之路步履蹒跚
+          </p>
+          <h1
+            className="animate-fade-in-up mt-2 text-[42px] sm:text-[56px] lg:text-[64px] leading-[1.05] font-bold text-white tracking-tight font-logo"
+            style={{ animationDelay: '0.22s' }}
+          >
+            举起呐喊
+            <span className="text-white/40 mx-1 font-light">—</span>
+            <span className="text-white">1103</span>
           </h1>
 
           <p
-            className="animate-fade-in-up mt-3 text-[40px] sm:text-[56px] leading-none text-primary/80"
-            style={{ animationDelay: '0.35s', fontFamily: "'Blazed', sans-serif" }}
+            className="animate-fade-in-up mt-5 text-[15px] sm:text-base text-white/65"
+            style={{ animationDelay: '0.3s' }}
           >
-            {profile.englishName}
-          </p>
-
-          <p
-            className="animate-fade-in-up text-[15px] leading-[1.7] text-gray-400 mt-5 max-w-md mx-auto"
-            style={{ animationDelay: '0.5s' }}
-          >
-            {profile.intro}
+            恭喜你 发现了一个神秘社区
           </p>
 
           <div
-            className="animate-fade-in-up flex items-center justify-center gap-3 mt-8"
-            style={{ animationDelay: '0.65s' }}
+            className="animate-fade-in-up mt-8 flex flex-wrap items-center gap-3"
+            style={{ animationDelay: '0.45s' }}
           >
             <Link
-              href="/join"
-              className="btn-primary inline-flex items-center gap-1.5 h-11 px-7 text-base"
+              href="/community"
+              className="inline-flex items-center justify-center h-11 px-7 rounded-full bg-white text-[#1a1a1a] text-sm font-semibold hover:bg-white/90 transition-colors duration-150"
             >
-              加入社区 <ArrowRight className="w-4 h-4" />
+              进入社区
             </Link>
             <Link
-              href="/profile"
-              className="inline-flex items-center gap-1.5 h-11 px-7 rounded-btn text-body font-medium text-white border border-white/25 cursor-pointer hover:bg-white/10 transition-colors duration-150"
+              href="/events"
+              className="inline-flex items-center justify-center h-11 px-7 rounded-full border border-white/30 text-white/90 text-sm font-semibold hover:bg-white/10 transition-colors duration-150"
             >
-              了解更多
+              看看整活
             </Link>
-          </div>
-
-          {/* Stats row */}
-          <div
-            className="animate-fade-in-up flex items-center justify-center gap-6 mt-10 text-sm"
-            style={{ animationDelay: '0.8s' }}
-          >
-            <div className="flex items-center gap-1.5 text-gray-400">
-              <Users className="w-4 h-4 text-primary/60" />
-              <span className="font-semibold text-white">{formatNum(communityStats.totalFans)}</span>
-              <span>泽小将</span>
-            </div>
-            <div className="flex items-center gap-1.5 text-gray-400">
-              {communityStats.onlineNow > 0 ? (
-                <>
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
-                  </span>
-                  <span className="font-semibold text-white">{formatNum(communityStats.onlineNow)}</span>
-                  <span>位泽小将在互动</span>
-                </>
-              ) : (
-                <>
-                  <TrendingUp className="w-4 h-4 text-primary/60" />
-                  <span>期待你的互动</span>
-                </>
-              )}
-            </div>
           </div>
         </div>
+
       </div>
+
     </section>
   );
 }

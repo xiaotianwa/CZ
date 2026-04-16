@@ -25,6 +25,9 @@ interface CommentItem {
   likes: number;
   createdAt: string;
   author: Author;
+  parentId: string | null;
+  replyToName: string | null;
+  replies?: CommentItem[];
 }
 
 interface PostDetail {
@@ -74,6 +77,7 @@ export default function PostDetailPage() {
   const [liked, setLiked] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [replyTo, setReplyTo] = useState<{ id: string; name: string } | null>(null);
   const [toast, setToast] = useState<{ open: boolean; message: string; type: 'success' | 'error' }>({ open: false, message: '', type: 'success' });
   const [lightbox, setLightbox] = useState<number | null>(null);
   const [showAllComments, setShowAllComments] = useState(false);
@@ -142,20 +146,39 @@ export default function PostDetailPage() {
     if (!commentText.trim() || submitting) return;
     setSubmitting(true);
     try {
+      const body: Record<string, string> = { postId, content: commentText.trim() };
+      if (replyTo) {
+        body.parentId = replyTo.id;
+        body.replyToName = replyTo.name;
+      }
       const res = await fetch('/api/auth/comments', {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ postId, content: commentText.trim() }),
+        body: JSON.stringify(body),
       });
       const json = await res.json();
       if (json.code !== 0) throw new Error(json.message);
-      setPost((prev) => prev ? {
-        ...prev,
-        comments: [json.data, ...prev.comments],
-        _count: { comments: prev._count.comments + 1 },
-      } : prev);
+      if (replyTo) {
+        // 将回复追加到父评论的 replies 中
+        setPost((prev) => prev ? {
+          ...prev,
+          comments: prev.comments.map((c) =>
+            c.id === replyTo.id
+              ? { ...c, replies: [...(c.replies || []), json.data] }
+              : c
+          ),
+          _count: { comments: prev._count.comments + 1 },
+        } : prev);
+      } else {
+        setPost((prev) => prev ? {
+          ...prev,
+          comments: [{ ...json.data, replies: [] }, ...prev.comments],
+          _count: { comments: prev._count.comments + 1 },
+        } : prev);
+      }
       setCommentText('');
+      setReplyTo(null);
       showToast('评论成功');
     } catch (err) {
       showToast(err instanceof Error ? err.message : '评论失败', 'error');
@@ -350,14 +373,20 @@ export default function PostDetailPage() {
 
         {/* Comment Input */}
         <div className="card mt-4">
+          {replyTo && (
+            <div className="flex items-center gap-2 mb-2 text-caption text-primary bg-primary-bg rounded-btn px-3 py-1.5">
+              <span>回复 <strong>{replyTo.name}</strong></span>
+              <button onClick={() => setReplyTo(null)} className="ml-auto p-0.5 rounded hover:bg-primary/10 cursor-pointer"><X className="w-3.5 h-3.5" /></button>
+            </div>
+          )}
           <div className="flex gap-3">
             <textarea
               value={commentText}
               onChange={(e) => setCommentText(e.target.value)}
-              placeholder="写下你的评论..."
+              placeholder={replyTo ? `回复 ${replyTo.name}...` : '写下你的评论...'}
               maxLength={500}
               rows={2}
-              className="flex-1 px-3 py-2.5 rounded-btn border border-border text-body text-text-body placeholder:text-text-disabled resize-none focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors bg-white"
+              className="flex-1 px-3 py-2.5 rounded-btn border border-border text-body text-text-body placeholder:text-text-disabled resize-none focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-gray-100"
             />
             <button
               onClick={handleComment}
@@ -400,7 +429,51 @@ export default function PostDetailPage() {
                       <div className="flex items-center gap-3 mt-1.5 text-caption text-text-muted">
                         <span>{timeAgo(comment.createdAt)}</span>
                         <span className="inline-flex items-center gap-0.5"><Heart className="w-3 h-3" /> {comment.likes}</span>
+                        <button
+                          onClick={() => setReplyTo({ id: comment.id, name: comment.author.name })}
+                          className="inline-flex items-center gap-0.5 text-text-muted hover:text-primary cursor-pointer transition-colors"
+                        >
+                          <MessageCircle className="w-3 h-3" /> 回复
+                        </button>
                       </div>
+
+                      {/* Nested Replies */}
+                      {comment.replies && comment.replies.length > 0 && (
+                        <div className="mt-3 ml-0 pl-3 border-l-2 border-primary/15 space-y-2.5">
+                          {comment.replies.map((reply) => (
+                            <div key={reply.id} className="flex items-start gap-2">
+                              <div className="relative w-6 h-6 rounded-full overflow-hidden flex-shrink-0 bg-gray-100">
+                                {reply.author.avatar && <Image src={reply.author.avatar} alt={reply.author.name} fill className="object-cover" />}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="text-caption font-medium text-text-title">{reply.author.name}</span>
+                                  {roleLabel[reply.author.role] && (
+                                    <span className={`inline-flex items-center h-4 px-1.5 rounded-full text-[10px] font-bold ${roleLabel[reply.author.role].cls}`}>
+                                      {roleLabel[reply.author.role].text}
+                                    </span>
+                                  )}
+                                  {reply.replyToName && (
+                                    <span className="text-caption text-text-muted">
+                                      回复 <span className="text-primary">{reply.replyToName}</span>
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-caption text-text-body mt-0.5">{reply.content}</p>
+                                <div className="flex items-center gap-3 mt-1 text-[11px] text-text-muted">
+                                  <span>{timeAgo(reply.createdAt)}</span>
+                                  <button
+                                    onClick={() => setReplyTo({ id: comment.id, name: reply.author.name })}
+                                    className="inline-flex items-center gap-0.5 hover:text-primary cursor-pointer transition-colors"
+                                  >
+                                    <MessageCircle className="w-2.5 h-2.5" /> 回复
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

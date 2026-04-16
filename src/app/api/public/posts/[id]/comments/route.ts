@@ -10,10 +10,18 @@ export async function GET(
     const { id } = await params;
 
     const comments = await prisma.comment.findMany({
-      where: { postId: id },
+      where: { postId: id, parentId: null },
       include: {
         author: {
           select: { id: true, name: true, avatar: true, role: true, level: true, badge: true },
+        },
+        replies: {
+          include: {
+            author: {
+              select: { id: true, name: true, avatar: true, role: true, level: true, badge: true },
+            },
+          },
+          orderBy: { createdAt: 'asc' },
         },
       },
       orderBy: { createdAt: 'desc' },

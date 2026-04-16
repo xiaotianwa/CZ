@@ -4,6 +4,7 @@ const COS_DOMAIN = process.env.COS_BUCKET && process.env.COS_REGION
   : '*.cos.*.myqcloud.com';
 const CDN_DOMAIN = process.env.COS_CDN_DOMAIN || '';
 const MEDIA_SOURCES = [COS_DOMAIN, CDN_DOMAIN].filter(Boolean).map(d => `https://${d}`).join(' ');
+const MAP_SOURCES = ['https://webapi.amap.com', 'https://*.amap.com', 'https://*.autonavi.com'].join(' ');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -41,17 +42,18 @@ const nextConfig = {
           { key: 'X-Frame-Options', value: 'DENY' },
           { key: 'X-XSS-Protection', value: '1; mode=block' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(self)' },
           {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === 'development' ? " 'unsafe-eval'" : ''}`,
-              `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.cdnfonts.com`,
-              `img-src 'self' data: blob: ${MEDIA_SOURCES}`,
+              `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === 'development' ? " 'unsafe-eval'" : ''} ${MAP_SOURCES}`,
+              `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.cdnfonts.com ${MAP_SOURCES}`,
+              `img-src 'self' data: blob: ${MEDIA_SOURCES} ${MAP_SOURCES}`,
               `media-src 'self' blob: ${MEDIA_SOURCES}`,
               `font-src 'self' https://fonts.gstatic.com https://fonts.cdnfonts.com https://db.onlinewebfonts.com`,
-              `connect-src 'self' ${MEDIA_SOURCES}`,
+              `connect-src 'self' ${MEDIA_SOURCES} ${MAP_SOURCES}`,
+              "worker-src 'self' blob:",
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'",
