@@ -320,8 +320,8 @@ export default function FanWorksPage() {
         </div>
       </section>
 
-      {/* Lightbox 图片预览 */}
-      {lightbox && currentImage && (
+      {/* 作品详情查看器 */}
+      {lightbox && currentWork && (
         <div
           className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center backdrop-blur-sm"
           onClick={() => setLightbox(null)}
@@ -331,51 +331,122 @@ export default function FanWorksPage() {
             onClick={() => setLightbox(null)}
             aria-label="关闭"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <X className="w-5 h-5" />
           </button>
 
-          {currentImages.length > 1 && lightbox.imageIndex > 0 && (
-            <button
-              className="absolute left-4 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-white/10 text-white/70 hover:bg-white/20 hover:text-white cursor-pointer transition-colors duration-150"
-              onClick={(e) => { e.stopPropagation(); setLightbox({ ...lightbox, imageIndex: lightbox.imageIndex - 1 }); }}
-              aria-label="上一张"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-          )}
-          {currentImages.length > 1 && lightbox.imageIndex < currentImages.length - 1 && (
-            <button
-              className="absolute right-4 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-white/10 text-white/70 hover:bg-white/20 hover:text-white cursor-pointer transition-colors duration-150"
-              onClick={(e) => { e.stopPropagation(); setLightbox({ ...lightbox, imageIndex: lightbox.imageIndex + 1 }); }}
-              aria-label="下一张"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          )}
-
-          <div className="relative max-w-4xl max-h-[85vh] w-full mx-4" onClick={(e) => e.stopPropagation()}>
-            <div className="relative aspect-video rounded-card overflow-hidden bg-black">
-              <SafeImage
-                src={currentImage}
-                alt={currentWork?.title || '作品大图'}
-                fill
-                className="object-contain"
-                priority
-                sizes="90vw"
-              />
+          <div className="relative w-full max-w-5xl max-h-[90vh] mx-4 flex flex-col md:flex-row gap-4" onClick={(e) => e.stopPropagation()}>
+            {/* 左侧：媒体展示 */}
+            <div className="flex-1 min-w-0 flex flex-col">
+              {/* 视频播放 */}
+              {currentWork.type === 'video' && currentWork.contentUrl && (
+                /\.(mp4|webm|mov)$/i.test(currentWork.contentUrl) ? (
+                  <div className="relative aspect-video rounded-xl overflow-hidden bg-black mb-3">
+                    <video src={currentWork.contentUrl} controls autoPlay className="w-full h-full object-contain" />
+                  </div>
+                ) : (
+                  <div className="relative aspect-video rounded-xl overflow-hidden bg-black/50 mb-3 flex items-center justify-center">
+                    <iframe
+                      src={currentWork.contentUrl.replace('www.bilibili.com/video/', 'player.bilibili.com/player.html?bvid=').replace(/\/.*$/, '')}
+                      className="w-full h-full"
+                      allowFullScreen
+                      allow="autoplay"
+                    />
+                  </div>
+                )
+              )}
+              {/* 图片浏览 */}
+              {currentImages.length > 0 && (
+                <>
+                  <div className="relative aspect-video rounded-xl overflow-hidden bg-black">
+                    {/\.(mp4|webm|mov)$/i.test(currentImages[lightbox.imageIndex]) ? (
+                      <video src={currentImages[lightbox.imageIndex]} controls className="w-full h-full object-contain" />
+                    ) : (
+                      <SafeImage
+                        src={currentImages[lightbox.imageIndex]}
+                        alt={currentWork.title || '作品大图'}
+                        fill
+                        className="object-contain"
+                        priority
+                        sizes="90vw"
+                      />
+                    )}
+                    {currentImages.length > 1 && lightbox.imageIndex > 0 && (
+                      <button
+                        className="absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 cursor-pointer transition-colors"
+                        onClick={() => setLightbox({ ...lightbox, imageIndex: lightbox.imageIndex - 1 })}
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                      </button>
+                    )}
+                    {currentImages.length > 1 && lightbox.imageIndex < currentImages.length - 1 && (
+                      <button
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 cursor-pointer transition-colors"
+                        onClick={() => setLightbox({ ...lightbox, imageIndex: lightbox.imageIndex + 1 })}
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                      </button>
+                    )}
+                  </div>
+                  {/* 缩略图列表 */}
+                  {currentImages.length > 1 && (
+                    <div className="flex gap-1.5 mt-2 overflow-x-auto pb-1">
+                      {currentImages.map((url, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => setLightbox({ ...lightbox, imageIndex: idx })}
+                          className={`w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 border-2 cursor-pointer transition-colors ${
+                            idx === lightbox.imageIndex ? 'border-primary' : 'border-transparent hover:border-white/30'
+                          }`}
+                        >
+                          <SafeImage src={url} alt={`缩略图${idx + 1}`} width={56} height={56} className="object-cover w-full h-full" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
-            <div className="flex items-center justify-between mt-3 px-1">
-              <p className="text-white/70 text-body">{currentWork?.title}</p>
+            {/* 右侧：作品信息 */}
+            <div className="w-full md:w-72 flex-shrink-0 bg-white/5 backdrop-blur-sm rounded-xl p-5 text-white overflow-y-auto max-h-[60vh] md:max-h-[80vh]">
+              <h2 className="text-lg font-bold text-white mb-2">{currentWork.title}</h2>
+              {currentWork.description && (
+                <p className="text-sm text-white/70 mb-4 leading-relaxed">{currentWork.description}</p>
+              )}
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 rounded-full overflow-hidden bg-white/10 flex-shrink-0 flex items-center justify-center">
+                  {currentWork.authorAvatar ? (
+                    <SafeImage src={currentWork.authorAvatar} alt={currentWork.authorName} width={32} height={32} className="object-cover" />
+                  ) : (
+                    <User className="w-4 h-4 text-white/60" />
+                  )}
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-white">{currentWork.authorName}</p>
+                  <p className="text-xs text-white/50">{formatDate(currentWork.createdAt)}</p>
+                </div>
+              </div>
+              {currentWork.source && (
+                <div className="mb-3">
+                  <p className="text-xs text-white/40 mb-1">来源平台</p>
+                  {currentWork.sourceUrl ? (
+                    <a href={currentWork.sourceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
+                      {currentWork.source} <ExternalLink className="w-3 h-3" />
+                    </a>
+                  ) : (
+                    <p className="text-sm text-white/70">{currentWork.source}</p>
+                  )}
+                </div>
+              )}
+              {currentWork.type === 'video' && currentWork.contentUrl && !(/\.(mp4|webm|mov)$/i.test(currentWork.contentUrl)) && (
+                <div className="mb-3">
+                  <p className="text-xs text-white/40 mb-1">视频链接</p>
+                  <a href={currentWork.contentUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm text-primary hover:underline break-all">
+                    <ExternalLink className="w-3 h-3 flex-shrink-0" /> 在新窗口打开
+                  </a>
+                </div>
+              )}
               {currentImages.length > 1 && (
-                <p className="text-white/40 text-caption flex-shrink-0 ml-4">
-                  {lightbox.imageIndex + 1} / {currentImages.length}
-                </p>
+                <p className="text-xs text-white/40">{lightbox.imageIndex + 1} / {currentImages.length} 张图片</p>
               )}
             </div>
           </div>
@@ -657,13 +728,7 @@ function WorkCard({
   try { images = JSON.parse(work.images); } catch { /* ignore */ }
 
   const handleClick = () => {
-    if (work.type === 'video' && work.contentUrl) {
-      window.open(work.contentUrl, '_blank', 'noopener,noreferrer');
-    } else if (images.length > 0) {
-      onImageClick(0);
-    } else if (work.sourceUrl) {
-      window.open(work.sourceUrl, '_blank', 'noopener,noreferrer');
-    }
+    onImageClick(0);
   };
 
   return (
