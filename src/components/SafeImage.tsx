@@ -38,5 +38,5 @@ export default function SafeImage({
     );
   }
 
-  return <Image src={src} alt={alt} loading="lazy" {...imageProps} onError={() => setError(true)} />;
+  return <Image src={src} alt={alt} {...(!imageProps.priority && { loading: 'lazy' })} {...imageProps} onError={() => setError(true)} />;
 }
