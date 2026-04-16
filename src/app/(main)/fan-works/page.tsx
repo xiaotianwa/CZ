@@ -323,130 +323,134 @@ export default function FanWorksPage() {
       {/* 作品详情查看器 */}
       {lightbox && currentWork && (
         <div
-          className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center backdrop-blur-sm"
+          className="fixed inset-0 z-[100] bg-black/95 flex flex-col"
           onClick={() => setLightbox(null)}
         >
-          <button
-            className="absolute top-4 right-4 p-2.5 rounded-full bg-white/10 text-white/60 hover:bg-white/20 hover:text-white transition-colors duration-150 cursor-pointer z-10"
-            onClick={() => setLightbox(null)}
-            aria-label="关闭"
-          >
-            <X className="w-5 h-5" />
-          </button>
-
-          <div className="relative w-full max-w-5xl max-h-[90vh] mx-4 flex flex-col md:flex-row gap-4" onClick={(e) => e.stopPropagation()}>
-            {/* 左侧：媒体展示 */}
-            <div className="flex-1 min-w-0 flex flex-col">
-              {/* 视频播放 */}
-              {currentWork.type === 'video' && currentWork.contentUrl && (
-                /\.(mp4|webm|mov)$/i.test(currentWork.contentUrl) ? (
-                  <div className="relative aspect-video rounded-xl overflow-hidden bg-black mb-3">
-                    <video src={currentWork.contentUrl} controls autoPlay className="w-full h-full object-contain" />
-                  </div>
+          {/* 顶部栏 */}
+          <div className="flex items-center justify-between px-4 sm:px-6 py-3 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-8 h-8 rounded-full overflow-hidden bg-white/10 flex-shrink-0 flex items-center justify-center">
+                {currentWork.authorAvatar ? (
+                  <SafeImage src={currentWork.authorAvatar} alt={currentWork.authorName} width={32} height={32} className="object-cover" />
                 ) : (
-                  <div className="relative aspect-video rounded-xl overflow-hidden bg-black/50 mb-3 flex items-center justify-center">
-                    <iframe
-                      src={currentWork.contentUrl.replace('www.bilibili.com/video/', 'player.bilibili.com/player.html?bvid=').replace(/\/.*$/, '')}
-                      className="w-full h-full"
-                      allowFullScreen
-                      allow="autoplay"
-                    />
-                  </div>
-                )
+                  <User className="w-4 h-4 text-white/50" />
+                )}
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-sm font-semibold text-white truncate">{currentWork.title}</h2>
+                <p className="text-xs text-white/40">{currentWork.authorName} · {formatDate(currentWork.createdAt)}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {currentWork.source && currentWork.sourceUrl && (
+                <a
+                  href={currentWork.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hidden sm:inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-white/10 text-xs text-white/70 hover:bg-white/20 hover:text-white transition-colors"
+                >
+                  {currentWork.source} <ExternalLink className="w-3 h-3" />
+                </a>
               )}
-              {/* 图片浏览 */}
-              {currentImages.length > 0 && (
-                <>
-                  <div className="relative aspect-video rounded-xl overflow-hidden bg-black">
-                    {/\.(mp4|webm|mov)$/i.test(currentImages[lightbox.imageIndex]) ? (
-                      <video src={currentImages[lightbox.imageIndex]} controls className="w-full h-full object-contain" />
-                    ) : (
-                      <SafeImage
-                        src={currentImages[lightbox.imageIndex]}
-                        alt={currentWork.title || '作品大图'}
-                        fill
-                        className="object-contain"
-                        priority
-                        sizes="90vw"
-                      />
-                    )}
-                    {currentImages.length > 1 && lightbox.imageIndex > 0 && (
+              {currentWork.type === 'video' && currentWork.contentUrl && !(/\.(mp4|webm|mov)$/i.test(currentWork.contentUrl)) && (
+                <a
+                  href={currentWork.contentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-white/10 text-xs text-white/70 hover:bg-white/20 hover:text-white transition-colors"
+                >
+                  <ExternalLink className="w-3 h-3" /> 原视频
+                </a>
+              )}
+              <button
+                className="p-2 rounded-full bg-white/10 text-white/60 hover:bg-white/20 hover:text-white transition-colors cursor-pointer"
+                onClick={() => setLightbox(null)}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          {/* 主内容区 */}
+          <div className="flex-1 min-h-0 flex items-center justify-center px-4 sm:px-12" onClick={(e) => e.stopPropagation()}>
+            {/* 视频类型 */}
+            {currentWork.type === 'video' && currentWork.contentUrl ? (
+              /\.(mp4|webm|mov)$/i.test(currentWork.contentUrl) ? (
+                <div className="w-full max-w-4xl aspect-video rounded-xl overflow-hidden bg-black">
+                  <video src={currentWork.contentUrl} controls autoPlay className="w-full h-full" />
+                </div>
+              ) : (
+                <div className="w-full max-w-4xl aspect-video rounded-xl overflow-hidden bg-black">
+                  <iframe
+                    src={currentWork.contentUrl}
+                    className="w-full h-full"
+                    allowFullScreen
+                    allow="autoplay; fullscreen"
+                  />
+                </div>
+              )
+            ) : currentImages.length > 0 ? (
+              /* 图片类型 */
+              <div className="relative w-full max-w-4xl">
+                <div className="relative aspect-[3/2] sm:aspect-video rounded-xl overflow-hidden bg-black/50">
+                  <SafeImage
+                    src={currentImages[lightbox.imageIndex]}
+                    alt={currentWork.title || '作品大图'}
+                    fill
+                    className="object-contain"
+                    priority
+                    sizes="90vw"
+                  />
+                </div>
+                {/* 左右切换 */}
+                {currentImages.length > 1 && (
+                  <>
+                    {lightbox.imageIndex > 0 && (
                       <button
-                        className="absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 cursor-pointer transition-colors"
+                        className="absolute left-0 sm:-left-12 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-white/10 text-white/60 hover:bg-white/20 hover:text-white cursor-pointer transition-colors"
                         onClick={() => setLightbox({ ...lightbox, imageIndex: lightbox.imageIndex - 1 })}
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                       </button>
                     )}
-                    {currentImages.length > 1 && lightbox.imageIndex < currentImages.length - 1 && (
+                    {lightbox.imageIndex < currentImages.length - 1 && (
                       <button
-                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/50 text-white hover:bg-black/70 cursor-pointer transition-colors"
+                        className="absolute right-0 sm:-right-12 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-white/10 text-white/60 hover:bg-white/20 hover:text-white cursor-pointer transition-colors"
                         onClick={() => setLightbox({ ...lightbox, imageIndex: lightbox.imageIndex + 1 })}
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                       </button>
                     )}
-                  </div>
-                  {/* 缩略图列表 */}
-                  {currentImages.length > 1 && (
-                    <div className="flex gap-1.5 mt-2 overflow-x-auto pb-1">
-                      {currentImages.map((url, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => setLightbox({ ...lightbox, imageIndex: idx })}
-                          className={`w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 border-2 cursor-pointer transition-colors ${
-                            idx === lightbox.imageIndex ? 'border-primary' : 'border-transparent hover:border-white/30'
-                          }`}
-                        >
-                          <SafeImage src={url} alt={`缩略图${idx + 1}`} width={56} height={56} className="object-cover w-full h-full" />
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-            {/* 右侧：作品信息 */}
-            <div className="w-full md:w-72 flex-shrink-0 bg-white/5 backdrop-blur-sm rounded-xl p-5 text-white overflow-y-auto max-h-[60vh] md:max-h-[80vh]">
-              <h2 className="text-lg font-bold text-white mb-2">{currentWork.title}</h2>
-              {currentWork.description && (
-                <p className="text-sm text-white/70 mb-4 leading-relaxed">{currentWork.description}</p>
-              )}
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 rounded-full overflow-hidden bg-white/10 flex-shrink-0 flex items-center justify-center">
-                  {currentWork.authorAvatar ? (
-                    <SafeImage src={currentWork.authorAvatar} alt={currentWork.authorName} width={32} height={32} className="object-cover" />
-                  ) : (
-                    <User className="w-4 h-4 text-white/60" />
-                  )}
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-white">{currentWork.authorName}</p>
-                  <p className="text-xs text-white/50">{formatDate(currentWork.createdAt)}</p>
-                </div>
+                  </>
+                )}
               </div>
-              {currentWork.source && (
-                <div className="mb-3">
-                  <p className="text-xs text-white/40 mb-1">来源平台</p>
-                  {currentWork.sourceUrl ? (
-                    <a href={currentWork.sourceUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
-                      {currentWork.source} <ExternalLink className="w-3 h-3" />
-                    </a>
-                  ) : (
-                    <p className="text-sm text-white/70">{currentWork.source}</p>
-                  )}
-                </div>
-              )}
-              {currentWork.type === 'video' && currentWork.contentUrl && !(/\.(mp4|webm|mov)$/i.test(currentWork.contentUrl)) && (
-                <div className="mb-3">
-                  <p className="text-xs text-white/40 mb-1">视频链接</p>
-                  <a href={currentWork.contentUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm text-primary hover:underline break-all">
-                    <ExternalLink className="w-3 h-3 flex-shrink-0" /> 在新窗口打开
-                  </a>
-                </div>
-              )}
+            ) : null}
+          </div>
+
+          {/* 底部信息栏 */}
+          <div className="flex-shrink-0 px-4 sm:px-6 py-3" onClick={(e) => e.stopPropagation()}>
+            <div className="max-w-4xl mx-auto flex items-center justify-between">
+              <div className="min-w-0 flex-1">
+                {currentWork.description && (
+                  <p className="text-xs text-white/50 truncate max-w-lg">{currentWork.description}</p>
+                )}
+              </div>
+              {/* 缩略图导航 */}
               {currentImages.length > 1 && (
-                <p className="text-xs text-white/40">{lightbox.imageIndex + 1} / {currentImages.length} 张图片</p>
+                <div className="flex items-center gap-1.5 ml-4 flex-shrink-0">
+                  {currentImages.map((url, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setLightbox({ ...lightbox, imageIndex: idx })}
+                      className={`w-8 h-8 rounded overflow-hidden cursor-pointer transition-all ${
+                        idx === lightbox.imageIndex ? 'ring-2 ring-primary opacity-100' : 'opacity-40 hover:opacity-70'
+                      }`}
+                    >
+                      <SafeImage src={url} alt={`${idx + 1}`} width={32} height={32} className="object-cover w-full h-full" />
+                    </button>
+                  ))}
+                  <span className="text-xs text-white/30 ml-1">{lightbox.imageIndex + 1}/{currentImages.length}</span>
+                </div>
               )}
             </div>
           </div>
