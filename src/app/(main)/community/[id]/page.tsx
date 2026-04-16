@@ -6,9 +6,10 @@ import Image from 'next/image';
 import Link from 'next/link';
 import {
   ArrowLeft, Heart, MessageCircle, Share2, Pin, Loader2,
-  Send, ChevronDown, ChevronUp, Flag, X, Bookmark,
+  Send, ChevronDown, ChevronUp, Flag, X, Bookmark, ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import LoginRequiredModal from '@/components/LoginRequiredModal';
+import SafeImage from '@/components/SafeImage';
 
 interface Author {
   id: string;
@@ -243,6 +244,33 @@ export default function PostDetailPage() {
     }
   };
 
+  const mediaUrls: string[] = (() => {
+    if (!post) return [];
+    try { return JSON.parse(post.images || '[]'); } catch { return []; }
+  })();
+  const imageUrls = mediaUrls.filter((u) => !u.match(/\.(mp4|webm|mov)$/i));
+  const videoUrls = mediaUrls.filter((u) => u.match(/\.(mp4|webm|mov)$/i));
+
+  const navigateLightbox = useCallback((direction: 'prev' | 'next') => {
+    if (lightbox === null || imageUrls.length <= 1) return;
+    const max = imageUrls.length - 1;
+    const next = direction === 'prev'
+      ? (lightbox - 1 + imageUrls.length) % imageUrls.length
+      : (lightbox + 1) % imageUrls.length;
+    setLightbox(Math.min(max, Math.max(0, next)));
+  }, [lightbox, imageUrls.length]);
+
+  useEffect(() => {
+    if (lightbox === null) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setLightbox(null);
+      if (e.key === 'ArrowLeft') navigateLightbox('prev');
+      if (e.key === 'ArrowRight') navigateLightbox('next');
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [lightbox, navigateLightbox]);
+
   if (loading) {
     return (
       <div className="pt-14 min-h-screen flex items-center justify-center">
@@ -260,9 +288,6 @@ export default function PostDetailPage() {
     );
   }
 
-  const mediaUrls: string[] = (() => { try { return JSON.parse(post.images || '[]'); } catch { return []; } })();
-  const imageUrls = mediaUrls.filter((u) => !u.match(/\.(mp4|webm|mov)$/i));
-  const videoUrls = mediaUrls.filter((u) => u.match(/\.(mp4|webm|mov)$/i));
   const visibleComments = showAllComments ? post.comments : post.comments.slice(0, 10);
 
   return (
@@ -284,7 +309,16 @@ export default function PostDetailPage() {
           {/* Author Info */}
           <div className="flex items-center gap-3 mb-4">
             <div className="relative w-11 h-11 rounded-full overflow-hidden flex-shrink-0 bg-gray-100">
-              {post.author.avatar && <Image src={post.author.avatar} alt={post.author.name} fill className="object-cover" />}
+              {post.author.avatar && (
+                <SafeImage
+                  src={post.author.avatar}
+                  alt={post.author.name}
+                  fill
+                  className="object-cover"
+                  sizes="44px"
+                  loading="lazy"
+                />
+              )}
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-2 flex-wrap">
@@ -333,7 +367,14 @@ export default function PostDetailPage() {
                   className="relative aspect-square rounded-btn overflow-hidden bg-gray-100 cursor-pointer"
                   onClick={() => setLightbox(i)}
                 >
-                  <Image src={url} alt="" fill className="object-cover" />
+                  <SafeImage
+                    src={url}
+                    alt={`帖子图片 ${i + 1}`}
+                    fill
+                    className="object-cover"
+                    loading="lazy"
+                    sizes="(max-width: 768px) 50vw, 33vw"
+                  />
                 </div>
               ))}
             </div>
@@ -413,7 +454,16 @@ export default function PostDetailPage() {
                 <div key={comment.id} className="card">
                   <div className="flex items-start gap-3">
                     <div className="relative w-8 h-8 rounded-full overflow-hidden flex-shrink-0 bg-gray-100">
-                      {comment.author.avatar && <Image src={comment.author.avatar} alt={comment.author.name} fill className="object-cover" />}
+                      {comment.author.avatar && (
+                        <SafeImage
+                          src={comment.author.avatar}
+                          alt={comment.author.name}
+                          fill
+                          className="object-cover"
+                          sizes="32px"
+                          loading="lazy"
+                        />
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
@@ -443,7 +493,16 @@ export default function PostDetailPage() {
                           {comment.replies.map((reply) => (
                             <div key={reply.id} className="flex items-start gap-2">
                               <div className="relative w-6 h-6 rounded-full overflow-hidden flex-shrink-0 bg-gray-100">
-                                {reply.author.avatar && <Image src={reply.author.avatar} alt={reply.author.name} fill className="object-cover" />}
+                                {reply.author.avatar && (
+                                  <SafeImage
+                                    src={reply.author.avatar}
+                                    alt={reply.author.name}
+                                    fill
+                                    className="object-cover"
+                                    sizes="24px"
+                                    loading="lazy"
+                                  />
+                                )}
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1.5 flex-wrap">
@@ -541,10 +600,40 @@ export default function PostDetailPage() {
       {/* Lightbox */}
       {lightbox !== null && imageUrls[lightbox] && (
         <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center" onClick={() => setLightbox(null)}>
-          <Image src={imageUrls[lightbox]} alt="" width={1200} height={800} className="max-w-[90vw] max-h-[90vh] object-contain" />
+          {imageUrls.length > 1 && (
+            <button
+              className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigateLightbox('prev');
+              }}
+              aria-label="上一张"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+          )}
+
+          <Image src={imageUrls[lightbox]} alt="" width={1200} height={800} className="max-w-[90vw] max-h-[90vh] object-contain" priority />
+
+          {imageUrls.length > 1 && (
+            <button
+              className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigateLightbox('next');
+              }}
+              aria-label="下一张"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          )}
+
           <button
             className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 cursor-pointer"
-            onClick={() => setLightbox(null)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setLightbox(null);
+            }}
           >
             ✕
           </button>

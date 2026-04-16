@@ -1,15 +1,28 @@
 'use client';
 
-import Image from 'next/image';
+import Image, { type ImageProps } from 'next/image';
 import { useState } from 'react';
 
-export default function SafeImage({ src, alt, fill, className, fallbackText }: { src: string; alt: string; fill?: boolean; className?: string; fallbackText?: string }) {
+type SafeImageProps = Omit<ImageProps, 'src' | 'alt'> & {
+  src: string;
+  alt: string;
+  fallbackText?: string;
+  fallbackClassName?: string;
+};
+
+export default function SafeImage({
+  src,
+  alt,
+  fallbackText,
+  fallbackClassName,
+  ...imageProps
+}: SafeImageProps) {
   const [error, setError] = useState(false);
 
   if (error) {
     if (fallbackText) {
       return (
-        <div className="w-full h-full flex items-center justify-center bg-primary/10 text-xs font-bold text-primary">
+        <div className={fallbackClassName || 'w-full h-full flex items-center justify-center bg-primary/10 text-xs font-bold text-primary'}>
           {fallbackText}
         </div>
       );
@@ -25,5 +38,5 @@ export default function SafeImage({ src, alt, fill, className, fallbackText }: {
     );
   }
 
-  return <Image src={src} alt={alt} fill={fill} className={className} onError={() => setError(true)} />;
+  return <Image src={src} alt={alt} {...imageProps} onError={() => setError(true)} />;
 }

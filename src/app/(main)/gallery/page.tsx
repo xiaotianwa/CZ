@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import Image from 'next/image';
 import { X, ChevronLeft, ChevronRight, Camera, ImageIcon, ArrowLeft } from 'lucide-react';
+import SafeImage from '@/components/SafeImage';
 
 interface PhotoItem {
   id: string;
@@ -146,7 +146,14 @@ export default function GalleryPage() {
                     onClick={() => setOpenAlbumId(album.id)}
                   >
                     <div className="relative aspect-[4/3] overflow-hidden bg-gray-100 dark:bg-[#28282c]">
-                      <Image src={album.cover} alt={album.title} fill className="object-cover transition-transform duration-300 group-hover:scale-105" />
+                      <SafeImage
+                        src={album.cover}
+                        alt={album.title}
+                        fill
+                        className="object-cover transition-transform duration-300 group-hover:scale-105"
+                        loading="lazy"
+                        sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+                      />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
                     </div>
                     <div className="p-3.5">
@@ -183,7 +190,14 @@ export default function GalleryPage() {
                     onClick={() => setLightbox({ albumId: openAlbum.id, photoIndex: idx })}
                   >
                     <div className={`relative ${idx % 3 === 0 ? 'aspect-[3/4]' : idx % 3 === 1 ? 'aspect-square' : 'aspect-[4/3]'}`}>
-                      <Image src={photo.url} alt={photo.description || ''} fill className="object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
+                      <SafeImage
+                        src={photo.url}
+                        alt={photo.description || `相册图片 ${idx + 1}`}
+                        fill
+                        className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                        loading="lazy"
+                        sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
+                      />
                     </div>
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200" />
                     <div className="absolute bottom-0 left-0 right-0 p-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
@@ -215,7 +229,14 @@ export default function GalleryPage() {
           )}
           <div className="relative max-w-4xl max-h-[85vh] w-full mx-4" onClick={(e) => e.stopPropagation()}>
             <div className="relative aspect-video rounded-card overflow-hidden bg-black">
-              <Image src={currentPhoto.url} alt={currentPhoto.description || ''} fill className="object-contain" />
+              <SafeImage
+                src={currentPhoto.url}
+                alt={currentPhoto.description || '相册大图'}
+                fill
+                className="object-contain"
+                priority
+                sizes="90vw"
+              />
             </div>
             <div className="flex items-center justify-between mt-3 px-1">
               <p className="text-white/70 text-body">{currentPhoto.description}</p>
