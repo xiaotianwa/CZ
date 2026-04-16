@@ -3,6 +3,7 @@ import Footer from '@/components/Footer';
 import AnnouncementPopup from '@/components/AnnouncementPopup';
 import MusicPlayer from '@/components/MusicPlayer';
 import SplashScreen from '@/components/SplashScreen';
+import MobileUXEnhancer from '@/components/MobileUXEnhancer';
 import { getSiteConfig } from '@/lib/site-data';
 
 export const dynamic = 'force-dynamic';
@@ -19,7 +20,7 @@ export default async function MainLayout({
   return (
     <>
       <Navbar profileName={profileName} />
-      <main className="relative isolate bg-bg-page">
+      <main className="relative isolate bg-bg-page pb-20 md:pb-0">
         <div className="pointer-events-none fixed inset-0 overflow-hidden select-none z-0" aria-hidden="true">
           {/* 亮色模式：1103 水印（带 primary 色调） */}
           <span
@@ -56,6 +57,7 @@ export default async function MainLayout({
         </div>
         <div className="relative z-10">{children}</div>
       </main>
+      <MobileUXEnhancer />
       <Footer profileName={profileName} siteDescription={siteDescription} />
       <AnnouncementPopup />
       <MusicPlayer />
