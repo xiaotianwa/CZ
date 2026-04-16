@@ -654,6 +654,8 @@ function CommentSection({ postId, onToast, isLoggedIn }: { postId: string; onToa
   const [error, setError] = useState('');
   const [loginModal, setLoginModal] = useState(false);
   const [replyTo, setReplyTo] = useState<{ id: string; name: string } | null>(null);
+  const [mentionOpen, setMentionOpen] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
 
   const fetchComments = useCallback(async () => {
     try {
@@ -665,6 +667,36 @@ function CommentSection({ postId, onToast, isLoggedIn }: { postId: string; onToa
   }, [postId]);
 
   useEffect(() => { fetchComments(); }, [fetchComments]);
+
+  const mentionCandidates = Array.from(new Set([
+    ...comments.map((c) => c.author.name),
+    ...comments.flatMap((c) => (c.replies || []).map((r) => r.author.name)),
+  ])).filter(Boolean);
+
+  const filteredMentionNames = mentionCandidates
+    .filter((name) => !mentionQuery || name.toLowerCase().includes(mentionQuery.toLowerCase()))
+    .slice(0, 6);
+
+  const handleContentChange = (value: string) => {
+    setContent(value);
+    setError('');
+    const match = value.match(/(?:^|\s)@([\w\u4e00-\u9fa5-]{0,20})$/);
+    if (match) {
+      setMentionQuery(match[1] || '');
+      setMentionOpen(true);
+    } else {
+      setMentionOpen(false);
+    }
+  };
+
+  const insertMention = (name: string) => {
+    setContent((prev) => {
+      const replaced = prev.replace(/(?:^|\s)@([\w\u4e00-\u9fa5-]{0,20})$/, (m, p1) => m.replace(`@${p1}`, `@${name} `));
+      return replaced === prev ? `${prev}@${name} ` : replaced;
+    });
+    setMentionOpen(false);
+    setMentionQuery('');
+  };
 
   const handleSend = async () => {
     if (!content.trim()) return;
@@ -718,22 +750,54 @@ function CommentSection({ postId, onToast, isLoggedIn }: { postId: string; onToa
         </div>
       )}
       {/* Comment Input */}
-      <div className="flex gap-2 mb-3">
-        <input
-          value={content}
-          onChange={(e) => { setContent(e.target.value); setError(''); }}
-          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-          placeholder={replyTo ? `回复 ${replyTo.name}...` : '写评论...'}
-          maxLength={500}
-          className="flex-1 h-8 px-3 rounded-btn border border-border bg-white text-caption text-text-body placeholder:text-text-disabled focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors duration-150"
-        />
-        <button
-          onClick={handleSend}
-          disabled={sending || !content.trim()}
-          className="btn-primary h-8 px-3 text-caption inline-flex items-center gap-1 disabled:opacity-50"
-        >
-          {sending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
-        </button>
+      <div className="relative mb-3">
+        <div className="flex gap-2">
+          <input
+            value={content}
+            onChange={(e) => handleContentChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (mentionOpen && filteredMentionNames.length > 0 && e.key === 'Enter') {
+                e.preventDefault();
+                insertMention(filteredMentionNames[0]);
+                return;
+              }
+              if (mentionOpen && e.key === 'Escape') {
+                e.preventDefault();
+                setMentionOpen(false);
+                return;
+              }
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
+            placeholder={replyTo ? `回复 ${replyTo.name}...` : '写评论...（输入 @ 可提及）'}
+            maxLength={500}
+            className="flex-1 h-8 px-3 rounded-btn border border-border bg-white text-caption text-text-body placeholder:text-text-disabled focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors duration-150"
+          />
+          <button
+            onClick={handleSend}
+            disabled={sending || !content.trim()}
+            className="btn-primary h-8 px-3 text-caption inline-flex items-center gap-1 disabled:opacity-50"
+          >
+            {sending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+          </button>
+        </div>
+
+        {mentionOpen && filteredMentionNames.length > 0 && (
+          <div className="absolute left-0 right-10 top-full mt-1 z-20 bg-white border border-divider rounded-card shadow-dropdown p-1">
+            {filteredMentionNames.map((name) => (
+              <button
+                key={name}
+                type="button"
+                onClick={() => insertMention(name)}
+                className="w-full h-8 px-2 rounded-btn text-left text-caption text-text-body hover:bg-gray-50 inline-flex items-center gap-1 cursor-pointer"
+              >
+                <span className="text-primary">@</span>{name}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
       {error && (
         <p className="text-caption text-danger mb-2 flex items-center gap-1">

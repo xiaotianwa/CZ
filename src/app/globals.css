@@ -284,3 +284,8 @@ html.dark mark { background-color: rgba(24, 144, 255, 0.25) !important; }
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+@keyframes toast-progress {
+  from { width: 100%; }
+  to { width: 0%; }
+}
