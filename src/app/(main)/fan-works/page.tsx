@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Palette, Play, Image as ImageIcon, Star, ExternalLink, User, Plus, Upload, X, Clock, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import SafeImage from '@/components/SafeImage';
 
@@ -59,7 +59,8 @@ export default function FanWorksPage() {
   const [myWorks, setMyWorks] = useState<MyWork[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitForm, setSubmitForm] = useState({ title: '', description: '', type: 'image', cover: '', contentUrl: '', images: [] as string[] });
-  const [imageInput, setImageInput] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [toast, setToast] = useState<{ open: boolean; message: string; type: 'success' | 'error' }>({ open: false, message: '', type: 'success' });
 
   const showToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
@@ -120,12 +121,31 @@ export default function FanWorksPage() {
     setSubmitting(false);
   };
 
-  const addImage = () => {
-    const url = imageInput.trim();
-    if (url && !submitForm.images.includes(url)) {
-      setSubmitForm({ ...submitForm, images: [...submitForm.images, url] });
+  const handleFileUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    const newUrls: string[] = [];
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      try {
+        const fd = new FormData();
+        fd.append('file', file);
+        const res = await fetch('/api/auth/upload-media', { method: 'POST', credentials: 'same-origin', body: fd });
+        const json = await res.json();
+        if (json.code === 0 && json.data?.url) {
+          newUrls.push(json.data.url);
+        } else {
+          showToast(json.message || `上传 ${file.name} 失败`, 'error');
+        }
+      } catch {
+        showToast(`上传 ${file.name} 失败`, 'error');
+      }
     }
-    setImageInput('');
+    if (newUrls.length > 0) {
+      setSubmitForm((prev) => ({ ...prev, images: [...prev.images, ...newUrls] }));
+    }
+    setUploading(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const removeImage = (url: string) => {
@@ -426,9 +446,17 @@ export default function FanWorksPage() {
               )}
               <div>
                 <label className="text-caption font-medium text-text-muted mb-1 block">
-                  {submitForm.type === 'image' ? '图片 URL *' : '封面/截图 URL *'}
-                  <span className="text-text-disabled ml-1">（先上传到图床获取链接）</span>
+                  {submitForm.type === 'image' ? '上传图片 *' : '上传封面/截图 *'}
+                  <span className="text-text-disabled ml-1">（支持 JPG/PNG/WebP/GIF，最大 5MB）</span>
                 </label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept={submitForm.type === 'image' ? 'image/*' : 'image/*,video/*'}
+                  multiple
+                  onChange={(e) => handleFileUpload(e.target.files)}
+                  className="hidden"
+                />
                 {submitForm.images.length > 0 && (
                   <div className="grid grid-cols-4 gap-2 mb-2">
                     {submitForm.images.map((url, idx) => (
@@ -444,16 +472,18 @@ export default function FanWorksPage() {
                     ))}
                   </div>
                 )}
-                <div className="flex gap-2">
-                  <input
-                    value={imageInput}
-                    onChange={(e) => setImageInput(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addImage(); } }}
-                    placeholder="输入图片URL，按回车添加"
-                    className="flex-1 h-9 px-3 rounded-lg border border-divider bg-gray-50/50 dark:bg-[#28282c] text-body focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors"
-                  />
-                  <button onClick={addImage} className="h-9 px-3 rounded-lg border border-divider text-caption font-medium text-text-body hover:border-primary hover:text-primary transition-colors cursor-pointer">添加</button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => !uploading && fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="w-full h-20 rounded-lg border-2 border-dashed border-divider hover:border-primary/50 hover:bg-primary/5 dark:hover:bg-primary/10 transition-colors flex flex-col items-center justify-center gap-1 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {uploading ? (
+                    <><Loader2 className="w-5 h-5 text-primary animate-spin" /><span className="text-caption text-text-muted">上传中...</span></>
+                  ) : (
+                    <><Upload className="w-5 h-5 text-text-muted" /><span className="text-caption text-text-muted">点击选择文件（可多选）</span></>
+                  )}
+                </button>
               </div>
             </div>
             <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-divider">
