@@ -468,6 +468,34 @@ model FanWork {
   @@index([userId])
 }
 
+// ==================== 微博抓取 ====================
+
+model WeiboPost {
+  id          String   @id @default(cuid())
+  mid         String   @unique // 微博唯一 ID（去重 key）
+  bid         String? // 短 ID，用于拼接 weibo.com/{uid}/{bid}
+  uid         String // 博主 UID
+  screenName  String // 博主昵称（冗余，避免每次查询）
+  avatar      String? // 博主头像
+  text        String // 纯文本内容（已去除 HTML）
+  textRaw     String? // 原始 HTML（可为空）
+  images      String   @default("[]") // JSON 数组：图片 URL 列表
+  videoUrl    String? // 视频直链（若有）
+  videoCover  String? // 视频封面
+  source      String? // 发自何处（如 "iPhone 15 Pro"）
+  sourceUrl   String // 微博详情链接
+  repostCount Int      @default(0)
+  commentCount Int     @default(0)
+  likeCount   Int      @default(0)
+  publishedAt DateTime // 微博原始发布时间
+  fetchedAt   DateTime @default(now()) // 抓取入库时间
+  isVisible   Boolean  @default(true) // 后台可隐藏
+
+  @@index([uid])
+  @@index([publishedAt])
+  @@index([isVisible, publishedAt])
+}
+
 // ==================== 举报系统 ====================
 
 model Report {

@@ -29,6 +29,7 @@ export default function Navbar({ profileName }: { profileName: string }) {
     { href: '/gallery', label: '相册' },
     { href: '/memes', label: '梗百科' },
     { href: '/fan-works', label: '二创作品' },
+    { href: '/weibo', label: '微博动态' },
     { href: '/events', label: '活动' },
   ];
   const allLinks = [...navLinks, ...moreLinks];
