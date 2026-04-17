@@ -144,7 +144,7 @@ export default function MusicPlayer() {
     <>
       <audio ref={audioRef} src={track?.src} muted={muted} preload="metadata" />
 
-      <div className="fixed bottom-6 left-6 z-50 select-none">
+      <div className="fixed left-3 sm:left-4 md:left-6 bottom-[calc(68px+env(safe-area-inset-bottom))] md:bottom-6 z-50 select-none">
         {/* Expanded Panel */}
         <div
           className={`absolute bottom-full left-0 mb-3 w-72 transition-all duration-300 ease-out ${

@@ -130,7 +130,7 @@ export default function HeroCarousel({ slides, profile, communityStats }: HeroCa
           >
             <Link
               href="/community"
-              className="inline-flex items-center justify-center h-11 px-7 rounded-full bg-white text-[#1a1a1a] text-sm font-semibold hover:bg-white/90 transition-colors duration-150"
+              className="inline-flex items-center justify-center h-11 px-7 rounded-full bg-[#ffffff] text-[#1a1a1a] text-sm font-semibold hover:bg-[#f2f2f2] transition-colors duration-150"
             >
               进入社区
             </Link>

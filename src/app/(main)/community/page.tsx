@@ -46,6 +46,22 @@ function timeAgo(date: string): string {
   return `${days}天前`;
 }
 
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function renderHighlightText(content: string, keyword: string) {
+  const key = keyword.trim();
+  if (!key) return content;
+  const reg = new RegExp(`(${escapeRegExp(key)})`, 'ig');
+  const lowerKey = key.toLowerCase();
+  return content.split(reg).map((part, idx) =>
+    part.toLowerCase() === lowerKey
+      ? <mark key={`${part}-${idx}`} className="rounded bg-warning/25 px-0.5 text-text-title">{part}</mark>
+      : <span key={`${part}-${idx}`}>{part}</span>
+  );
+}
+
 
 function RoleBadge({ role }: { role: string }) {
   if (role === 'star') return <span className="inline-flex items-center gap-1 h-5 px-2 rounded-full text-[11px] font-bold bg-gradient-to-r from-amber-400 to-orange-400 text-white shadow-sm">★ 董事长</span>;
@@ -1034,6 +1050,11 @@ function CheckinCard() {
 export default function CommunityPage() {
   const [activeTopicId, setActiveTopicId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'hot' | 'new'>('new');
+  const [keywordInput, setKeywordInput] = useState('');
+  const [keyword, setKeyword] = useState('');
+  const [selectedAuthorId, setSelectedAuthorId] = useState('');
+  const [authorOptions, setAuthorOptions] = useState<{ id: string; name: string }[]>([]);
+  const [recommendPosts, setRecommendPosts] = useState<PostItem[]>([]);
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
   const [posts, setPosts] = useState<PostItem[]>([]);
   const [topics, setTopics] = useState<TopicItem[]>([]);
@@ -1077,6 +1098,9 @@ export default function CommunityPage() {
     try {
       const params = new URLSearchParams({ page: String(pageNum), pageSize: String(PAGE_SIZE), sort: sortBy });
       if (activeTopicId) params.set('tagId', activeTopicId);
+      if (selectedAuthorId) params.set('authorId', selectedAuthorId);
+      if (keyword) params.set('keyword', keyword);
+      if (pageNum === 1) params.set('withRecommend', '1');
       const res = await fetch(`/api/public/posts?${params}`);
       const json = await res.json();
       if (json.data?.list) {
@@ -1087,17 +1111,26 @@ export default function CommunityPage() {
         }
         const { pagination } = json.data;
         setHasMore(pagination.page < pagination.totalPages);
+
+        if (pageNum === 1) {
+          if (Array.isArray(json.data.authors)) {
+            setAuthorOptions(json.data.authors);
+          }
+          if (Array.isArray(json.data.recommendations)) {
+            setRecommendPosts(json.data.recommendations);
+          }
+        }
       }
     } catch { /* ignore */ }
     setLoading(false);
     setLoadingMore(false);
-  }, [activeTopicId, sortBy]);
+  }, [activeTopicId, sortBy, selectedAuthorId, keyword]);
 
   useEffect(() => {
     setPage(1);
     setHasMore(true);
     fetchPosts(1, false);
-  }, [activeTopicId, sortBy, fetchPosts]);
+  }, [activeTopicId, sortBy, selectedAuthorId, keyword, fetchPosts]);
 
   // IntersectionObserver for infinite scroll
   useEffect(() => {
@@ -1170,6 +1203,17 @@ export default function CommunityPage() {
     setTopics((prev) => prev.some((t) => t.id === topic.id) ? prev : [...prev, topic]);
   };
 
+  const handleSearch = () => {
+    setKeyword(keywordInput.trim());
+  };
+
+  const resetFilters = () => {
+    setActiveTopicId(null);
+    setSelectedAuthorId('');
+    setKeyword('');
+    setKeywordInput('');
+  };
+
   const sortedPosts = posts;
 
   const activeTopicName = activeTopicId ? topics.find((topic) => topic.id === activeTopicId)?.name ?? '当前话题' : '全部动态';
@@ -1232,6 +1276,29 @@ export default function CommunityPage() {
                   <p className="mt-1 text-caption leading-6 text-text-muted">按话题筛选并切换热门或最新排序，快速找到你想看的社区动态。</p>
                 </div>
                 <div className="flex items-center justify-between gap-3 sm:justify-end">
+                  <div className="flex items-center gap-2">
+                    <div className="relative">
+                      <input
+                        value={keywordInput}
+                        onChange={(e) => setKeywordInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleSearch();
+                          }
+                        }}
+                        placeholder="搜帖子/话题/作者"
+                        className="h-9 w-44 rounded-btn border border-border bg-white dark:bg-[#28282c] pl-8 pr-3 text-caption text-text-body placeholder:text-text-disabled focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      />
+                      <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" />
+                    </div>
+                    <button
+                      onClick={handleSearch}
+                      className="h-9 rounded-btn border border-primary/25 bg-primary/10 px-3 text-caption font-medium text-primary transition-colors hover:bg-primary/15"
+                    >
+                      搜索
+                    </button>
+                  </div>
                   <div className="relative flex-shrink-0">
                     <select
                       value={activeTopicId || ''}
@@ -1241,6 +1308,19 @@ export default function CommunityPage() {
                       <option value="">全部分类</option>
                       {topics.map((topic) => (
                         <option key={topic.id} value={topic.id}>{topic.name}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" />
+                  </div>
+                  <div className="relative flex-shrink-0">
+                    <select
+                      value={selectedAuthorId}
+                      onChange={(e) => setSelectedAuthorId(e.target.value)}
+                      className="h-9 appearance-none rounded-btn border border-border bg-white dark:bg-[#28282c] pl-3 pr-9 text-caption font-medium text-text-body transition-colors cursor-pointer focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    >
+                      <option value="">全部作者</option>
+                      {authorOptions.map((author) => (
+                        <option key={author.id} value={author.id}>{author.name}</option>
                       ))}
                     </select>
                     <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" />
@@ -1256,9 +1336,41 @@ export default function CommunityPage() {
                       </button>
                     ))}
                   </div>
+                  {(activeTopicId || selectedAuthorId || keyword) && (
+                    <button
+                      onClick={resetFilters}
+                      className="h-9 rounded-btn border border-border px-3 text-caption text-text-muted transition-colors hover:border-primary/30 hover:text-primary"
+                    >
+                      清空
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
+
+            {recommendPosts.length > 0 && (
+              <div className="rounded-card bg-white/40 dark:bg-[#1e1e22]/80 backdrop-blur-md border border-white/70 dark:border-[#333] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5),0_4px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.3)] p-4 sm:p-5">
+                <div className="mb-3 flex items-center gap-2">
+                  <Gift className="w-4 h-4 text-primary" />
+                  <h3 className="text-body font-semibold text-text-title">为你推荐</h3>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {recommendPosts.map((post) => (
+                    <Link
+                      key={post.id}
+                      href={`/community/${post.id}`}
+                      className="group rounded-btn border border-divider bg-white/70 dark:bg-[#28282c]/80 p-3 transition-colors hover:border-primary/30"
+                    >
+                      <p className="line-clamp-2 text-caption text-text-body">{post.content}</p>
+                      <div className="mt-2 flex items-center justify-between text-[11px] text-text-muted">
+                        <span>{post.author.name}</span>
+                        <span className="inline-flex items-center gap-1"><Flame className="h-3 w-3" />{formatNum(post.likes + (post._count?.comments ?? 0))}</span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Posts */}
             {loading && posts.length === 0 ? (
@@ -1325,7 +1437,7 @@ export default function CommunityPage() {
                         </Link>
                       </div>
 
-                      <p className="mt-3 text-body text-text-body leading-7 whitespace-pre-wrap">{post.content}</p>
+                      <p className="mt-3 text-body text-text-body leading-7 whitespace-pre-wrap">{renderHighlightText(post.content, keyword)}</p>
 
                       {post.postTags && post.postTags.length > 0 && (
                         <div className="mt-3 flex flex-wrap gap-2">

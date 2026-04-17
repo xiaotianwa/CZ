@@ -246,10 +246,10 @@ export default function MePage() {
       </section>
 
       {/* User Header Card */}
-      <section className="container-main px-4 sm:px-6 lg:px-8 -mt-12 relative z-10 animate-fade-in-up">
-        <div className="card p-6">
-          <div className="flex flex-col sm:flex-row items-center sm:items-end gap-4">
-            <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden border-3 border-white dark:border-[#28282c] shadow-card -mt-12 sm:-mt-16 flex-shrink-0 bg-gray-100 dark:bg-[#28282c]">
+      <section className="container-main px-4 sm:px-6 lg:px-8 -mt-10 sm:-mt-12 relative z-10 animate-fade-in-up">
+        <div className="card p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row items-center sm:items-end gap-3 sm:gap-4">
+            <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden border-3 border-white dark:border-[#28282c] shadow-card -mt-14 sm:-mt-16 flex-shrink-0 bg-gray-100 dark:bg-[#28282c]">
               {user.avatar ? (
                 <Image src={user.avatar} alt={user.name} fill className="object-cover" />
               ) : (
@@ -259,23 +259,25 @@ export default function MePage() {
               )}
             </div>
             <div className="flex-1 text-center sm:text-left">
-              <div className="flex items-center justify-center sm:justify-start gap-2">
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
                 <h1 className="text-heading-sm text-text-title">{user.name}</h1>
                 <span className="tag-primary">{getRoleName(user.role)}</span>
                 <span className={`tag text-white ${levelInfo.color}`}>Lv.{user.level} {levelInfo.name}</span>
               </div>
               <p className="text-caption text-text-muted mt-1">{user.bio || '这个人很懒，什么都没写~'}</p>
-              <div className="flex items-center justify-center sm:justify-start gap-4 mt-2 text-caption text-text-muted">
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 sm:gap-4 mt-2 text-caption text-text-muted">
                 <span className="flex items-center gap-1"><Zap className="w-3.5 h-3.5 text-warning" /> {user.points} 积分</span>
                 <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" /> {formatDate(user.createdAt)} 加入</span>
               </div>
             </div>
-            <button
-              onClick={handleLogout}
-              className="btn-outline inline-flex items-center gap-1.5 h-9 px-4 text-caption text-text-muted hover:text-danger hover:border-danger"
-            >
-              <LogOut className="w-3.5 h-3.5" /> 退出
-            </button>
+            <div className="w-full sm:w-auto flex justify-center sm:justify-end mt-1 sm:mt-0">
+              <button
+                onClick={handleLogout}
+                className="btn-outline inline-flex items-center gap-1.5 h-9 px-4 text-caption text-text-muted hover:text-danger hover:border-danger"
+              >
+                <LogOut className="w-3.5 h-3.5" /> 退出
+              </button>
+            </div>
           </div>
         </div>
       </section>
@@ -284,19 +286,19 @@ export default function MePage() {
       <section className="container-main px-4 sm:px-6 lg:px-8 py-6">
         <div className="grid lg:grid-cols-[220px_1fr] gap-6">
           {/* Sidebar Tabs */}
-          <nav className="flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible pb-2 lg:pb-0">
+          <nav className="grid grid-cols-3 sm:grid-cols-4 lg:flex lg:flex-col gap-2 lg:gap-1.5 pb-1 lg:pb-0">
             {tabs.map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-2.5 px-4 py-2.5 rounded-btn text-body font-medium transition-colors duration-150 cursor-pointer whitespace-nowrap ${
+                className={`flex items-center justify-center lg:justify-start gap-1.5 lg:gap-2 px-2.5 sm:px-3.5 lg:px-4 py-2.5 rounded-btn text-caption sm:text-body font-medium transition-colors duration-150 cursor-pointer min-h-[40px] ${
                   activeTab === tab.key
                     ? 'bg-primary text-white shadow-sm'
                     : 'text-text-body hover:bg-gray-50 dark:hover:bg-[#28282c] hover:text-primary'
                 }`}
               >
-                <tab.icon className="w-4 h-4" />
-                {tab.label}
+                <tab.icon className="hidden lg:block w-4 h-4" />
+                <span className="truncate">{tab.label}</span>
               </button>
             ))}
           </nav>
@@ -379,8 +381,8 @@ function ProfileTab({ user, onUpdate, showToast }: { user: UserProfile; onUpdate
 
   return (
     <div className="space-y-6">
-      <div className="card p-6">
-        <div className="flex items-center justify-between mb-6">
+      <div className="card p-4 sm:p-6">
+        <div className="flex items-center justify-between mb-5 sm:mb-6">
           <h2 className="text-heading-sm text-text-title">个人资料</h2>
           {!editing ? (
             <button onClick={() => { setForm({ name: user.name, bio: user.bio || '', city: user.city || '' }); setEditing(true); }} className="btn-outline inline-flex items-center gap-1.5 h-8 px-3 text-caption">
@@ -399,7 +401,7 @@ function ProfileTab({ user, onUpdate, showToast }: { user: UserProfile; onUpdate
         </div>
 
         {/* Avatar */}
-        <div className="flex items-center gap-4 pb-6 border-b border-divider">
+        <div className="flex items-start sm:items-center gap-4 pb-5 sm:pb-6 border-b border-divider">
           <div className="relative group">
             <div className="w-16 h-16 rounded-full overflow-hidden bg-gray-100 dark:bg-[#28282c] flex-shrink-0">
               {user.avatar ? (
@@ -427,9 +429,9 @@ function ProfileTab({ user, onUpdate, showToast }: { user: UserProfile; onUpdate
         </div>
 
         {/* Fields */}
-        <div className="space-y-5 mt-6">
-          <div className="grid sm:grid-cols-[120px_1fr] gap-2 items-start">
-            <label className="text-body font-medium text-text-muted pt-2">昵称</label>
+        <div className="space-y-4 sm:space-y-5 mt-5 sm:mt-6">
+          <div className="grid grid-cols-[78px_1fr] sm:grid-cols-[120px_1fr] gap-3 items-start">
+            <label className="text-body font-medium text-text-muted pt-1.5 sm:pt-2">昵称</label>
             {editing ? (
               <input
                 value={form.name}
@@ -438,33 +440,33 @@ function ProfileTab({ user, onUpdate, showToast }: { user: UserProfile; onUpdate
                 className="h-10 px-3 rounded-btn border border-border bg-white dark:bg-[#28282c] text-body text-text-title focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors duration-150"
               />
             ) : (
-              <p className="text-body text-text-title pt-2">{user.name}</p>
+              <p className="text-body text-text-title pt-1.5 sm:pt-2 break-words">{user.name}</p>
             )}
           </div>
 
-          <div className="grid sm:grid-cols-[120px_1fr] gap-2 items-start">
-            <label className="text-body font-medium text-text-muted pt-2">邮箱</label>
-            <p className="text-body text-text-title pt-2">{user.email}</p>
+          <div className="grid grid-cols-[78px_1fr] sm:grid-cols-[120px_1fr] gap-3 items-start">
+            <label className="text-body font-medium text-text-muted pt-1.5 sm:pt-2">邮箱</label>
+            <p className="text-body text-text-title pt-1.5 sm:pt-2 break-all">{user.email}</p>
           </div>
 
-          <div className="grid sm:grid-cols-[120px_1fr] gap-2 items-start">
-            <label className="text-body font-medium text-text-muted pt-2">角色</label>
-            <p className="text-body text-text-title pt-2">{getRoleName(user.role)}</p>
+          <div className="grid grid-cols-[78px_1fr] sm:grid-cols-[120px_1fr] gap-3 items-start">
+            <label className="text-body font-medium text-text-muted pt-1.5 sm:pt-2">角色</label>
+            <p className="text-body text-text-title pt-1.5 sm:pt-2">{getRoleName(user.role)}</p>
           </div>
 
-          <div className="grid sm:grid-cols-[120px_1fr] gap-2 items-start">
-            <label className="text-body font-medium text-text-muted pt-2">所在位置</label>
+          <div className="grid grid-cols-[78px_1fr] sm:grid-cols-[120px_1fr] gap-3 items-start">
+            <label className="text-body font-medium text-text-muted pt-1.5 sm:pt-2">位置</label>
             {editing ? (
               <CitySelect value={form.city} onChange={(v) => setForm({ ...form, city: v })} />
             ) : (
-              <p className="text-body text-text-title pt-2 flex items-center gap-1.5">
+              <p className="text-body text-text-title pt-1.5 sm:pt-2 flex items-center gap-1.5 break-words">
                 {user.city ? (<><MapPin className="w-3.5 h-3.5 text-primary" />{user.city}</>) : <span className="text-text-muted">未设置</span>}
               </p>
             )}
           </div>
 
-          <div className="grid sm:grid-cols-[120px_1fr] gap-2 items-start">
-            <label className="text-body font-medium text-text-muted pt-2">个性签名</label>
+          <div className="grid grid-cols-[78px_1fr] sm:grid-cols-[120px_1fr] gap-3 items-start">
+            <label className="text-body font-medium text-text-muted pt-1.5 sm:pt-2">签名</label>
             {editing ? (
               <textarea
                 value={form.bio}
@@ -475,13 +477,13 @@ function ProfileTab({ user, onUpdate, showToast }: { user: UserProfile; onUpdate
                 className="px-3 py-2 rounded-btn border border-border bg-white dark:bg-[#28282c] text-body text-text-title placeholder:text-text-disabled resize-none focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors duration-150"
               />
             ) : (
-              <p className="text-body text-text-body pt-2">{user.bio || '暂未设置'}</p>
+              <p className="text-body text-text-body pt-1.5 sm:pt-2 break-words">{user.bio || '暂未设置'}</p>
             )}
           </div>
 
-          <div className="grid sm:grid-cols-[120px_1fr] gap-2 items-start">
-            <label className="text-body font-medium text-text-muted pt-2">注册时间</label>
-            <p className="text-body text-text-title pt-2">{formatDate(user.createdAt)}</p>
+          <div className="grid grid-cols-[78px_1fr] sm:grid-cols-[120px_1fr] gap-3 items-start">
+            <label className="text-body font-medium text-text-muted pt-1.5 sm:pt-2">注册</label>
+            <p className="text-body text-text-title pt-1.5 sm:pt-2 break-words">{formatDate(user.createdAt)}</p>
           </div>
         </div>
       </div>
