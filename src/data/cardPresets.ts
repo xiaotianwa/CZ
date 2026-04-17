@@ -15,11 +15,16 @@ export interface CardPreset {
   health?: number;
   description?: string;
   flavor?: string;
-  /** 图片相对路径，置于 public/cards/ 下 */
+  /** 图片地址：
+   *  - 数据定义里用本地路径 `/cards/xxx.png`（供开发环境 / 兜底）
+   *  - 构建 / 运行时若环境变量 `NEXT_PUBLIC_CARDS_CDN` 存在，
+   *    会自动替换为 `{CDN}/cards/xxx.png?imageMogr2/format/webp/quality/85/thumbnail/800x`
+   *    走腾讯云 COS 图片处理动态压缩，首屏体积 60MB → ~3MB
+   */
   imagePath?: string;
 }
 
-export const CARD_PRESETS: CardPreset[] = [
+const _PRESETS: CardPreset[] = [
   // ========== 🎤 角色 Character × 14 ==========
   {
     id: 'C01', name: '搭档小助理', type: 'character', rarity: 'N',
@@ -290,6 +295,26 @@ export const CARD_PRESETS: CardPreset[] = [
     flavor: '回应来得又稳又狠',
   },
 ];
+
+// ===================== CDN 映射层 =====================
+// 如果设置了 NEXT_PUBLIC_CARDS_CDN（例如 COS 加速域名），
+// 则把所有 `/cards/xxx` 路径替换为带 imageMogr2 动态压缩参数的 CDN URL。
+// 未配置时保留原本地路径，便于开发环境使用。
+const CARDS_CDN = process.env.NEXT_PUBLIC_CARDS_CDN || '';
+const IMAGE_MOGR = 'imageMogr2/format/webp/quality/85/thumbnail/800x';
+
+function resolveImagePath(p?: string): string | undefined {
+  if (!p) return p;
+  if (!CARDS_CDN) return p;
+  if (!p.startsWith('/cards/')) return p;
+  const filename = p.slice('/cards/'.length);
+  return `${CARDS_CDN.replace(/\/$/, '')}/cards/${encodeURI(filename)}?${IMAGE_MOGR}`;
+}
+
+export const CARD_PRESETS: CardPreset[] = _PRESETS.map((card) => ({
+  ...card,
+  imagePath: resolveImagePath(card.imagePath),
+}));
 
 export function findPreset(id: string): CardPreset | undefined {
   return CARD_PRESETS.find((p) => p.id.toUpperCase() === id.toUpperCase());

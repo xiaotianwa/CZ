@@ -3,7 +3,14 @@ const COS_DOMAIN = process.env.COS_BUCKET && process.env.COS_REGION
   ? `${process.env.COS_BUCKET}.cos.${process.env.COS_REGION}.myqcloud.com`
   : '*.cos.*.myqcloud.com';
 const CDN_DOMAIN = process.env.COS_CDN_DOMAIN || '';
-const MEDIA_SOURCES = [COS_DOMAIN, CDN_DOMAIN].filter(Boolean).map(d => `https://${d}`).join(' ');
+// 卡图 CDN（客户端可见，用于 /game 卡牌素材走腾讯 COS imageMogr2 压缩）
+const CARDS_CDN_HOSTNAME = (process.env.NEXT_PUBLIC_CARDS_CDN || '')
+  .replace(/^https?:\/\//, '')
+  .split('/')[0];
+const MEDIA_SOURCES = [COS_DOMAIN, CDN_DOMAIN, CARDS_CDN_HOSTNAME]
+  .filter(Boolean)
+  .map(d => `https://${d}`)
+  .join(' ');
 const MAP_SOURCES = ['https://webapi.amap.com', 'https://*.amap.com', 'https://*.autonavi.com'].join(' ');
 // 微博图床（头像 + 九宫格图片 + 视频封面），用于 /weibo 页面显示
 const WEIBO_SOURCES = ['https://*.sinaimg.cn', 'https://*.weibocdn.com'].join(' ');
@@ -25,6 +32,11 @@ const nextConfig = {
       ...(process.env.COS_CDN_DOMAIN ? [{
         protocol: 'https',
         hostname: process.env.COS_CDN_DOMAIN,
+      }] : []),
+      // 卡图 CDN（NEXT_PUBLIC_CARDS_CDN 指向的域名）
+      ...(CARDS_CDN_HOSTNAME ? [{
+        protocol: 'https',
+        hostname: CARDS_CDN_HOSTNAME,
       }] : []),
     ],
     // 限制优化图片的最大尺寸，节省服务器内存
