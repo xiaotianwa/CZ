@@ -301,20 +301,22 @@ const _PRESETS: CardPreset[] = [
 // 消费方（gallery / preview / CardFrame / Battle ...）直接使用，无需再次编码。
 //
 // - 若设置了 NEXT_PUBLIC_CARDS_CDN（例如 COS 加速域名），
-//   返回 `{CDN}/cards/{encoded}?imageMogr2/format/webp/quality/85/thumbnail/800x`。
-// - 否则 fallback 到本地 `/cards/{encoded}`（仍然编码，避免浏览器字符集问题）。
+//   返回 `{CDN}/cards/{basename}.webp`（卡图已通过 scripts/upload-cards-webp.js 预压缩成 WebP，
+//   相比原始 PNG/JPG 体积缩小约 90%，单图 300KB 左右）。
+// - 否则 fallback 到本地 `/cards/{encoded}`（保留原始 png/jpg 文件，方便本地开发）。
 const CARDS_CDN = process.env.NEXT_PUBLIC_CARDS_CDN || '';
-const IMAGE_MOGR = 'imageMogr2/format/webp/quality/85/thumbnail/800x';
 
 function resolveImagePath(p?: string): string | undefined {
   if (!p) return p;
   if (!p.startsWith('/cards/')) return p;
   const filename = p.slice('/cards/'.length);
-  const encoded = encodeURI(filename);
   if (CARDS_CDN) {
-    return `${CARDS_CDN.replace(/\/$/, '')}/cards/${encoded}?${IMAGE_MOGR}`;
+    // CDN 模式：所有卡图已预压缩为 WebP 上传，统一把扩展名替换为 .webp
+    const webpFilename = filename.replace(/\.(png|jpe?g)$/i, '.webp');
+    return `${CARDS_CDN.replace(/\/$/, '')}/cards/${encodeURI(webpFilename)}`;
   }
-  return `/cards/${encoded}`;
+  // 本地开发模式：使用 public/cards 下的原始 PNG/JPG 文件
+  return `/cards/${encodeURI(filename)}`;
 }
 
 export const CARD_PRESETS: CardPreset[] = _PRESETS.map((card) => ({
