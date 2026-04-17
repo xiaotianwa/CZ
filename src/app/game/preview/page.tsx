@@ -95,9 +95,8 @@ export default function CardMakerPage() {
       flavor: preset.flavor ?? '',
     });
     if (preset.imagePath) {
-      // 同源图片，走浏览器原生加载；编码路径中的空格和中文
-      const url = preset.imagePath.split('/').map(encodeURIComponent).join('/').replace(/%2F/g, '/');
-      handleUrl(url);
+      // imagePath 已由 cardPresets 的 resolveImagePath 统一编码（本地 or CDN），直接加载
+      handleUrl(preset.imagePath);
     } else {
       setImageDataUrl('');
       setImageEl(null);

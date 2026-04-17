@@ -163,9 +163,8 @@ function FilterGroup({
 
 function GalleryCard({ preset }: { preset: CardPreset }) {
   const hasImg = !!preset.imagePath;
-  const imgUrl = hasImg
-    ? preset.imagePath!.split('/').map(encodeURIComponent).join('/').replace(/%2F/g, '/')
-    : '';
+  // imagePath 已由 cardPresets 的 resolveImagePath 统一编码，直接使用
+  const imgUrl = preset.imagePath ?? '';
 
   return (
     <Link

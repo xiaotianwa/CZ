@@ -297,18 +297,24 @@ const _PRESETS: CardPreset[] = [
 ];
 
 // ===================== CDN 映射层 =====================
-// 如果设置了 NEXT_PUBLIC_CARDS_CDN（例如 COS 加速域名），
-// 则把所有 `/cards/xxx` 路径替换为带 imageMogr2 动态压缩参数的 CDN URL。
-// 未配置时保留原本地路径，便于开发环境使用。
+// 统一负责 imagePath 的 URL 编码（含空格 / 中文 / 全角 · 等特殊字符），
+// 消费方（gallery / preview / CardFrame / Battle ...）直接使用，无需再次编码。
+//
+// - 若设置了 NEXT_PUBLIC_CARDS_CDN（例如 COS 加速域名），
+//   返回 `{CDN}/cards/{encoded}?imageMogr2/format/webp/quality/85/thumbnail/800x`。
+// - 否则 fallback 到本地 `/cards/{encoded}`（仍然编码，避免浏览器字符集问题）。
 const CARDS_CDN = process.env.NEXT_PUBLIC_CARDS_CDN || '';
 const IMAGE_MOGR = 'imageMogr2/format/webp/quality/85/thumbnail/800x';
 
 function resolveImagePath(p?: string): string | undefined {
   if (!p) return p;
-  if (!CARDS_CDN) return p;
   if (!p.startsWith('/cards/')) return p;
   const filename = p.slice('/cards/'.length);
-  return `${CARDS_CDN.replace(/\/$/, '')}/cards/${encodeURI(filename)}?${IMAGE_MOGR}`;
+  const encoded = encodeURI(filename);
+  if (CARDS_CDN) {
+    return `${CARDS_CDN.replace(/\/$/, '')}/cards/${encoded}?${IMAGE_MOGR}`;
+  }
+  return `/cards/${encoded}`;
 }
 
 export const CARD_PRESETS: CardPreset[] = _PRESETS.map((card) => ({
