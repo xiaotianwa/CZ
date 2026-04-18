@@ -1,6 +1,6 @@
 # 🎴 卡牌对战模块 · TODO 清单
 
-> 最后更新：2026-04-19
+> 最后更新：2026-04-19（D2 全量拆分完成）
 > 维护范围：`src/app/game/**` + `src/app/api/tcg/**` + `src/game/**`
 >
 > **本文档仅记录游戏板块**，社区 TODO 见 [`todo.md`](./todo.md)。
@@ -11,8 +11,7 @@
 
 | 状态 | 数量 |
 |------|:----:|
-| ✅ 已完成 | 30 |
-| 🔄 进行中（D2 拆分，剩余部分） | 1 |
+| ✅ 已完成 | 31 |
 | 🔲 待完成（低优先级） | 8 |
 | **合计** | **39** |
 
@@ -70,28 +69,21 @@
   - hard：1 步前瞻 + 打分函数（枚举所有合法 action 选最高分）
 - [x] **C1** `/game/practice` 文案刷新，反映各难度真实策略差异
 - [x] **C1** AI 模式 GameOverOverlay 显示难度 / 耗时 / 回合
-- [x] **D2**（部分）抽出独立子组件到 `src/app/game/_components/battle/`
-  - `GameOverOverlay.tsx`
-  - `LogPanel.tsx`
-  - Battle.tsx 行数 1941 → 1628（-16%），57 个单元测试全部通过
+- [x] **D2** Battle.tsx 全量拆分至 `src/app/game/_components/battle/`
+  - `shared.ts`（常量/工具：PRESET_MAP / RARITY_* / KW_ICON / KEYWORD_DICT / MECHANIC_DICT / extractMechanicTags / defNeedsTarget / rectCenter / Point / DictEntry）
+  - `GameOverOverlay.tsx` · `LogPanel.tsx`
+  - `HeroBar.tsx`（玩家栏 + EventBadge）
+  - `BattleStage.tsx`（BoardRow + MinionCard）
+  - `HandArea.tsx`（手牌区 + 结束回合按钮 + HandCard）
+  - `BattleOverlay.tsx`（CardHoverPreview / AimArrow / MulliganOverlay / HelpModal / Speaker 图标）
+  - `effects.tsx`（useDamageFloaters / DamageFloaters / useAttackFx / AttackFxLayer / useSfxFromState）
+  - Battle.tsx 行数 **1787 → 575（-67.8%）**，`npx tsc --noEmit` 通过，游戏相关 85 个单元测试全部保持绿
 
 ---
 
 ## 🔲 待完成
 
-### 🟡 中优先级（体验 / 功能）
-
-#### D2. `Battle.tsx` 拆分（剩余） `[~0.5 天]`
-- [ ] 继续拆出 `BattleStage.tsx`（战场 + 事件槽）
-- [ ] 继续拆出 `HandArea.tsx`（手牌 + 结束回合按钮）
-- [ ] 继续拆出 `PlayerBar.tsx`（头像 / 流量 / 技能）
-- [ ] 继续拆出 `BattleOverlay.tsx`（换牌 / 帮助 / 提示弹窗）
-- [ ] 目标：容器 Battle 降到 ~300 行；需要先把 `KEYWORD_DICT / MECHANIC_DICT / PRESET_MAP / TARGETED_EFFECTS` 等共享常量抽到 `battle/shared.ts`
-- [ ] 建议加 vitest + @testing-library/react 快照测试保障纯重构不回归
-
----
-
-### 🟢 低优先级（打磨 / v2.0）
+###  低优先级（打磨 / v2.0）
 
 #### C2. 战报回放页 `[~1.5 天]`
 - [ ] `/game/replay/[matchId]` 新页
@@ -161,7 +153,7 @@
 |------|------|:--------:|
 | **v1.4** ✅ | Phase A（安全 + 数据一致性） | 已完成 |
 | **v1.5** ✅ | Phase B1/B4 + D1 | 已完成 |
-| **v1.6** 🔄 | B2/B3 + C1 + D2 | B2+B3+C1 + D2 部分已完成；剩余 D2 ~0.5 天 |
+| **v1.6** ✅ | B2/B3 + C1 + D2 | 已完成（D2 容器 1787 → 575 行，-67.8%） |
 | **v1.7** | C2 战报回放 | 1.5 天 |
 | **v2.0** | WebSocket 实时 + 观战 + 赛季 + E2E | 2-3 周 |
 
