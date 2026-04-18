@@ -1,6 +1,6 @@
 // 卡组构筑工具：规则校验 + localStorage 持久化
 // 规则参考《对战规则.md》2.1 节：
-//   - 每套 25 张
+//   - 每套 35 张
 //   - 五大类至少各 1 张（character / item / equipment / effect / event）
 //   - 单卡最多 2 张
 //   - SSR 单卡最多 1 张
@@ -9,7 +9,7 @@ import type { CardDef, Deck } from './types';
 import { ALL_CARDS } from './cards';
 
 export const DECK_RULES = {
-  SIZE: 25,
+  SIZE: 35,
   SINGLE_CARD_MAX: 2,
   SSR_CARD_MAX: 1,
   TYPES_REQUIRED: ['character', 'item', 'equipment', 'effect', 'event'] as const,
@@ -80,10 +80,14 @@ export function errorText(e: DeckValidationError): string {
 const STORAGE_KEY = 'chenze_tcg_custom_decks_v1';
 
 export interface StoredDeck {
+  /** 仅登录后从服务端拉到的卡组才有 id；本地 localStorage 模式为 undefined */
+  id?: string;
   /** 用户自定义名称，如「速攻压制」 */
   name: string;
-  /** 25 张卡 id 列表（可乱序） */
+  /** 35 张卡 id 列表（可乱序） */
   cards: string[];
+  /** 是否出战卡组（服务端唯一性由 API 保证） */
+  isActive?: boolean;
   /** 自动填充的元信息 */
   createdAt: number;
   updatedAt: number;

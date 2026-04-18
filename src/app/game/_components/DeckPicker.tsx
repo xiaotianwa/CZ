@@ -6,10 +6,10 @@
  * - 自建卡组若非法（未通过 validateDeck）将显示红色角标，且选中后 Battle 自动取合法长度（已校验不让选）
  */
 
-import React, { useEffect, useMemo, useState } from 'react';
-import { ALL_DECKS } from '@/game/decks';
+import React, { useMemo } from 'react';
+import { useDeckPresets, type DeckOption } from '@/lib/tcg/useCardPresets';
+import { useCustomDecks } from '@/lib/tcg/useCustomDecks';
 import {
-  loadCustomDecks,
   validateDeck,
   toEngineDeck,
   type StoredDeck,
@@ -28,28 +28,22 @@ export function sameKey(a: DeckOptionKey, b: DeckOptionKey): boolean {
 }
 
 export interface DeckOptions {
-  /** 解析 key 到实际 Deck；自建卡组非法时回退到 DECK_TAUNT */
+  /** 解析 key 到实际 Deck；自建卡组非法时回退到首个预设 */
   resolve: (key: DeckOptionKey) => Deck;
-  presets: typeof ALL_DECKS;
+  presets: readonly DeckOption[];
   customs: StoredDeck[];
   customValidations: boolean[];
 }
 
-/** Hook：加载所有可用卡组（预设 + localStorage） */
+/** Hook：加载所有可用卡组（后台预设 + 用户自建）
+ *
+ * B3：用户自建卡组自动按登录态决定来源：
+ *  - 已登录 → /api/tcg/decks（服务端）
+ *  - 未登录 → localStorage
+ */
 export function useAllDeckOptions(): DeckOptions {
-  const [customs, setCustoms] = useState<StoredDeck[]>([]);
-
-  useEffect(() => {
-    setCustoms(loadCustomDecks());
-    // 监听跨标签页修改
-    const handler = (e: StorageEvent) => {
-      if (e.key && e.key.startsWith('chenze_tcg_custom_decks')) {
-        setCustoms(loadCustomDecks());
-      }
-    };
-    window.addEventListener('storage', handler);
-    return () => window.removeEventListener('storage', handler);
-  }, []);
+  const presets = useDeckPresets();
+  const { decks: customs } = useCustomDecks();
 
   const customValidations = useMemo(
     () => customs.map((d) => validateDeck(d.cards).ok),
@@ -58,16 +52,17 @@ export function useAllDeckOptions(): DeckOptions {
 
   const resolve = useMemo(() => (key: DeckOptionKey): Deck => {
     if (key.kind === 'preset') {
-      const found = ALL_DECKS.find((d) => d.key === key.key);
-      return found?.deck ?? ALL_DECKS[0].deck;
+      const found = presets.find((d) => d.key === key.key);
+      return found?.deck ?? presets[0]?.deck ?? { heroName: '玩家', heroPowerId: 'hp_draw1', cards: [] };
     }
     const stored = customs[key.index];
-    if (!stored) return ALL_DECKS[0].deck;
-    if (!validateDeck(stored.cards).ok) return ALL_DECKS[0].deck;
+    const fallback = presets[0]?.deck ?? { heroName: '玩家', heroPowerId: 'hp_draw1', cards: [] };
+    if (!stored) return fallback;
+    if (!validateDeck(stored.cards).ok) return fallback;
     return toEngineDeck(stored);
-  }, [customs]);
+  }, [customs, presets]);
 
-  return { resolve, presets: ALL_DECKS, customs, customValidations };
+  return { resolve, presets, customs, customValidations };
 }
 
 export interface DeckPickerProps {

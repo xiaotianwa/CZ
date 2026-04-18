@@ -8,11 +8,11 @@ import { useEffect, useState } from 'react';
 // 设计指引：retro-futurism 霓虹 + 毛玻璃 + 稳定 hover（颜色过渡，不做缩放避免 layout shift）
 
 const LINKS = [
-  { href: '/game/gallery',  label: '卡池',   icon: CardsIcon },
-  { href: '/game/preview',  label: '制作器', icon: PaletteIcon },
-  { href: '/game/deck',     label: '构筑',   icon: DeckBuildIcon },
-  { href: '/game/practice', label: '练习',   icon: RobotIcon },
-  { href: '/game/play',     label: '对战',   icon: SwordsIcon },
+  { href: '/game/gallery',  label: '卡池',     icon: CardsIcon },
+  { href: '/game/deck',     label: '卡组',     icon: DeckBuildIcon },
+  { href: '/game/practice', label: '练习',     icon: RobotIcon },
+  { href: '/game/room',     label: '好友房', icon: InviteIcon },
+  { href: '/game/rank',     label: '排行',     icon: TrophyIcon },
 ];
 
 export default function GameNav() {
@@ -32,9 +32,9 @@ export default function GameNav() {
     <header className="sticky top-3 z-50 px-3 sm:px-4">
       <nav className="mx-auto max-w-7xl flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-[#0F0F23]/70 backdrop-blur-xl shadow-[0_0_0_1px_rgba(124,58,237,0.15),0_12px_40px_-12px_rgba(124,58,237,0.35)] px-3 sm:px-5 h-14">
         <Link
-          href="/game/play"
+          href="/game"
           className="group flex items-center gap-2 select-none cursor-pointer"
-          aria-label="返回对战首页"
+          aria-label="返回游戏大厅"
         >
           <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-[#7C3AED] to-[#F43F5E] text-white text-sm font-black shadow-[0_0_16px_rgba(124,58,237,0.55)]">
             1103
@@ -127,17 +127,27 @@ function RobotIcon({ className = '' }: { className?: string }) {
   );
 }
 
-function SwordsIcon({ className = '' }: { className?: string }) {
+function InviteIcon({ className = '' }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M14.5 17.5 3 6V3h3l11.5 11.5" />
-      <path d="m13 19 6-6" />
-      <path d="m16 16 4 4" />
-      <path d="m19 21 2-2" />
-      <path d="M9.5 17.5 21 6V3h-3L6.5 14.5" />
-      <path d="m11 19-6-6" />
-      <path d="m8 16-4 4" />
-      <path d="m5 21-2-2" />
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <line x1="19" y1="8" x2="19" y2="14" />
+      <line x1="22" y1="11" x2="16" y2="11" />
     </svg>
   );
 }
+
+function TrophyIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+      <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+      <path d="M4 22h16" />
+      <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20 7 22" />
+      <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20 17 22" />
+      <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+    </svg>
+  );
+}
+

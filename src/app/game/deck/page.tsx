@@ -8,25 +8,20 @@
  * - 实时规则校验 + localStorage 持久化
  */
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import CardFrame from '@/components/game/CardFrame';
-import { CARD_PRESETS } from '@/data/cardPresets';
+import type { CardPreset } from '@/data/cardPresets';
+import { useCardPresetsWithMap } from '@/lib/tcg/useCardPresets';
+import { useCustomDecks } from '@/lib/tcg/useCustomDecks';
 import { ALL_CARDS } from '@/game/cards';
 import {
-  loadCustomDecks,
-  saveCustomDecks,
-  makeEmptyDeck,
   validateDeck,
   errorText,
   DECK_RULES,
-  type StoredDeck,
 } from '@/game/deck-builder';
 import type { CardDef, CardRarity, CardType } from '@/game/types';
-
-const PRESET_MAP: Record<string, import('@/data/cardPresets').CardPreset> = {};
-for (const p of CARD_PRESETS) PRESET_MAP[p.id] = p;
 
 const RARITY_ORDER: Record<CardRarity, number> = { N: 0, R: 1, SR: 2, SSR: 3 };
 const TYPE_LABEL: Record<CardType, string> = {
@@ -36,24 +31,25 @@ const TYPE_LABEL: Record<CardType, string> = {
 // ============ 主页 ============
 
 export default function DeckBuilderPage() {
-  const [decks, setDecks] = useState<StoredDeck[]>([]);
+  const {
+    decks,
+    online,
+    loading,
+    error,
+    createDeck,
+    renameDeck: apiRenameDeck,
+    deleteDeck: apiDeleteDeck,
+    saveCards,
+  } = useCustomDecks();
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
   const [filterType, setFilterType] = useState<CardType | 'all'>('all');
   const [filterRarity, setFilterRarity] = useState<CardRarity | 'all'>('all');
-
-  // 初始加载
-  useEffect(() => {
-    const loaded = loadCustomDecks();
-    setDecks(loaded);
-  }, []);
-
-  // 持久化
-  useEffect(() => {
-    if (decks.length === 0) return;
-    saveCustomDecks(decks);
-  }, [decks]);
+  const { map: presetMap } = useCardPresetsWithMap();
 
   const activeDeck = activeIdx !== null ? decks[activeIdx] : null;
+  // B3: online 时按 server id 定位；offline 时按索引定位
+  const activeRef: string | number =
+    online === true && activeDeck?.id ? activeDeck.id : (activeIdx ?? -1);
 
   // 筛选的卡池
   const filteredPool = useMemo(() => {
@@ -71,58 +67,51 @@ export default function DeckBuilderPage() {
   const validation = activeDeck ? validateDeck(activeDeck.cards) : null;
   const cardCount = activeDeck?.cards.length ?? 0;
 
-  // 操作：添加一张
-  const addCard = useCallback((defId: string) => {
-    if (activeIdx === null) return;
-    setDecks((arr) => arr.map((d, i) => {
-      if (i !== activeIdx) return d;
-      if (d.cards.length >= DECK_RULES.SIZE) return d; // 已满
-      const def = ALL_CARDS.find((c) => c.id === defId);
-      if (!def) return d;
-      const existing = d.cards.filter((x) => x === defId).length;
-      const cap = def.rarity === 'SSR' ? DECK_RULES.SSR_CARD_MAX : DECK_RULES.SINGLE_CARD_MAX;
-      if (existing >= cap) return d; // 已达上限
-      return { ...d, cards: [...d.cards, defId], updatedAt: Date.now() };
-    }));
-  }, [activeIdx]);
+  // 操作：添加一张（optimistic：hook 内部会先本地更新再同步）
+  const addCard = useCallback(async (defId: string) => {
+    if (!activeDeck) return;
+    if (activeDeck.cards.length >= DECK_RULES.SIZE) return;
+    const def = ALL_CARDS.find((c) => c.id === defId);
+    if (!def) return;
+    const existing = activeDeck.cards.filter((x) => x === defId).length;
+    const cap = def.rarity === 'SSR' ? DECK_RULES.SSR_CARD_MAX : DECK_RULES.SINGLE_CARD_MAX;
+    if (existing >= cap) return;
+    const next = [...activeDeck.cards, defId];
+    await saveCards(activeRef, next);
+  }, [activeDeck, activeRef, saveCards]);
 
   // 操作：移除一张（从末尾移除同名）
-  const removeCard = useCallback((defId: string) => {
-    if (activeIdx === null) return;
-    setDecks((arr) => arr.map((d, i) => {
-      if (i !== activeIdx) return d;
-      const idx = d.cards.lastIndexOf(defId);
-      if (idx < 0) return d;
-      const next = [...d.cards.slice(0, idx), ...d.cards.slice(idx + 1)];
-      return { ...d, cards: next, updatedAt: Date.now() };
-    }));
-  }, [activeIdx]);
+  const removeCard = useCallback(async (defId: string) => {
+    if (!activeDeck) return;
+    const idx = activeDeck.cards.lastIndexOf(defId);
+    if (idx < 0) return;
+    const next = [...activeDeck.cards.slice(0, idx), ...activeDeck.cards.slice(idx + 1)];
+    await saveCards(activeRef, next);
+  }, [activeDeck, activeRef, saveCards]);
 
   // 新建 / 删除 / 重命名
-  const newDeck = useCallback(() => {
+  const handleNewDeck = useCallback(async () => {
     const name = prompt('卡组名称？', `自建卡组 ${decks.length + 1}`);
     if (!name) return;
-    const next = makeEmptyDeck(name.trim() || '未命名');
-    setDecks((arr) => [...arr, next]);
-    setActiveIdx(decks.length);
-  }, [decks.length]);
+    const created = await createDeck(name.trim() || '未命名');
+    if (created) setActiveIdx(decks.length); // hook 将新卡组追加到末尾
+  }, [decks.length, createDeck]);
 
-  const deleteDeck = useCallback((i: number) => {
+  const handleDelete = useCallback(async (i: number) => {
     if (!window.confirm(`确定删除「${decks[i].name}」？`)) return;
-    setDecks((arr) => {
-      const next = arr.filter((_, idx) => idx !== i);
-      saveCustomDecks(next); // 空数组也需要立刻持久化
-      return next;
-    });
+    const ref: string | number = online === true && decks[i].id ? decks[i].id! : i;
+    const ok = await apiDeleteDeck(ref);
+    if (!ok) return;
     if (activeIdx === i) setActiveIdx(null);
     else if (activeIdx !== null && activeIdx > i) setActiveIdx(activeIdx - 1);
-  }, [decks, activeIdx]);
+  }, [decks, activeIdx, online, apiDeleteDeck]);
 
-  const renameDeck = useCallback((i: number) => {
+  const handleRename = useCallback(async (i: number) => {
     const name = prompt('修改名称', decks[i].name);
     if (!name) return;
-    setDecks((arr) => arr.map((d, idx) => idx === i ? { ...d, name: name.trim() || d.name, updatedAt: Date.now() } : d));
-  }, [decks]);
+    const ref: string | number = online === true && decks[i].id ? decks[i].id! : i;
+    await apiRenameDeck(ref, name.trim());
+  }, [decks, online, apiRenameDeck]);
 
   return (
     <div className="pt-4 pb-8 px-3 sm:px-4 max-w-[1400px] mx-auto">
@@ -133,12 +122,22 @@ export default function DeckBuilderPage() {
         <div>
           <h1 className="neon-heading text-2xl sm:text-3xl">卡组构筑器</h1>
           <p className="text-white/55 text-xs mt-0.5">
-            规则：25 张 · 五类至少各 1 · 单卡 ≤ 2 · SSR ≤ 1 · 数据仅存在本机 localStorage
+            规则：{DECK_RULES.SIZE} 张 · 五类至少各 1 · 单卡 ≤ 2 · SSR ≤ 1 ·{' '}
+            {online === true ? (
+              <span className="text-emerald-300">已登录（自动同步到服务器）</span>
+            ) : online === false ? (
+              <span className="text-amber-300">未登录（仅存本机 localStorage）</span>
+            ) : (
+              <span className="text-white/40">加载中…</span>
+            )}
           </p>
+          {error && (
+            <p className="text-rose-300 text-[11px] mt-1">⚠ {error}</p>
+          )}
         </div>
         <div className="flex items-center gap-2">
-          <Link href="/game/play" className="btn-ghost inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm">
-            <SwordsIcon size={14} /> 对战
+          <Link href="/game/room" className="btn-ghost inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm">
+            <SwordsIcon size={14} /> 好友房
           </Link>
           <Link href="/game/practice" className="btn-ghost inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm">
             <RobotIcon size={14} /> 练习
@@ -177,6 +176,7 @@ export default function DeckBuilderPage() {
                 <PoolCard
                   key={def.id}
                   def={def}
+                  presetMap={presetMap}
                   inDeckCount={inDeckCount}
                   cap={cap}
                   disabled={disabled}
@@ -207,8 +207,9 @@ export default function DeckBuilderPage() {
               </button>
             ))}
             <button
-              onClick={newDeck}
-              className="px-2.5 py-1 rounded-md text-xs font-semibold cursor-pointer bg-emerald-500/20 hover:bg-emerald-500/35 text-emerald-100 border border-emerald-400/40"
+              onClick={handleNewDeck}
+              disabled={loading}
+              className="px-2.5 py-1 rounded-md text-xs font-semibold cursor-pointer bg-emerald-500/20 hover:bg-emerald-500/35 text-emerald-100 border border-emerald-400/40 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               + 新建
             </button>
@@ -226,10 +227,10 @@ export default function DeckBuilderPage() {
                   </span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <button onClick={() => renameDeck(activeIdx!)} title="重命名" className="btn-ghost inline-flex items-center justify-center w-7 h-7 rounded">
+                  <button onClick={() => handleRename(activeIdx!)} title="重命名" className="btn-ghost inline-flex items-center justify-center w-7 h-7 rounded">
                     <EditIcon size={12} />
                   </button>
-                  <button onClick={() => deleteDeck(activeIdx!)} title="删除" className="inline-flex items-center justify-center w-7 h-7 rounded bg-rose-500/20 hover:bg-rose-500/40 text-rose-200 border border-rose-500/30">
+                  <button onClick={() => handleDelete(activeIdx!)} title="删除" className="inline-flex items-center justify-center w-7 h-7 rounded bg-rose-500/20 hover:bg-rose-500/40 text-rose-200 border border-rose-500/30">
                     <TrashIcon size={12} />
                   </button>
                 </div>
@@ -302,14 +303,15 @@ function FilterChip({ label, active, onClick }: { label: string; active: boolean
   );
 }
 
-function PoolCard({ def, inDeckCount, cap, disabled, onAdd }: {
+function PoolCard({ def, presetMap, inDeckCount, cap, disabled, onAdd }: {
   def: CardDef;
+  presetMap: Record<string, CardPreset>;
   inDeckCount: number;
   cap: number;
   disabled: boolean;
   onAdd: () => void;
 }) {
-  const preset = PRESET_MAP[def.id];
+  const preset = presetMap[def.id];
   const rarityColor: Record<CardRarity, string> = {
     N: 'border-slate-400',
     R: 'border-sky-400',
