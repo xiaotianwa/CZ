@@ -11,14 +11,18 @@ import Image from 'next/image';
 import Link from 'next/link';
 import CardFrame from '@/components/game/CardFrame';
 import { CARD_PRESETS } from '@/data/cardPresets';
+import { useCardPresets } from '@/lib/tcg/useCardPresets';
 import { useGame } from '@/game/useGame';
 import { HERO_ATTACKER_ID, getCardDef, MAX_TURNS } from '@/game/engine';
-import { nextAction as aiNextAction } from '@/game/ai';
+import { mergeLivePresetsIntoEngine } from '@/game/cardLoader';
+import { nextAction as aiNextAction, type AIDifficulty } from '@/game/ai';
 import type { CardInstance, EventCard, GameState, Minion, PlayerId, CardDef } from '@/game/types';
 import * as Icons from '@/components/game/GameIcons';
 import { sfx, isMuted as isSfxMuted, setMuted as setSfxMuted, unlockAudio as unlockSfx } from '@/game/sound';
 
 // defId → preset（含 imagePath）
+// 列表在模块顶层静态初始化，主组件在 mount 后会从 /api/tcg/public/cards 拉到 live 数据并 merge 进来，
+// 让运营后台改动在下一次对战重开时生效（对战中不干扰 state）。
 const PRESET_MAP: Record<string, import('@/data/cardPresets').CardPreset> = {};
 for (const p of CARD_PRESETS) PRESET_MAP[p.id] = p;
 function getPreset(defId: string) { return PRESET_MAP[defId]; }
@@ -449,24 +453,72 @@ export interface BattleProps {
   aiPlayer?: PlayerId;
   /** AI 每步之间的延迟（ms），默认 750 */
   aiStepDelayMs?: number;
+  /** AI 难度（C1）。easy = 随机贪心；normal = 原贪心；hard = 1 步前瞻打分。默认 normal */
+  aiDifficulty?: AIDifficulty;
+  /** 在线模式：本方玩家每次 dispatch 后回调（用于上传到服务器） */
+  onAction?: (action: import('@/game/types').Action) => void;
+  /** 在线模式：父组件通过此 ref 获取 inject 函数，用于注入对手动作 */
+  injectRef?: React.MutableRefObject<((a: import('@/game/types').Action) => void) | null>;
+  /** 在线模式：固定随机种子（双端一致） */
+  seed?: number;
 }
 
 type PendingPlay = { instanceId: string; needsTarget: boolean; origin: Point } | null;
 type PendingAttack = { attackerId: string; origin: Point } | null;
 
-export function Battle({ p1Deck, p2Deck, firstPlayer, onQuit, perspective, aiPlayer, aiStepDelayMs = 750 }: BattleProps) {
-  const { state, dispatch, reset } = useGame({
-    seed: Date.now() % 2147483647,
+export function Battle({ p1Deck, p2Deck, firstPlayer, onQuit, perspective, aiPlayer, aiStepDelayMs = 750, aiDifficulty = 'normal', onAction, injectRef, seed: fixedSeed }: BattleProps) {
+  const { state, dispatch: rawDispatch, reset, injectAction } = useGame({
+    seed: fixedSeed ?? (Date.now() % 2147483647),
     p1Deck,
     p2Deck,
     firstPlayer,
   });
+
+  // 在线模式：暴露 inject 函数给父组件
+  useEffect(() => {
+    if (injectRef) injectRef.current = injectAction;
+    return () => { if (injectRef) injectRef.current = null; };
+  }, [injectRef, injectAction]);
+
+  // C1：对局耗时（从组件挂载到首次 state.ended 变 true 之间）
+  const startAtRef = useRef<number>(Date.now());
+  const [endedDurationMs, setEndedDurationMs] = useState<number | null>(null);
+  useEffect(() => {
+    if (state.ended && endedDurationMs === null) {
+      setEndedDurationMs(Date.now() - startAtRef.current);
+    }
+    // reset 后重新计时（state.ended=false 时清空并重置起点）
+    if (!state.ended && endedDurationMs !== null) {
+      startAtRef.current = Date.now();
+      setEndedDurationMs(null);
+    }
+  }, [state.ended, endedDurationMs]);
+
+  // 包装 dispatch：本方操作时触发 onAction 回调
+  const onActionRef = useRef(onAction);
+  onActionRef.current = onAction;
+  const dispatch = useCallback((action: import('@/game/types').Action) => {
+    rawDispatch(action);
+    onActionRef.current?.(action);
+  }, [rawDispatch]);
 
   // 进入对战：隐藏全局顶部导航（由 GameNav 监听 body 属性）
   useEffect(() => {
     document.body.dataset.inBattle = '1';
     return () => { delete document.body.dataset.inBattle; };
   }, []);
+
+  // live 卡池同步：
+  //  1. UI 层：merge 进模块级 PRESET_MAP（imagePath / flavor / description）
+  //  2. 引擎层：merge 到 CARD_DB（effects / keywords / cost / attack / health）
+  //     → 运营后台修改的战斗数值 / 效果钩子立即被 engine 消费
+  // 对战中 CardInstance.currentCost 已在初始化时固化，不会动态变化；
+  // 但后续打出该卡时的登场查询 effects、结算数值查询 attack，都走 getCardDef → 拿到 live 版本。
+  const livePresets = useCardPresets();
+  useEffect(() => {
+    for (const p of livePresets) PRESET_MAP[p.id] = p;
+    mergeLivePresetsIntoEngine(livePresets);
+  }, [livePresets]);
 
   // me = 玩家视角。hotseat 下跟随 activePlayer，vs AI 下固定为 perspective
   const me: PlayerId = perspective ?? state.activePlayer;
@@ -475,7 +527,10 @@ export function Battle({ p1Deck, p2Deck, firstPlayer, onQuit, perspective, aiPla
   const oppPlayer = state.players[opp];
   const isAIMode = !!aiPlayer;
   const isAITurn = isAIMode && state.activePlayer === aiPlayer;
-  const isHumanTurn = !isAIMode || state.activePlayer === me;
+  // 在线模式：仅在自己回合才能操作；hotseat 模式：始终可操作
+  const isOnline = !!onAction;
+  const isMyTurn = !perspective || state.activePlayer === perspective;
+  const isHumanTurn = isOnline ? isMyTurn : (!isAIMode || state.activePlayer === me);
 
   const [pendingPlay, setPendingPlay] = useState<PendingPlay>(null);
   const [pendingAttack, setPendingAttack] = useState<PendingAttack>(null);
@@ -498,6 +553,17 @@ export function Battle({ p1Deck, p2Deck, firstPlayer, onQuit, perspective, aiPla
     return () => window.removeEventListener('mousemove', handler);
   }, []);
 
+  // 移动端触屏无 mouseleave：凡是点到非卡牌锚点（按钮、空白、日志等）就关闭浮动预览
+  useEffect(() => {
+    const handler = (e: PointerEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (!t) return;
+      if (!t.closest('[data-hover-anchor]')) setHoverCard(null);
+    };
+    window.addEventListener('pointerdown', handler);
+    return () => window.removeEventListener('pointerdown', handler);
+  }, []);
+
   // 切换回合时清除选中态
   const lastTurnRef = useRef(state.turn + '_' + state.activePlayer);
   useEffect(() => {
@@ -518,7 +584,7 @@ export function Battle({ p1Deck, p2Deck, firstPlayer, onQuit, perspective, aiPla
     const oppHasTaunt = oppPlayer.minions.some((m) => m.keywords.has('taunt') && !m.silenced);
 
     if (pendingAttack) {
-      // 攻击可选目标：敌方 hero（仅当无嘲讽）+ 敌方随从（有嘲讽则只嘲讽、隐身不可选）
+      // 攻击可选目标：敌方 hero（仅当无挡枪）+ 敌方随从（有挡枪则只挡枪、潜水不可选）
       for (const m of oppPlayer.minions) {
         const isStealth = m.keywords.has('stealth') && !m.silenced;
         if (isStealth) continue;
@@ -666,8 +732,9 @@ export function Battle({ p1Deck, p2Deck, firstPlayer, onQuit, perspective, aiPla
   const TURN_SECONDS = 60;
   const [secondsLeft, setSecondsLeft] = useState(TURN_SECONDS);
   useEffect(() => {
-    // 换牌阶段或结束时不计时；AI 回合不对人类计时
-    if (state.phase !== 'main' || state.ended || isAITurn) { setSecondsLeft(TURN_SECONDS); return; }
+    // 换牌阶段或结束时不计时；AI 回合 / 在线对手回合不计时
+    const skipTimer = state.phase !== 'main' || state.ended || isAITurn || (isOnline && !isMyTurn);
+    if (skipTimer) { setSecondsLeft(TURN_SECONDS); return; }
     setSecondsLeft(TURN_SECONDS);
     const tick = setInterval(() => {
       setSecondsLeft((s) => {
@@ -681,7 +748,7 @@ export function Battle({ p1Deck, p2Deck, firstPlayer, onQuit, perspective, aiPla
       });
     }, 1000);
     return () => clearInterval(tick);
-  }, [state.turn, state.activePlayer, state.phase, state.ended, isAITurn, dispatch]);
+  }, [state.turn, state.activePlayer, state.phase, state.ended, isAITurn, isOnline, isMyTurn, dispatch]);
 
   // ====== AI 自动出招（单人模式） ======
   useEffect(() => {
@@ -690,18 +757,18 @@ export function Battle({ p1Deck, p2Deck, firstPlayer, onQuit, perspective, aiPla
     if (state.phase === 'mulligan') {
       if (state.mulliganPending[0] !== aiPlayer) return;
       const timer = setTimeout(() => {
-        dispatch(aiNextAction(state, aiPlayer));
+        dispatch(aiNextAction(state, aiPlayer, aiDifficulty));
       }, aiStepDelayMs);
       return () => clearTimeout(timer);
     }
     // 主阶段：仅当 AI 回合才出招
     if (state.activePlayer !== aiPlayer) return;
     const timer = setTimeout(() => {
-      const action = aiNextAction(state, aiPlayer);
+      const action = aiNextAction(state, aiPlayer, aiDifficulty);
       dispatch(action);
     }, aiStepDelayMs);
     return () => clearTimeout(timer);
-  }, [state, aiPlayer, aiStepDelayMs, dispatch]);
+  }, [state, aiPlayer, aiStepDelayMs, aiDifficulty, dispatch]);
 
   // ESC 取消
   useEffect(() => {
@@ -718,6 +785,17 @@ export function Battle({ p1Deck, p2Deck, firstPlayer, onQuit, perspective, aiPla
   // 静音状态（SSR 下默认 false，挂载后同步 localStorage）
   const [muted, setMutedState] = useState(false);
   useEffect(() => { setMutedState(isSfxMuted()); }, []);
+
+  // 横屏引导：仅在移动端窄屏首次对战显示，用户可关闭
+  const [rotateHintDismissed, setRotateHintDismissed] = useState(true);
+  useEffect(() => {
+    try { setRotateHintDismissed(localStorage.getItem('battle-rotate-hint') === 'dismissed'); }
+    catch { setRotateHintDismissed(false); }
+  }, []);
+  const dismissRotateHint = useCallback(() => {
+    try { localStorage.setItem('battle-rotate-hint', 'dismissed'); } catch { /* ignore */ }
+    setRotateHintDismissed(true);
+  }, []);
   const toggleMute = useCallback(() => {
     unlockSfx();
     const next = !isSfxMuted();
@@ -740,7 +818,7 @@ export function Battle({ p1Deck, p2Deck, firstPlayer, onQuit, perspective, aiPla
 
   return (
     <div
-      className="relative pt-3 pb-3 px-3 sm:px-4 flex flex-col gap-2 h-[calc(100dvh-24px)] overflow-hidden"
+      className="relative pt-2 pb-2 px-2 sm:pt-3 sm:pb-3 sm:px-4 [@media(max-height:520px)]:!pt-1 [@media(max-height:520px)]:!pb-1 [@media(max-height:520px)]:!px-2 flex flex-col gap-1.5 sm:gap-2 [@media(max-height:520px)]:!gap-1 sm:h-[calc(100dvh-24px)] sm:min-h-0 sm:overflow-hidden [@media(max-height:520px)]:!h-auto [@media(max-height:520px)]:!min-h-0 [@media(max-height:520px)]:!overflow-visible"
       onClickCapture={unlockSfx}
     >
       {/* 背景光效装饰 */}
@@ -750,14 +828,14 @@ export function Battle({ p1Deck, p2Deck, firstPlayer, onQuit, perspective, aiPla
         <div className="absolute -bottom-40 right-0 w-[600px] h-[600px] rounded-full bg-rose-500 opacity-[0.06] blur-[130px]" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,rgba(15,15,35,0.6)_80%)]" />
       </div>
-      {/* 主内容保持在光效之上 */}
-      <div className="relative z-10 flex flex-col gap-2 flex-1 min-h-0">
-      {/* 顶部状态栏 */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      {/* 主内容保持在光效之上：移动端竖屏自然高度可滚动，sm+ 与短视窗（手机横屏）占满视窗 */}
+      <div className="relative z-10 flex flex-col gap-1.5 sm:gap-2 [@media(max-height:520px)]:!gap-1 sm:flex-1 sm:min-h-0 [@media(max-height:520px)]:!flex-none [@media(max-height:520px)]:!min-h-0">
+      {/* 顶部状态栏：移动端换行布局 */}
+      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1.5">
+        <div className="flex items-center gap-1 sm:gap-2 flex-wrap min-w-0">
           {/* 品牌 logo：整合自原顶部导航 */}
           <Link href="/game/gallery" aria-label="返回卡池"
-                className="group flex items-center gap-1.5 select-none cursor-pointer pr-2 mr-1 border-r border-white/10">
+                className="group flex items-center gap-1.5 select-none cursor-pointer pr-2 mr-0.5 sm:mr-1 border-r border-white/10">
             <span className="inline-flex items-center justify-center w-7 h-7 rounded-md bg-gradient-to-br from-[#7C3AED] to-[#F43F5E] text-white text-[11px] font-black shadow-[0_0_14px_rgba(124,58,237,0.55)]">
               1103
             </span>
@@ -766,60 +844,47 @@ export function Battle({ p1Deck, p2Deck, firstPlayer, onQuit, perspective, aiPla
               <span className="text-[9px] tracking-[0.28em] text-[#A78BFA]/80">CHENZE · TCG</span>
             </span>
           </Link>
-          <button onClick={onQuit} className="inline-flex items-center gap-1.5 px-3 py-1.5 btn-ghost rounded-lg text-sm cursor-pointer">
-            <Icons.BackIcon size={14} /> 返回
+          <button onClick={onQuit} aria-label="返回" className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 btn-ghost rounded-lg text-sm cursor-pointer">
+            <Icons.BackIcon size={14} /><span className="hidden sm:inline">返回</span>
           </button>
-          <button onClick={() => reset()} className="inline-flex items-center gap-1.5 px-3 py-1.5 btn-ghost rounded-lg text-sm cursor-pointer">
-            <Icons.RestartIcon size={14} /> 重开
+          <button onClick={() => reset()} aria-label="重开" className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 btn-ghost rounded-lg text-sm cursor-pointer">
+            <Icons.RestartIcon size={14} /><span className="hidden sm:inline">重开</span>
           </button>
-          <button onClick={() => setHelpOpen(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold cursor-pointer bg-[#7C3AED]/20 hover:bg-[#7C3AED]/35 border border-[#A78BFA]/40 text-[#E9D5FF] transition-colors duration-200">
-            <Icons.HelpIcon size={14} /> 卡牌说明
+          <button onClick={() => setHelpOpen(true)} aria-label="卡牌说明" className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-sm font-semibold cursor-pointer bg-[#7C3AED]/20 hover:bg-[#7C3AED]/35 border border-[#A78BFA]/40 text-[#E9D5FF] transition-colors duration-200">
+            <Icons.HelpIcon size={14} /><span className="hidden sm:inline">卡牌说明</span>
           </button>
-          <button onClick={onSurrender} disabled={state.ended || state.phase === 'mulligan'}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold cursor-pointer bg-[#F43F5E]/20 hover:bg-[#F43F5E]/40 disabled:opacity-30 disabled:cursor-not-allowed border border-[#FB7185]/40 text-[#FECDD3] transition-colors duration-200">
-            <Icons.SurrenderIcon size={14} /> 投降
+          <button onClick={onSurrender} disabled={state.ended || state.phase === 'mulligan'} aria-label="投降"
+                  className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-sm font-semibold cursor-pointer bg-[#F43F5E]/20 hover:bg-[#F43F5E]/40 disabled:opacity-30 disabled:cursor-not-allowed border border-[#FB7185]/40 text-[#FECDD3] transition-colors duration-200">
+            <Icons.SurrenderIcon size={14} /><span className="hidden sm:inline">投降</span>
           </button>
-          {isSelecting && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/20 border border-amber-500/60 rounded-lg text-amber-100 text-sm font-semibold shadow-lg">
-              <span className="inline-flex w-5 h-5 items-center justify-center rounded-full bg-amber-400 text-amber-900 font-black animate-bounce">2</span>
-              {pendingAttack && <span>点击<span className="text-emerald-300 font-black">绿框目标</span>以让「{attackerName}」发起攻击</span>}
-              {pendingPlay && <span>为「{pendingCardDef?.name ?? ''}」选择<span className="text-emerald-300 font-black">绿框目标</span></span>}
-              <button onClick={cancelSelection} className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 bg-rose-500/40 hover:bg-rose-500/60 rounded text-white text-xs cursor-pointer">
-                <Icons.CloseIcon size={10} /> 取消 (ESC)
-              </button>
-            </div>
-          )}
-          {!isSelecting && !state.ended && isHumanTurn && (
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1 bg-sky-500/15 border border-sky-500/40 rounded text-sky-200 text-xs">
-              <span className="inline-flex w-4 h-4 items-center justify-center rounded-full bg-sky-400 text-sky-900 font-black text-[10px]">1</span>
-              <span><span className="font-bold">点击手牌</span>出牌，或<span className="font-bold">点击己方角色</span>发动攻击</span>
-            </div>
-          )}
           {!state.ended && isAIMode && isAITurn && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-rose-500/20 border border-rose-500/40 rounded text-rose-100 text-sm font-semibold">
+            <div className="flex items-center gap-2 px-2 sm:px-3 py-1.5 bg-rose-500/20 border border-rose-500/40 rounded text-rose-100 text-xs sm:text-sm font-semibold">
               <span className="inline-block w-2 h-2 rounded-full bg-rose-400 animate-pulse" />
               AI 思考中<span className="tracking-widest">…</span>
             </div>
           )}
         </div>
-        <div className="flex items-center gap-3 text-white font-bold">
+        <div className="ml-auto flex items-center gap-2 sm:gap-3 text-white font-bold flex-wrap justify-end">
           {state.phase === 'main' && !state.ended && (
-            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-black text-lg tabular-nums ${
+            <span className={`inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 rounded-lg font-black text-base sm:text-lg tabular-nums ${
               secondsLeft <= 10 ? 'bg-rose-500/30 text-rose-100 animate-pulse ring-1 ring-rose-500/50' : 'bg-slate-800/70 text-cyan-200 ring-1 ring-cyan-500/30'
             }`}>
-              <Icons.TimerIcon size={16} />
+              <Icons.TimerIcon size={14} />
               {String(Math.floor(secondsLeft / 60)).padStart(2, '0')}:{String(secondsLeft % 60).padStart(2, '0')}
             </span>
           )}
-          <span>
-            回合 <span className={state.turn >= MAX_TURNS - 2 ? 'text-rose-300 font-bold' : 'text-amber-200'}>{state.turn}</span>
-            <span className="text-white/35"> / {MAX_TURNS}</span>
-            {' · 行动方: '}
+          <span className="text-xs sm:text-sm">
+            <span className="hidden sm:inline">回合 </span>
+            <span className="sm:hidden">T</span>
+            <span className={state.turn >= MAX_TURNS - 2 ? 'text-rose-300 font-bold' : 'text-amber-200'}>{state.turn}</span>
+            <span className="text-white/35">/{MAX_TURNS}</span>
+            <span className="text-white/40 mx-1">·</span>
+            <span className="hidden sm:inline text-white/60">行动方 </span>
             <span className="text-amber-300">{state.activePlayer}</span>
           </span>
-          {state.phase === 'mulligan' && <span className="text-amber-300">· 换牌阶段</span>}
+          {state.phase === 'mulligan' && <span className="text-amber-300 text-xs sm:text-sm">· 换牌阶段</span>}
           {state.ended && (
-            <span className="inline-flex items-center gap-1 text-lime-400">
+            <span className="inline-flex items-center gap-1 text-lime-400 text-xs sm:text-sm">
               <Icons.TrophyIcon size={14} />
               {state.winner === 'draw' ? '平局' : state.winner + ' 胜！'}
             </span>
@@ -840,22 +905,57 @@ export function Battle({ p1Deck, p2Deck, firstPlayer, onQuit, perspective, aiPla
         </div>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-3 flex-1 min-h-0 overflow-hidden">
+      {/* 独占一行的提示条：选中目标 / 新手引导（避免移动端挤压变成竖排文字） */}
+      {isSelecting && (
+        <div className="flex items-center gap-2 px-2.5 sm:px-3 py-1.5 bg-amber-500/20 border border-amber-500/60 rounded-lg text-amber-100 text-xs sm:text-sm font-semibold shadow-lg shrink-0">
+          <span className="inline-flex w-5 h-5 shrink-0 items-center justify-center rounded-full bg-amber-400 text-amber-900 font-black animate-bounce">2</span>
+          <span className="flex-1 leading-snug">
+            {pendingAttack && <>点击<span className="text-emerald-300 font-black">绿框目标</span>以让「{attackerName}」发起攻击</>}
+            {pendingPlay && <>为「{pendingCardDef?.name ?? ''}」选择<span className="text-emerald-300 font-black">绿框目标</span></>}
+          </span>
+          <button onClick={cancelSelection} className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 bg-rose-500/40 hover:bg-rose-500/60 rounded text-white text-xs cursor-pointer">
+            <Icons.CloseIcon size={10} /> 取消<span className="hidden sm:inline"> (ESC)</span>
+          </button>
+        </div>
+      )}
+      {!isSelecting && !state.ended && isHumanTurn && (
+        <div className="hidden sm:flex [@media(max-height:520px)]:!hidden items-center gap-2 px-3 py-1 bg-sky-500/15 border border-sky-500/40 rounded text-sky-200 text-xs shrink-0">
+          <span className="inline-flex w-4 h-4 items-center justify-center rounded-full bg-sky-400 text-sky-900 font-black text-[10px]">1</span>
+          <span><span className="font-bold">点击手牌</span>出牌，或<span className="font-bold">点击己方角色</span>发动攻击</span>
+        </div>
+      )}
+      {/* 移动端竖屏引导：横屏体验更佳（localStorage 一次性关闭） */}
+      {!rotateHintDismissed && (
+        <div className="sm:hidden flex items-center gap-2 px-2.5 py-1.5 bg-cyan-500/15 border border-cyan-500/40 rounded-lg text-cyan-100 text-xs shrink-0">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-cyan-300" aria-hidden>
+            <rect x="5" y="2" width="14" height="20" rx="2" />
+            <path d="M12 18h.01" />
+            <path d="M20 10l2 2-2 2" />
+            <path d="M22 12h-6" />
+          </svg>
+          <span className="flex-1 leading-snug">横屏玩更顺畅，战场会自动铺开；竖屏下可上下滑动查看。</span>
+          <button onClick={dismissRotateHint} className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 bg-white/10 hover:bg-white/20 rounded text-white text-xs cursor-pointer">
+            <Icons.CloseIcon size={10} /> 知道了
+          </button>
+        </div>
+      )}
+
+      <div className="flex flex-col lg:flex-row gap-3 [@media(max-height:520px)]:!gap-1.5 sm:flex-1 sm:min-h-0 sm:overflow-hidden [@media(max-height:520px)]:!flex-none [@media(max-height:520px)]:!min-h-0 [@media(max-height:520px)]:!overflow-visible">
         {/* 主战场 */}
-        <div className="flex-1 flex flex-col gap-1.5 min-w-0 min-h-0 overflow-hidden">
+        <div className="flex flex-col gap-1.5 [@media(max-height:520px)]:!gap-1 min-w-0 sm:flex-1 sm:min-h-0 sm:overflow-hidden [@media(max-height:520px)]:!flex-none [@media(max-height:520px)]:!min-h-0 [@media(max-height:520px)]:!overflow-visible">
           {/* HeroBar + BoardRow 行（对手）*/}
           <div className="shrink-0">
             <HeroBar player={oppPlayer} side="opp" onClick={() => onHeroClick(opp)}
                      targetable={legalTargets.heroes.has(opp)}
                      flashKey={flashPlayer[opp]} />
           </div>
-          <div className="flex-1 min-h-0 overflow-hidden">
+          <div className="h-[132px] sm:h-auto sm:flex-1 sm:min-h-0 sm:overflow-hidden [@media(max-height:520px)]:!h-[96px] [@media(max-height:520px)]:!flex-none [@media(max-height:520px)]:!min-h-0 [@media(max-height:520px)]:!overflow-hidden">
             <BoardRow minions={oppPlayer.minions} owner={opp} onClick={(m, e) => onMinionClick(opp, m, e)}
                       onHover={onMinionHover}
                       legalMinions={legalTargets.minions} isSelecting={isSelecting} />
           </div>
           <div className="h-px bg-gradient-to-r from-transparent via-amber-500/50 to-transparent shrink-0" />
-          <div className="flex-1 min-h-0 overflow-hidden">
+          <div className="h-[132px] sm:h-auto sm:flex-1 sm:min-h-0 sm:overflow-hidden [@media(max-height:520px)]:!h-[96px] [@media(max-height:520px)]:!flex-none [@media(max-height:520px)]:!min-h-0 [@media(max-height:520px)]:!overflow-hidden">
             <BoardRow minions={mePlayer.minions} owner={me} onClick={(m, e) => onMinionClick(me, m, e)}
                       onHover={onMinionHover}
                       legalMinions={legalTargets.minions} isSelecting={isSelecting}
@@ -871,8 +971,8 @@ export function Battle({ p1Deck, p2Deck, firstPlayer, onQuit, perspective, aiPla
                      flashKey={flashPlayer[me]} />
           </div>
           {/* 手牌 + 结束回合 横排（固定高度）*/}
-          <div className="flex gap-2 shrink-0">
-            <div className="relative flex-1 rounded-xl p-2 h-[168px] bg-gradient-to-t from-[#7C3AED]/[0.08] via-slate-900/30 to-slate-900/10 border border-[#A78BFA]/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] min-w-0">
+          <div className="flex gap-1.5 sm:gap-2 shrink-0">
+            <div className="relative flex-1 rounded-xl p-1.5 sm:p-2 h-[138px] sm:h-[168px] [@media(max-height:520px)]:h-[110px] [@media(max-height:520px)]:p-1 bg-gradient-to-t from-[#7C3AED]/[0.08] via-slate-900/30 to-slate-900/10 border border-[#A78BFA]/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] min-w-0">
               <div className="absolute -top-2 left-3 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-900/95 border border-[#A78BFA]/25 text-[10px] font-bold text-[#A78BFA] tracking-[0.25em] uppercase z-10">
                 <Icons.CharacterIcon size={10} /> Hand · {mePlayer.hand.length}
               </div>
@@ -893,10 +993,10 @@ export function Battle({ p1Deck, p2Deck, firstPlayer, onQuit, perspective, aiPla
               </div>
             </div>
             <button onClick={endTurn} disabled={state.ended || !isHumanTurn}
-                    className="inline-flex flex-col items-center justify-center gap-1 shrink-0 w-20 sm:w-24 h-[168px] bg-gradient-to-br from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 disabled:opacity-40 disabled:cursor-not-allowed text-slate-900 font-black rounded-xl shadow-[0_6px_24px_-6px_rgba(245,158,11,0.6)] cursor-pointer transition-transform hover:-translate-y-0.5">
-              <Icons.RestartIcon size={22} />
-              <span className="text-sm leading-tight">结束回合</span>
-              <span className="text-[10px] opacity-70 tracking-[0.2em]">END</span>
+                    className="inline-flex flex-col items-center justify-center gap-0.5 sm:gap-1 shrink-0 w-16 sm:w-24 [@media(max-height:520px)]:w-14 h-[138px] sm:h-[168px] [@media(max-height:520px)]:h-[110px] bg-gradient-to-br from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 disabled:opacity-40 disabled:cursor-not-allowed text-slate-900 font-black rounded-xl shadow-[0_6px_24px_-6px_rgba(245,158,11,0.6)] cursor-pointer transition-transform hover:-translate-y-0.5">
+              <Icons.RestartIcon size={20} className="sm:[&]:w-[22px] sm:[&]:h-[22px]" />
+              <span className="text-xs sm:text-sm leading-tight">结束回合</span>
+              <span className="text-[9px] sm:text-[10px] opacity-70 tracking-[0.2em]">END</span>
             </button>
           </div>
         </div>
@@ -924,14 +1024,25 @@ export function Battle({ p1Deck, p2Deck, firstPlayer, onQuit, perspective, aiPla
 
       {/* 胜利 / 失败 全屏弹窗 */}
       {state.ended && (
-        <GameOverOverlay winner={state.winner} me={me} onRestart={() => reset()} onQuit={onQuit} />
+        <GameOverOverlay
+          winner={state.winner}
+          me={me}
+          onRestart={() => reset()}
+          onQuit={onQuit}
+          isOnline={isOnline}
+          aiDifficulty={isAIMode ? aiDifficulty : undefined}
+          durationMs={endedDurationMs ?? undefined}
+          turns={state.turn}
+        />
       )}
 
-      {/* 换牌阶段弹窗：AI 模式下仅对玩家一侧显示 */}
+      {/* 换牌阶段弹窗：AI/在线模式下仅对本方玩家显示 */}
       {state.phase === 'mulligan' && state.mulliganPending.length > 0 && (() => {
         const cur = state.mulliganPending[0];
         // AI 模式下只对 perspective 侧玩家显示；AI 侧由 useEffect 自动 dispatch
         if (isAIMode && cur !== me) return null;
+        // 在线模式下只显示自己的换牌，对手的由轮询同步
+        if (isOnline && cur !== me) return null;
         return (
           <MulliganOverlay
             player={cur}
@@ -965,7 +1076,7 @@ function HeroBar({ player, side, onClick, targetable, onHeroAttack, onHeroPower,
   const hpPct = Math.max(0, Math.min(100, (player.hp / hpMax) * 100));
   const manaPct = player.manaMax > 0 ? (player.mana / player.manaMax) * 100 : 0;
   return (
-    <div className={`relative flex items-center gap-2 sm:gap-3 bg-gradient-to-r from-slate-900/85 via-slate-900/70 to-slate-900/85 rounded-xl p-1.5 sm:p-2 border transition-all ${
+    <div className={`relative flex items-center gap-2 sm:gap-3 bg-gradient-to-r from-slate-900/85 via-slate-900/70 to-slate-900/85 rounded-xl p-1.5 sm:p-2 [@media(max-height:520px)]:p-1 [@media(max-height:520px)]:gap-1.5 border transition-all ${
       targetable
         ? 'border-emerald-400 shadow-[0_0_28px_rgba(52,211,153,0.55)] animate-pulse'
         : side === 'me'
@@ -975,7 +1086,7 @@ function HeroBar({ player, side, onClick, targetable, onHeroAttack, onHeroPower,
       {/* 玩家头像 + HP */}
       <button onClick={onClick}
               data-hero-id={player.id}
-              className={`group relative w-12 h-12 sm:w-14 sm:h-14 shrink-0 rounded-xl bg-gradient-to-br ${accent} flex items-center justify-center text-white border-2 border-white/25 transition-transform cursor-pointer ${targetable ? 'scale-110 ring-4 ring-emerald-400/50' : 'hover:scale-105'}`}
+              className={`group relative w-12 h-12 sm:w-14 sm:h-14 [@media(max-height:520px)]:w-10 [@media(max-height:520px)]:h-10 shrink-0 rounded-xl bg-gradient-to-br ${accent} flex items-center justify-center text-white border-2 border-white/25 transition-transform cursor-pointer ${targetable ? 'scale-110 ring-4 ring-emerald-400/50' : 'hover:scale-105'}`}
               title={`${player.id === 'P1' ? '玩家 1' : '玩家 2'}  HP ${player.hp}/${hpMax}`}>
         {/* 头像符号 */}
         <span className="font-display tracking-tight text-lg sm:text-xl drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">{player.id}</span>
@@ -1119,7 +1230,7 @@ function BoardRow({ minions, owner, onClick, onHover, legalMinions, isSelecting,
   selectedId?: string; attackableSet?: Set<string>;
 }) {
   return (
-    <div className={`relative flex gap-2 sm:gap-3 h-full min-h-[100px] rounded-xl p-2 sm:p-3 overflow-x-auto overflow-y-hidden transition-all ${
+    <div className={`relative flex gap-1.5 sm:gap-3 h-full min-h-[92px] sm:min-h-[100px] [@media(max-height:520px)]:min-h-0 rounded-xl p-1.5 sm:p-3 [@media(max-height:520px)]:p-1 overflow-x-auto overflow-y-hidden transition-all ${
       minions.length === 0
         ? 'bg-gradient-to-b from-white/[0.02] via-white/[0.04] to-white/[0.02] border border-dashed border-white/10'
         : 'bg-gradient-to-b from-white/[0.04] via-white/[0.06] to-white/[0.04] border border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]'
@@ -1168,7 +1279,8 @@ function MinionCard({ minion, onClick, onHover, selected, targetable, dimmed, at
             onMouseEnter={(e) => onHover(minion, (e.currentTarget as HTMLElement).getBoundingClientRect())}
             onMouseLeave={() => onHover(null)}
             data-minion-id={minion.instanceId}
-            className={`relative w-[96px] h-[124px] sm:w-[116px] sm:h-[148px] rounded-lg overflow-hidden border-[3px] animate-summon-in ${RARITY_COLOR[rarity]} ${RARITY_GLOW[rarity]} transition-all ${
+            data-hover-anchor="1"
+            className={`relative w-[96px] h-[124px] sm:w-[116px] sm:h-[148px] [@media(max-height:520px)]:w-[70px] [@media(max-height:520px)]:h-[88px] rounded-lg overflow-hidden border-[3px] animate-summon-in ${RARITY_COLOR[rarity]} ${RARITY_GLOW[rarity]} transition-all ${
               selected ? 'ring-4 ring-amber-400 -translate-y-2 scale-105' : ''
             } ${targetable ? 'ring-4 ring-emerald-400 animate-pulse' : ''} ${
               dimmed ? 'opacity-30 grayscale' : 'hover:-translate-y-1'
@@ -1185,7 +1297,7 @@ function MinionCard({ minion, onClick, onHover, selected, targetable, dimmed, at
       {/* 底部渐变压暗 */}
       <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-black/85 via-black/50 to-transparent" />
 
-      {/* 嘲讽外圈 */}
+      {/* 挡枪外圈 */}
       {hasTaunt && (
         <div className="absolute inset-0 rounded-lg border-2 border-stone-300 border-dashed pointer-events-none" />
       )}
@@ -1259,9 +1371,10 @@ function HandCard({ card, playable, selected, onClick, onHover }: {
 
   return (
     <button ref={btnRef} onClick={(e) => onClick(e)} disabled={!playable}
+            data-hover-anchor="1"
             onMouseEnter={() => btnRef.current && onHover(card, btnRef.current.getBoundingClientRect())}
             onMouseLeave={() => onHover(null)}
-            className={`relative shrink-0 block w-[86px] h-[118px] sm:w-[102px] sm:h-[140px] rounded-lg overflow-hidden border-[3px] ${RARITY_COLOR[rarity]} ${RARITY_GLOW[rarity]} transition-transform ${
+            className={`relative shrink-0 block w-[86px] h-[118px] sm:w-[102px] sm:h-[140px] [@media(max-height:520px)]:w-[74px] [@media(max-height:520px)]:h-[98px] rounded-lg overflow-hidden border-[3px] ${RARITY_COLOR[rarity]} ${RARITY_GLOW[rarity]} transition-transform ${
               !playable ? 'opacity-50 grayscale' : 'hover:-translate-y-3'
             } ${selected ? 'ring-4 ring-amber-400 -translate-y-5 scale-105' : ''}`}>
       {/* 形象图 */}
@@ -1650,16 +1763,35 @@ function HelpModal({ onClose }: { onClose: () => void }) {
 
 // 胜负全屏弹窗
 function GameOverOverlay({
-  winner, me, onRestart, onQuit,
+  winner, me, onRestart, onQuit, isOnline = false, aiDifficulty, durationMs, turns,
 }: {
   winner: PlayerId | 'draw' | null | undefined;
   me: PlayerId;
   onRestart: () => void;
   onQuit: () => void;
+  /** 在线模式不允许本地 reset（对手无法同步），隐藏"再来一局" */
+  isOnline?: boolean;
+  /** C1：AI 模式下显示难度 */
+  aiDifficulty?: AIDifficulty;
+  /** C1：对局耗时（毫秒） */
+  durationMs?: number;
+  /** C1：对局回合数 */
+  turns?: number;
 }) {
   const isDraw = winner === 'draw';
   const isWin = !isDraw && winner === me;
   const title = isDraw ? '平 局' : isWin ? '胜 利' : '失 败';
+  const difficultyLabel = aiDifficulty === 'easy' ? '轻松'
+    : aiDifficulty === 'hard' ? '高压'
+    : aiDifficulty === 'normal' ? '标准'
+    : null;
+  const durationText = (() => {
+    if (typeof durationMs !== 'number') return null;
+    const total = Math.round(durationMs / 1000);
+    const m = Math.floor(total / 60);
+    const s = total % 60;
+    return m > 0 ? `${m}分${s.toString().padStart(2, '0')}秒` : `${s}秒`;
+  })();
   const ResultIcon = isDraw ? Icons.HandshakeIcon : isWin ? Icons.TrophyIcon : Icons.SkullIcon;
   const subtitle = isDraw
     ? '双方玩家同归于尽'
@@ -1684,19 +1816,40 @@ function GameOverOverlay({
         <div className={`inline-block text-4xl sm:text-5xl font-black tracking-[0.3em] px-6 py-2 rounded-xl bg-gradient-to-br ${accent} mb-4 shadow-lg`}>
           {title}
         </div>
-        <div className="text-white/80 text-sm sm:text-base mb-6">{subtitle}</div>
+        <div className="text-white/80 text-sm sm:text-base mb-3">{subtitle}</div>
+        {(difficultyLabel || durationText || turns) && (
+          <div className="mb-5 flex flex-wrap items-center justify-center gap-2 text-xs text-white/70">
+            {difficultyLabel && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-white/10 border border-white/15">
+                难度 <span className="text-amber-200 font-semibold">{difficultyLabel}</span>
+              </span>
+            )}
+            {typeof turns === 'number' && turns > 0 && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-white/10 border border-white/15">
+                回合 <span className="text-cyan-200 font-semibold">{turns}</span>
+              </span>
+            )}
+            {durationText && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-white/10 border border-white/15">
+                耗时 <span className="text-emerald-200 font-semibold">{durationText}</span>
+              </span>
+            )}
+          </div>
+        )}
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <button
-            onClick={onRestart}
-            className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-900 font-bold rounded-xl shadow-lg transition-transform hover:scale-105 cursor-pointer"
-          >
-            <Icons.RestartIcon size={16} /> 再来一局
-          </button>
+          {!isOnline && (
+            <button
+              onClick={onRestart}
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-900 font-bold rounded-xl shadow-lg transition-transform hover:scale-105 cursor-pointer"
+            >
+              <Icons.RestartIcon size={16} /> 再来一局
+            </button>
+          )}
           <button
             onClick={onQuit}
             className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white/10 hover:bg-white/20 border border-white/20 text-white font-semibold rounded-xl transition-transform hover:scale-105 cursor-pointer"
           >
-            <Icons.BackIcon size={16} /> 返回大厅
+            <Icons.BackIcon size={16} /> {isOnline ? '返回好友房' : '返回大厅'}
           </button>
         </div>
       </div>
@@ -1712,7 +1865,8 @@ function GameOverOverlay({
 
 function LogPanel({ state }: { state: GameState }) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [open, setOpen] = useState(true);
+  // 移动端默认折叠，避免占用宝贵垂直空间；lg 以上始终展示
+  const [open, setOpen] = useState(false);
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [state.log.length]);

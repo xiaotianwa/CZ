@@ -4,7 +4,7 @@
  * 练习模式（单人 vs AI）
  * - 玩家固定为 P1 视角；P2 由 AI 贪心策略接管
  * - 复用 _components/Battle 组件，传入 perspective='P1' + aiPlayer='P2'
- * - 开场选自己卡组 + 难度（此处"难度"仅影响 AI 思考节奏，算法与规则相同）
+ * - 开场选自己卡组 + 难度（难度同时影响 AI 策略：轻松=随机贪心；标准=原贪心；高压=1 步前瞻打分）
  */
 
 import React, { useState } from 'react';
@@ -14,12 +14,12 @@ import { Battle } from '../_components/Battle';
 import { DeckPicker, useAllDeckOptions, type DeckOptionKey } from '../_components/DeckPicker';
 import { unlockAudio as unlockSfx } from '@/game/sound';
 
-type Difficulty = 'easy' | 'normal' | 'hard';
+import type { AIDifficulty } from '@/game/ai';
 
-const DIFFICULTY_META: Record<Difficulty, { label: string; desc: string; delay: number; accent: string }> = {
-  easy:   { label: '休闲',   desc: 'AI 思考慢一点，方便看清楚每一步',          delay: 1100, accent: 'from-emerald-400 to-emerald-600' },
-  normal: { label: '标准',   desc: '默认节奏，与正式对战相近',                   delay: 750,  accent: 'from-sky-400 to-indigo-500' },
-  hard:   { label: '高压',   desc: 'AI 决策非常快，基本贴身压制',                delay: 400,  accent: 'from-rose-500 to-fuchsia-600' },
+const DIFFICULTY_META: Record<AIDifficulty, { label: string; desc: string; delay: number; accent: string }> = {
+  easy:   { label: '轻松',   desc: 'AI 随机化出牌/攻击，走位较散，适合熟悉卡池',          delay: 1100, accent: 'from-emerald-400 to-emerald-600' },
+  normal: { label: '标准',   desc: '贪心策略：优先大牌、斩杀、高威胁 trade',                delay: 750,  accent: 'from-sky-400 to-indigo-500' },
+  hard:   { label: '高压',   desc: '1 步前瞻打分：枚举所有动作，选最有利的组合',           delay: 400,  accent: 'from-rose-500 to-fuchsia-600' },
 };
 
 export default function PracticePage() {
@@ -27,7 +27,7 @@ export default function PracticePage() {
   const [playerDeckKey, setPlayerDeckKey] = useState<DeckOptionKey>({ kind: 'preset', key: 'rush' });
   const [aiDeckKey, setAiDeckKey] = useState<DeckOptionKey>({ kind: 'preset', key: 'taunt' });
   const [firstPlayer, setFirstPlayer] = useState<PlayerId>('P1');
-  const [difficulty, setDifficulty] = useState<Difficulty>('normal');
+  const [difficulty, setDifficulty] = useState<AIDifficulty>('normal');
   const [started, setStarted] = useState(false);
 
   if (started) {
@@ -41,6 +41,7 @@ export default function PracticePage() {
         onQuit={() => setStarted(false)}
         perspective="P1"
         aiPlayer="P2"
+        aiDifficulty={difficulty}
         aiStepDelayMs={DIFFICULTY_META[difficulty].delay}
       />
     );
@@ -54,11 +55,9 @@ export default function PracticePage() {
         </div>
         <h1 className="neon-heading text-3xl sm:text-4xl mb-3">练习模式</h1>
         <p className="text-white/60 mb-6 text-sm">
-          自动生成 AI 对手陪你跑一局，熟悉卡池与联动。你操作玩家 1，AI 接管玩家 2。可先在
-          <Link href="/game/deck" className="text-[#A78BFA] hover:text-white transition-colors"> 构筑 </Link>
-          页创建自定义卡组，或前往
-          <Link href="/game/play" className="text-[#A78BFA] hover:text-white transition-colors"> 对战 </Link>
-          挑战真人。
+          自动生成 AI 对手陪你跑一局，熟悉卡池与联动。你操作玩家 1，AI 接管玩家 2。也可前往
+          <Link href="/game/room" className="text-[#A78BFA] hover:text-white transition-colors"> 好友房 </Link>
+          邀请好友挑战。
         </p>
 
         {/* 玩家 / AI 卡组 */}
@@ -69,9 +68,9 @@ export default function PracticePage() {
 
         {/* 难度 */}
         <div className="glass-card rounded-xl p-4 mt-4">
-          <div className="text-white/85 font-semibold mb-3 text-sm tracking-wide">难度（AI 节奏）</div>
+          <div className="text-white/85 font-semibold mb-3 text-sm tracking-wide">AI 难度</div>
           <div className="grid grid-cols-3 gap-2">
-            {(Object.keys(DIFFICULTY_META) as Difficulty[]).map((key) => {
+            {(Object.keys(DIFFICULTY_META) as AIDifficulty[]).map((key) => {
               const m = DIFFICULTY_META[key];
               const active = difficulty === key;
               return (
