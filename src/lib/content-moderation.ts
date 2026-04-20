@@ -15,7 +15,7 @@ import { prisma } from '@/lib/db';
 function getSecretId() { return process.env.COS_SECRET_ID || ''; }
 function getSecretKey() { return process.env.COS_SECRET_KEY || ''; }
 function isModerationEnabled() { return process.env.CONTENT_MODERATION_ENABLED === 'true'; }
-function getModerationRegion() { return process.env.COS_REGION || 'ap-guangzhou'; }
+function getModerationRegion() { return process.env.MODERATION_REGION || 'ap-guangzhou'; }
 
 export interface ModerationResult {
   pass: boolean;
