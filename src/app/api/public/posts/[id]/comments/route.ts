@@ -10,12 +10,13 @@ export async function GET(
     const { id } = await params;
 
     const comments = await prisma.comment.findMany({
-      where: { postId: id, parentId: null },
+      where: { postId: id, parentId: null, status: 'published' },
       include: {
         author: {
           select: { id: true, name: true, avatar: true, role: true, level: true, badge: true },
         },
         replies: {
+          where: { status: 'published' },
           include: {
             author: {
               select: { id: true, name: true, avatar: true, role: true, level: true, badge: true },

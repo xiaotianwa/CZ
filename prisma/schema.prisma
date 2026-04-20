@@ -68,16 +68,17 @@ model Post {
   isPinned  Boolean  @default(false)
   likes     Int      @default(0)
   hotScore  Float    @default(0) // 热门排序分数，定期刷新
-  status    String   @default("published") // draft | published | hidden
+  status    String   @default("published") // draft | pending_review | published | hidden | rejected
   authorId  String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  author    User       @relation(fields: [authorId], references: [id])
-  comments  Comment[]
-  postTags  PostTag[]
-  bookmarks Bookmark[]
-  postLikes PostLike[]
+  author     User        @relation(fields: [authorId], references: [id])
+  comments   Comment[]
+  postTags   PostTag[]
+  bookmarks  Bookmark[]
+  postLikes  PostLike[]
+  postMedias PostMedia[]
 
   @@index([authorId])
   @@index([status])
@@ -86,10 +87,26 @@ model Post {
   @@index([status, hotScore])
 }
 
+model PostMedia {
+  id       String @id @default(cuid())
+  postId   String
+  mediaId  String?
+  url      String   // COS URL
+  mimeType String   @default("image/jpeg")
+  sortOrder Int     @default(0)
+  createdAt DateTime @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId])
+  @@unique([postId, sortOrder])
+}
+
 model Comment {
   id          String   @id @default(cuid())
   content     String
   likes       Int      @default(0)
+  status      String   @default("published") // pending_review | published | hidden | rejected
   postId      String
   authorId    String
   parentId    String?  // 父评论ID，null表示顶级评论
@@ -252,10 +269,58 @@ model Media {
   width     Int?
   height    Int?
   category  String   @default("general") // avatar | post | album | cover | game | event
+  ownerId   String?  // 上传者 userId（旧数据允许为空）
+  status    String   @default("uploaded") // uploaded | scanning | approved | rejected | deleted
+  sha256    String?  // 文件哈希，用于去重与校验
+  source    String   @default("server_upload") // server_upload | direct_upload
   createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 
   @@index([category])
   @@index([createdAt])
+  @@index([ownerId])
+  @@index([status])
+}
+
+// ==================== 内容审核日志 ====================
+
+model ModerationLog {
+  id         String   @id @default(cuid())
+  targetType String   // post | comment | media
+  targetId   String
+  provider   String   @default("tencent") // tencent | manual | local_banned_words
+  action     String   // text_moderation | image_moderation | video_moderation | manual_review
+  result     String   // pass | block | review | error
+  label      String?  // Porn | Polity | Terror | Ad | Abuse 等
+  score      Int?     // 置信度 0-100
+  detail     String?  // 人类可读描述
+  taskId     String?  // 异步审核任务 ID（视频审核）
+  rawJson    String?  // 供应商原始返回 JSON
+  createdAt  DateTime @default(now())
+
+  @@index([targetType, targetId])
+  @@index([result])
+  @@index([createdAt])
+}
+
+// ==================== 异步任务队列 ====================
+
+model AsyncJob {
+  id            String   @id @default(cuid())
+  type          String   // grant_points | notify_comment | update_hot_score | video_moderation
+  payload       String   // JSON 序列化的任务参数
+  idempotencyKey String? @unique // 幂等键，防重复执行
+  status        String   @default("pending") // pending | running | done | failed | dead
+  attempts      Int      @default(0)
+  maxAttempts   Int      @default(3)
+  lastError     String?
+  scheduledAt   DateTime @default(now()) // 计划执行时间
+  startedAt     DateTime?
+  finishedAt    DateTime?
+  createdAt     DateTime @default(now())
+
+  @@index([status, scheduledAt])
+  @@index([type])
 }
 
 // ==================== 公告弹窗 ====================

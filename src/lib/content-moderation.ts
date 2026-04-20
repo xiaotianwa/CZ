@@ -10,6 +10,7 @@
  */
 
 import { createHmac, createHash } from 'crypto';
+import { prisma } from '@/lib/db';
 
 const SECRET_ID = process.env.COS_SECRET_ID || '';
 const SECRET_KEY = process.env.COS_SECRET_KEY || '';
@@ -18,9 +19,45 @@ const MODERATION_REGION = process.env.COS_REGION || 'ap-guangzhou';
 
 export interface ModerationResult {
   pass: boolean;
+  needsReview?: boolean; // true = 审核异常/超时，内容应待人工审核
   label?: string;   // 违规标签: Porn | Polity | Terror | Ad | Abuse 等
   score?: number;    // 置信度 0-100
   detail?: string;   // 人类可读描述
+}
+
+/**
+ * 将审核结果落库到 ModerationLog
+ */
+export async function saveModerationLog(params: {
+  targetType: string;
+  targetId: string;
+  action: string;
+  result: string;
+  label?: string | null;
+  score?: number | null;
+  detail?: string | null;
+  taskId?: string | null;
+  rawJson?: string | null;
+  provider?: string;
+}) {
+  try {
+    await prisma.moderationLog.create({
+      data: {
+        targetType: params.targetType,
+        targetId: params.targetId,
+        action: params.action,
+        result: params.result,
+        label: params.label || null,
+        score: params.score ?? null,
+        detail: params.detail || null,
+        taskId: params.taskId || null,
+        rawJson: params.rawJson || null,
+        provider: params.provider || 'tencent',
+      },
+    });
+  } catch (err) {
+    console.error('[ModerationLog] 落库失败:', err);
+  }
 }
 
 // ===================== 腾讯云 API 签名 V3 =====================
@@ -120,8 +157,7 @@ export async function moderateImage(imageUrl: string): Promise<ModerationResult>
 
     if (response?.Error) {
       console.error('[内容审核] 图片审核 API 错误:', response.Error);
-      // API 错误时放行，避免阻塞正常业务（可改为拦截策略）
-      return { pass: true };
+      return { pass: false, needsReview: true, detail: '审核服务异常，内容待人工审核' };
     }
 
     // Suggestion: Block / Review / Pass
@@ -138,7 +174,7 @@ export async function moderateImage(imageUrl: string): Promise<ModerationResult>
     };
   } catch (err) {
     console.error('[内容审核] 图片审核异常:', err);
-    return { pass: true }; // 降级放行
+    return { pass: false, needsReview: true, detail: '审核服务异常，内容待人工审核' };
   }
 }
 
@@ -182,17 +218,18 @@ export async function moderateVideo(videoUrl: string): Promise<ModerationResult 
 
     if (response?.Error) {
       console.error('[内容审核] 视频审核 API 错误:', response.Error);
-      return { pass: true };
+      return { pass: false, needsReview: true, detail: '视频审核服务异常，内容待人工审核' };
     }
 
     // 视频审核是异步任务，返回 taskId
     return {
-      pass: true, // 先放行，异步审核后处理
+      pass: true, // 异步审核已提交
+      needsReview: true, // 结果未返回前标记待审核
       taskId: response?.TaskId,
     };
   } catch (err) {
     console.error('[内容审核] 视频审核异常:', err);
-    return { pass: true };
+    return { pass: false, needsReview: true, detail: '视频审核服务异常，内容待人工审核' };
   }
 }
 
@@ -236,7 +273,7 @@ export async function moderateText(text: string): Promise<ModerationResult> {
 
     if (response?.Error) {
       console.error('[内容审核] 文本审核 API 错误:', response.Error);
-      return { pass: true }; // API 错误时降级放行
+      return { pass: false, needsReview: true, detail: '文本审核服务异常，内容待人工审核' };
     }
 
     // Suggestion: Block / Review / Pass
@@ -253,7 +290,7 @@ export async function moderateText(text: string): Promise<ModerationResult> {
     };
   } catch (err) {
     console.error('[内容审核] 文本审核异常:', err);
-    return { pass: true }; // 降级放行
+    return { pass: false, needsReview: true, detail: '文本审核服务异常，内容待人工审核' };
   }
 }
 

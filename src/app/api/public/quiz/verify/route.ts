@@ -16,7 +16,7 @@ const schema = z.object({
 export async function POST(req: NextRequest) {
   try {
     const { ip, uaHash } = getRequestMeta(req);
-    const wait = checkRateLimit(ip, { namespace: 'quiz-verify', windowMs: 60_000, max: 8 });
+    const wait = await checkRateLimit(ip, { namespace: 'quiz-verify', windowMs: 60_000, max: 8 });
     if (wait !== null) {
       return fail(`验证过于频繁，请 ${wait} 秒后再试`, 429);
     }

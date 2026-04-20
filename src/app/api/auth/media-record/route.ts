@@ -16,6 +16,7 @@ const schema = z.object({
   size: z.number().positive(),
   mimeType: z.string().min(1),
   category: z.string().default('general'),
+  sha256: z.string().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -49,7 +50,18 @@ export async function POST(req: NextRequest) {
     }
 
     const media = await prisma.media.create({
-      data: parsed.data,
+      data: {
+        filename: parsed.data.filename,
+        url: parsed.data.url,
+        cosKey: parsed.data.cosKey,
+        size: parsed.data.size,
+        mimeType: parsed.data.mimeType,
+        category: parsed.data.category,
+        sha256: parsed.data.sha256 || null,
+        ownerId: payload.id,
+        source: 'direct_upload',
+        status: 'uploaded',
+      },
     });
 
     // 内容安全审核（预签名上传的文件在此处异步审核）

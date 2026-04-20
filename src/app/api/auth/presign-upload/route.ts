@@ -13,6 +13,8 @@ const MAX_IMAGE_SIZE = 5 * 1024 * 1024;   // 5MB
 const MAX_VIDEO_SIZE = 50 * 1024 * 1024;   // 50MB
 const MAX_AUDIO_SIZE = 20 * 1024 * 1024;   // 20MB
 
+const ALLOWED_CATEGORIES = ['avatar', 'post-image', 'post-video', 'album', 'cover', 'game', 'event', 'fan-work'];
+
 const schema = z.object({
   filename: z.string().min(1, '文件名不能为空'),
   mimeType: z.string().min(1, 'MIME 类型不能为空'),
@@ -37,6 +39,10 @@ export async function POST(req: NextRequest) {
 
     if (!ALLOWED_TYPES.includes(mimeType)) {
       return fail('不支持的文件类型');
+    }
+
+    if (!ALLOWED_CATEGORIES.includes(category)) {
+      return fail('不支持的文件分类');
     }
 
     // 校验文件大小

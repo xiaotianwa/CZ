@@ -393,11 +393,21 @@ function PostComposer({ topics, onPostCreated, onTopicCreated, isLoggedIn }: { t
       setMediaFiles((prev) => [...prev, mf]);
 
       try {
-        // 通过服务端上传到 COS（避免 COS CORS 问题，同时自动记录媒体库）
-        const fd = new FormData();
-        fd.append('file', file);
+        // 三段式上传：1) 申请预签名 → 2) 浏览器直传 COS → 3) 入库登记
+        const category = isVideo ? 'post-video' : 'post-image';
 
-        const uploadResult = await new Promise<{ url: string }>((resolve, reject) => {
+        // Step 1: 申请预签名 URL
+        const presignRes = await fetch('/api/auth/presign-upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename: file.name, mimeType: file.type, size: file.size, category }),
+        });
+        const presignJson = await presignRes.json();
+        if (presignJson.code !== 0) throw new Error(presignJson.message || '获取上传凭证失败');
+        const { uploadUrl, cosKey, fileUrl } = presignJson.data;
+
+        // Step 2: 浏览器直传 COS（PUT）
+        await new Promise<void>((resolve, reject) => {
           const xhr = new XMLHttpRequest();
           xhr.upload.onprogress = (e) => {
             if (e.lengthComputable) {
@@ -408,25 +418,29 @@ function PostComposer({ topics, onPostCreated, onTopicCreated, isLoggedIn }: { t
             }
           };
           xhr.onload = () => {
-            try {
-              const json = JSON.parse(xhr.responseText);
-              if (xhr.status >= 200 && xhr.status < 300 && json.code === 0) {
-                resolve(json.data);
-              } else {
-                reject(new Error(json.message || `上传失败(${xhr.status})`));
-              }
-            } catch {
-              reject(new Error(`上传失败(${xhr.status})`));
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve();
+            } else {
+              reject(new Error(`COS 上传失败(${xhr.status})`));
             }
           };
           xhr.onerror = () => reject(new Error('网络错误，上传失败'));
-          xhr.open('POST', '/api/auth/upload-media');
-          xhr.withCredentials = true;
-          xhr.send(fd);
+          xhr.open('PUT', uploadUrl);
+          xhr.setRequestHeader('Content-Type', file.type);
+          xhr.send(file);
         });
 
+        // Step 3: 入库登记
+        const recordRes = await fetch('/api/auth/media-record', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename: file.name, url: fileUrl, cosKey, size: file.size, mimeType: file.type, category }),
+        });
+        const recordJson = await recordRes.json();
+        if (recordJson.code !== 0) throw new Error(recordJson.message || '媒体入库失败');
+
         setMediaFiles((prev) =>
-          prev.map((m) => m.id === localId ? { ...m, url: uploadResult.url, uploading: false, progress: 100 } : m)
+          prev.map((m) => m.id === localId ? { ...m, url: fileUrl, uploading: false, progress: 100 } : m)
         );
       } catch (err) {
         setMediaFiles((prev) =>

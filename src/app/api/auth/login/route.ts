@@ -5,6 +5,7 @@ import { verifyPassword, signUserToken, setTokenCookie, USER_COOKIE_NAME } from 
 import { ok, fail, handleError } from '@/lib/api';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 import { grantDailyLogin } from '@/lib/points';
+import { recordSecurityEvent, getRequestMeta } from '@/lib/registration-security';
 
 const loginSchema = z.object({
   email: z.string().email('邮箱格式不正确'),
@@ -12,8 +13,9 @@ const loginSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  const { ip, uaHash } = getRequestMeta(req);
   try {
-    const wait = checkRateLimit(getClientIp(req), { namespace: 'user-login', windowMs: 60_000, max: 10 });
+    const wait = await checkRateLimit(ip, { namespace: 'user-login', windowMs: 60_000, max: 10 });
     if (wait !== null) {
       return fail(`操作过于频繁，请 ${wait} 秒后再试`, 429);
     }
@@ -32,15 +34,41 @@ export async function POST(req: NextRequest) {
     });
 
     if (!user) {
+      await recordSecurityEvent(prisma as any, {
+        eventType: 'login_attempt',
+        result: 'reject',
+        reason: 'user_not_found',
+        email,
+        ip,
+        uaHash,
+      }).catch(() => {});
       return fail('邮箱或密码错误', 401);
     }
 
     if (!user.isActive) {
+      await recordSecurityEvent(prisma as any, {
+        eventType: 'login_attempt',
+        result: 'reject',
+        reason: 'account_disabled',
+        email,
+        userId: user.id,
+        ip,
+        uaHash,
+      }).catch(() => {});
       return fail('账号已被禁用', 403);
     }
 
     const valid = await verifyPassword(password, user.password);
     if (!valid) {
+      await recordSecurityEvent(prisma as any, {
+        eventType: 'login_attempt',
+        result: 'reject',
+        reason: 'wrong_password',
+        email,
+        userId: user.id,
+        ip,
+        uaHash,
+      }).catch(() => {});
       return fail('邮箱或密码错误', 401);
     }
 
@@ -61,6 +89,16 @@ export async function POST(req: NextRequest) {
       levelUp: dailyResult?.levelUp || false,
     });
     setTokenCookie(response, token, USER_COOKIE_NAME);
+
+    await recordSecurityEvent(prisma as any, {
+      eventType: 'login_success',
+      result: 'success',
+      email: user.email,
+      userId: user.id,
+      ip,
+      uaHash,
+    }).catch(() => {});
+
     return response;
   } catch (err) {
     return handleError(err);

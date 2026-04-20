@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     const { ip, uaHash } = getRequestMeta(req);
 
     // IP 级限流：每分钟最多 3 次
-    const wait = checkRateLimit(ip, { namespace: 'send-code-ip', windowMs: 60_000, max: 3 });
+    const wait = await checkRateLimit(ip, { namespace: 'send-code-ip', windowMs: 60_000, max: 3 });
     if (wait !== null) {
       return fail(`发送过于频繁，请 ${wait} 秒后再试`, 429);
     }
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 邮箱级限流：每分钟最多 1 次
-    const emailWait = checkRateLimit(`code:${email}`, { namespace: 'send-code-email', windowMs: 60_000, max: 1 });
+    const emailWait = await checkRateLimit(`code:${email}`, { namespace: 'send-code-email', windowMs: 60_000, max: 1 });
     if (emailWait !== null) {
       return fail(`该邮箱已发送验证码，请 ${emailWait} 秒后再试`, 429);
     }
@@ -69,8 +69,8 @@ export async function POST(req: NextRequest) {
       await sendVerifyCode(email, code, type);
     } catch (mailErr) {
       // 邮件发送失败，回退限流计数（不消耗用户配额）
-      rollbackRateLimit(ip, 'send-code-ip');
-      rollbackRateLimit(`code:${email}`, 'send-code-email');
+      await rollbackRateLimit(ip, 'send-code-ip');
+      await rollbackRateLimit(`code:${email}`, 'send-code-email');
       await revokeVerificationCode(prisma as any, verification.id);
       await recordSecurityEvent(prisma as any, {
         eventType: 'send_code',

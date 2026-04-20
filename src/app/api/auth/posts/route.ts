@@ -4,9 +4,9 @@ import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { ok, fail, handleError } from '@/lib/api';
 import { checkBannedWords } from '@/lib/banned-words';
-import { moderateText } from '@/lib/content-moderation';
+import { moderateText, saveModerationLog } from '@/lib/content-moderation';
 import { invalidateCache } from '@/lib/cache';
-import { grantPoints } from '@/lib/points';
+import { enqueueJob } from '@/lib/async-job';
 import { calcHotScore } from '@/lib/hot-score';
 
 const createPostSchema = z.object({
@@ -47,10 +47,13 @@ export async function POST(req: NextRequest) {
 
     // 腾讯云文本审核（双重保障）
     const textMod = await moderateText(content);
-    if (!textMod.pass) {
+
+    // 确定发布状态：审核通过 -> published，异常/待审核 -> pending_review，确认违规 -> 直接拒绝
+    if (!textMod.pass && !textMod.needsReview) {
       return fail(`内容审核未通过：${textMod.detail || '内容违规'}，请修改后重新发布`);
     }
 
+    const postStatus = textMod.pass ? 'published' : 'pending_review';
     const initialHotScore = calcHotScore(0, 0, new Date());
 
     const post = await prisma.post.create({
@@ -58,6 +61,7 @@ export async function POST(req: NextRequest) {
         content,
         images: JSON.stringify(images),
         hotScore: initialHotScore,
+        status: postStatus,
         authorId: payload.id,
         postTags: tagIds.length > 0
           ? { create: tagIds.map((tagId) => ({ tagId })) }
@@ -72,12 +76,29 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    invalidateCache('public:home');
+    // 审核结果落库
+    saveModerationLog({
+      targetType: 'post',
+      targetId: post.id,
+      action: 'text_moderation',
+      result: textMod.pass ? 'pass' : (textMod.needsReview ? 'review' : 'block'),
+      label: textMod.label,
+      score: textMod.score,
+      detail: textMod.detail,
+    }).catch(() => {});
 
-    // 发帖积分 +10
-    grantPoints(payload.id, 'post', `发布帖子`).catch(() => {});
+    if (postStatus === 'published') {
+      invalidateCache('public:home');
+      // 发帖积分 - 异步任务队列
+      enqueueJob({
+        type: 'grant_points',
+        payload: { userId: payload.id, action: 'post', detail: '发布帖子' },
+        idempotencyKey: `points:post:${post.id}`,
+      }).catch(() => {});
+    }
 
-    return ok(post, '发布成功');
+    const message = postStatus === 'published' ? '发布成功' : '发布成功，内容待审核后将公开展示';
+    return ok(post, message);
   } catch (err) {
     return handleError(err);
   }

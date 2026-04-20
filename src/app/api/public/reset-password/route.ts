@@ -15,7 +15,7 @@ const schema = z.object({
 export async function POST(req: NextRequest) {
   try {
     const { ip, uaHash } = getRequestMeta(req);
-    const wait = checkRateLimit(ip, { namespace: 'reset-pwd', windowMs: 60_000, max: 5 });
+    const wait = await checkRateLimit(ip, { namespace: 'reset-pwd', windowMs: 60_000, max: 5 });
     if (wait !== null) {
       return fail(`操作过于频繁，请 ${wait} 秒后再试`, 429);
     }

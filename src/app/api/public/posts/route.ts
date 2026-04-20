@@ -93,6 +93,8 @@ export async function GET(req: NextRequest) {
     const keyword = (url.searchParams.get('keyword') || '').trim();
     const sort = url.searchParams.get('sort') || 'new'; // hot | new
     const withRecommend = url.searchParams.get('withRecommend') === '1';
+    const cursor = url.searchParams.get('cursor') || '';
+    const useCursor = !!cursor;
 
     const where: Prisma.PostWhereInput = { status: 'published' };
     if (tagId) {
@@ -109,17 +111,27 @@ export async function GET(req: NextRequest) {
       ];
     }
 
+    const orderBy = sort === 'hot'
+      ? [{ isPinned: 'desc' as const }, { hotScore: 'desc' as const }]
+      : [{ isPinned: 'desc' as const }, { createdAt: 'desc' as const }];
+
+    const findManyArgs: Prisma.PostFindManyArgs = {
+      where,
+      include: postInclude,
+      orderBy,
+      take: pageSize,
+    };
+
+    if (useCursor) {
+      findManyArgs.cursor = { id: cursor };
+      findManyArgs.skip = 1; // 跳过 cursor 本身
+    } else {
+      findManyArgs.skip = (page - 1) * pageSize;
+    }
+
     const [total, list, authors] = await Promise.all([
-      prisma.post.count({ where }),
-      prisma.post.findMany({
-        where,
-        include: postInclude,
-        orderBy: sort === 'hot'
-          ? [{ isPinned: 'desc' as const }, { hotScore: 'desc' as const }]
-          : [{ isPinned: 'desc' as const }, { createdAt: 'desc' as const }],
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-      }),
+      useCursor ? Promise.resolve(-1) : prisma.post.count({ where }),
+      prisma.post.findMany(findManyArgs),
       prisma.user.findMany({
         where: { isActive: true, posts: { some: { status: 'published' } } },
         select: { id: true, name: true },
@@ -127,6 +139,8 @@ export async function GET(req: NextRequest) {
         take: 20,
       }),
     ]);
+
+    const nextCursor = list.length === pageSize ? list[list.length - 1].id : null;
 
     const recommendations = withRecommend
       ? await getRecommendedPosts(req, list.map((post) => post.id))
@@ -137,12 +151,14 @@ export async function GET(req: NextRequest) {
       message: 'success',
       data: {
         list,
-        pagination: {
-          total,
-          page,
-          pageSize,
-          totalPages: Math.ceil(total / pageSize),
-        },
+        pagination: useCursor
+          ? { nextCursor, pageSize, hasMore: list.length === pageSize }
+          : {
+              total,
+              page,
+              pageSize,
+              totalPages: Math.ceil(total / pageSize),
+            },
         authors,
         recommendations,
       },

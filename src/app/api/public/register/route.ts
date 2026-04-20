@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
   const requestMeta = getRequestMeta(req);
   try {
     const { ip, uaHash } = requestMeta;
-    const wait = checkRateLimit(ip, { namespace: 'register', windowMs: 60_000, max: 5 });
+    const wait = await checkRateLimit(ip, { namespace: 'register', windowMs: 60_000, max: 5 });
     if (wait !== null) {
       return fail(`操作过于频繁，请 ${wait} 秒后再试`, 429);
     }

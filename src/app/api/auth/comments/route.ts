@@ -4,10 +4,8 @@ import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { ok, fail, handleError } from '@/lib/api';
 import { checkBannedWords } from '@/lib/banned-words';
-import { moderateText } from '@/lib/content-moderation';
-import { grantPoints } from '@/lib/points';
-import { notifyComment } from '@/lib/notification';
-import { updatePostHotScore } from '@/lib/hot-score';
+import { moderateText, saveModerationLog } from '@/lib/content-moderation';
+import { enqueueJob } from '@/lib/async-job';
 
 const createCommentSchema = z.object({
   postId: z.string().min(1, '帖子ID不能为空'),
@@ -50,9 +48,13 @@ export async function POST(req: NextRequest) {
 
     // 腾讯云文本审核（双重保障）
     const textMod = await moderateText(content);
-    if (!textMod.pass) {
+
+    // 确认违规 -> 直接拒绝；审核异常 -> 待审核
+    if (!textMod.pass && !textMod.needsReview) {
       return fail(`评论审核未通过：${textMod.detail || '内容违规'}，请修改后重新发布`);
     }
+
+    const commentStatus = textMod.pass ? 'published' : 'pending_review';
 
     // 验证帖子存在
     const post = await prisma.post.findUnique({
@@ -67,6 +69,7 @@ export async function POST(req: NextRequest) {
     const comment = await prisma.comment.create({
       data: {
         content,
+        status: commentStatus,
         postId,
         authorId: payload.id,
         parentId: parentId || null,
@@ -79,21 +82,47 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // 评论积分 +3
-    grantPoints(payload.id, 'comment', '发表评论').catch(() => {});
+    // 审核结果落库
+    saveModerationLog({
+      targetType: 'comment',
+      targetId: comment.id,
+      action: 'text_moderation',
+      result: textMod.pass ? 'pass' : (textMod.needsReview ? 'review' : 'block'),
+      label: textMod.label,
+      score: textMod.score,
+      detail: textMod.detail,
+    }).catch(() => {});
 
-    // 异步刷新帖子热度分
-    updatePostHotScore(postId).catch(() => {});
+    if (commentStatus === 'published') {
+      // 评论积分 - 异步任务队列
+      enqueueJob({
+        type: 'grant_points',
+        payload: { userId: payload.id, action: 'comment', detail: '发表评论' },
+        idempotencyKey: `points:comment:${comment.id}`,
+      }).catch(() => {});
 
-    // 通知帖子作者
-    notifyComment(
-      post.authorId,
-      { id: payload.id, name: comment.author.name, avatar: comment.author.avatar },
-      postId,
-      content,
-    ).catch(() => {});
+      // 热度更新 - 异步任务队列
+      enqueueJob({
+        type: 'update_hot_score',
+        payload: { postId },
+        idempotencyKey: `hotscore:comment:${comment.id}`,
+      }).catch(() => {});
 
-    return ok(comment, '评论成功');
+      // 通知帖子作者 - 异步任务队列
+      enqueueJob({
+        type: 'notify_comment',
+        payload: {
+          postAuthorId: post.authorId,
+          commenter: { id: payload.id, name: comment.author.name, avatar: comment.author.avatar },
+          postId,
+          commentContent: content,
+        },
+        idempotencyKey: `notify:comment:${comment.id}`,
+      }).catch(() => {});
+    }
+
+    const message = commentStatus === 'published' ? '评论成功' : '评论已提交，待审核后将公开展示';
+    return ok(comment, message);
   } catch (err) {
     return handleError(err);
   }

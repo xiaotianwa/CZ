@@ -67,6 +67,8 @@ export async function POST(req: NextRequest) {
         size: result.size,
         mimeType: file.type,
         category,
+        ownerId: payload.id,
+        source: 'server_upload',
       },
     });
 

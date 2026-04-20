@@ -48,6 +48,8 @@ export async function POST(req: NextRequest) {
         size: result.size,
         mimeType: file.type,
         category: 'avatar',
+        ownerId: payload.id,
+        source: 'server_upload',
       },
     });
 

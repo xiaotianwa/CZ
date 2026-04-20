@@ -131,17 +131,29 @@ export default function FanWorksPage() {
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       try {
-        const fd = new FormData();
-        fd.append('file', file);
-        const res = await fetch('/api/auth/upload-media', { method: 'POST', credentials: 'same-origin', body: fd });
-        const json = await res.json();
-        if (json.code === 0 && json.data?.url) {
-          newUrls.push(json.data.url);
-        } else {
-          showToast(json.message || `上传 ${file.name} 失败`, 'error');
-        }
-      } catch {
-        showToast(`上传 ${file.name} 失败`, 'error');
+        // 三段式上传：presign → COS直传 → media-record
+        const presignRes = await fetch('/api/auth/presign-upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename: file.name, mimeType: file.type, size: file.size, category: 'fan-work' }),
+        });
+        const presignJson = await presignRes.json();
+        if (presignJson.code !== 0) throw new Error(presignJson.message || '获取上传凭证失败');
+        const { uploadUrl, cosKey, fileUrl } = presignJson.data;
+
+        await fetch(uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
+
+        const recordRes = await fetch('/api/auth/media-record', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename: file.name, url: fileUrl, cosKey, size: file.size, mimeType: file.type, category: 'fan-work' }),
+        });
+        const recordJson = await recordRes.json();
+        if (recordJson.code !== 0) throw new Error(recordJson.message || '媒体入库失败');
+
+        newUrls.push(fileUrl);
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : `上传 ${file.name} 失败`, 'error');
       }
     }
     if (newUrls.length > 0) {
@@ -575,18 +587,30 @@ export default function FanWorksPage() {
                           if (!file) return;
                           setUploadingVideo(true);
                           try {
-                            const fd = new FormData();
-                            fd.append('file', file);
-                            const res = await fetch('/api/auth/upload-media', { method: 'POST', credentials: 'same-origin', body: fd });
-                            const json = await res.json();
-                            if (json.code === 0 && json.data?.url) {
-                              setSubmitForm((prev) => ({ ...prev, contentUrl: json.data.url }));
-                              showToast('视频上传成功');
-                            } else {
-                              showToast(json.message || '视频上传失败', 'error');
-                            }
-                          } catch {
-                            showToast('视频上传失败', 'error');
+                            // 三段式上传：presign → COS直传 → media-record
+                            const presignRes = await fetch('/api/auth/presign-upload', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ filename: file.name, mimeType: file.type, size: file.size, category: 'fan-work' }),
+                            });
+                            const presignJson = await presignRes.json();
+                            if (presignJson.code !== 0) throw new Error(presignJson.message || '获取上传凭证失败');
+                            const { uploadUrl, cosKey, fileUrl } = presignJson.data;
+
+                            await fetch(uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
+
+                            const recordRes = await fetch('/api/auth/media-record', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ filename: file.name, url: fileUrl, cosKey, size: file.size, mimeType: file.type, category: 'fan-work' }),
+                            });
+                            const recordJson = await recordRes.json();
+                            if (recordJson.code !== 0) throw new Error(recordJson.message || '媒体入库失败');
+
+                            setSubmitForm((prev) => ({ ...prev, contentUrl: fileUrl }));
+                            showToast('视频上传成功');
+                          } catch (err) {
+                            showToast(err instanceof Error ? err.message : '视频上传失败', 'error');
                           }
                           setUploadingVideo(false);
                           if (videoInputRef.current) videoInputRef.current.value = '';
