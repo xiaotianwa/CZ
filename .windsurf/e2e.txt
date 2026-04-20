@@ -1,8 +1,0 @@
-﻿login=200
-marker=ACCEPT-172154
-patch1=200
-get1=ACCEPT-172154
-STEP1 PASS
-patch2=200
-get2=æ­æ¡£å°å©ç
-STEP2 PASS

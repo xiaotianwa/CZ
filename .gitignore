@@ -8,3 +8,16 @@ node_modules
 prisma/dev.db
 /src/generated/prisma
 tsconfig.tsbuildinfo
+
+# IDE / Editor
+.idea/
+.vscode/
+
+# Windsurf AI
+.windsurf/
+
+# 部署配置（服务器独立管理）
+deploy/
+
+# 个人笔记
+游戏TODO.md
