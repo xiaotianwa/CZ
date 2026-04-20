@@ -36,6 +36,9 @@ export default function AdminMediaPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [confirmState, setConfirmState] = useState<{ open: boolean; id: string }>({ open: false, id: '' });
   const [toast, setToast] = useState<{ open: boolean; message: string; type: 'success' | 'error' }>({ open: false, message: '', type: 'error' });
+  const mediaList = data?.list ?? [];
+  const totalPages = data?.pagination?.totalPages ?? 0;
+  const totalCount = data?.pagination?.total ?? 0;
 
   const fetchMedia = useCallback(async () => {
     try {
@@ -123,10 +126,10 @@ export default function AdminMediaPage() {
       </div>
 
       <div className="text-caption text-text-muted">
-        共 {data?.pagination.total ?? 0} 个文件 · 存储于腾讯云 COS
+        共 {totalCount} 个文件 · 存储于腾讯云 COS
       </div>
 
-      {data?.list.length === 0 && (
+      {mediaList.length === 0 && (
         <div className="card flex flex-col items-center justify-center py-16 text-text-muted">
           <FolderOpen className="w-12 h-12 mb-3 opacity-30" />
           <p>暂无媒体文件</p>
@@ -135,7 +138,7 @@ export default function AdminMediaPage() {
       )}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-        {data?.list.map((media) => (
+        {mediaList.map((media) => (
           <div key={media.id} className="card p-0 overflow-hidden group">
             <div className="aspect-square bg-gray-100 relative">
               {media.mimeType?.startsWith('audio/') ? (
@@ -182,9 +185,9 @@ export default function AdminMediaPage() {
         ))}
       </div>
 
-      {data && data.pagination.totalPages > 1 && (
+      {totalPages > 1 && (
         <div className="flex items-center justify-center gap-1">
-          {Array.from({ length: data.pagination.totalPages }, (_, i) => i + 1).slice(0, 10).map((p) => (
+          {Array.from({ length: totalPages }, (_, i) => i + 1).slice(0, 10).map((p) => (
             <button
               key={p}
               onClick={() => setPage(p)}

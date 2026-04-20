@@ -36,6 +36,9 @@ export default function AdminsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({ name: '', email: '', password: '', role: 'admin' });
   const [confirmState, setConfirmState] = useState<{ open: boolean; id: string }>({ open: false, id: '' });
+  const adminList = data?.list ?? [];
+  const totalPages = data?.pagination?.totalPages ?? 0;
+  const totalCount = data?.pagination?.total ?? 0;
 
   const fetchAdmins = useCallback(async () => {
     setLoading(true);
@@ -196,7 +199,7 @@ export default function AdminsPage() {
               {loading && (
                 <tr><td colSpan={6} className="px-4 py-8 text-center text-text-muted">加载中...</td></tr>
               )}
-              {!loading && data?.list.map((admin) => {
+              {!loading && adminList.map((admin) => {
                 const r = roleMap[admin.role] || roleMap.editor;
                 return (
                   <tr key={admin.id} className="border-b border-divider last:border-0 hover:bg-gray-50/30">
@@ -250,7 +253,7 @@ export default function AdminsPage() {
                   </tr>
                 );
               })}
-              {!loading && data?.list.length === 0 && (
+              {!loading && adminList.length === 0 && (
                 <tr><td colSpan={6} className="px-4 py-8 text-center text-text-muted">暂无管理员</td></tr>
               )}
             </tbody>
@@ -258,11 +261,11 @@ export default function AdminsPage() {
         </div>
 
         {/* Pagination */}
-        {data && data.pagination.totalPages > 1 && (
+        {totalPages > 1 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-divider">
-            <span className="text-caption text-text-muted">共 {data.pagination.total} 条</span>
+            <span className="text-caption text-text-muted">共 {totalCount} 条</span>
             <div className="flex gap-1">
-              {Array.from({ length: data.pagination.totalPages }, (_, i) => i + 1).slice(0, 10).map((p) => (
+              {Array.from({ length: totalPages }, (_, i) => i + 1).slice(0, 10).map((p) => (
                 <button
                   key={p}
                   onClick={() => setPage(p)}

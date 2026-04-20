@@ -35,6 +35,7 @@ export default function AdminQuizPage() {
   const [form, setForm] = useState(defaultForm);
   const [confirmState, setConfirmState] = useState<{ open: boolean; id: string }>({ open: false, id: '' });
   const [toast, setToast] = useState<{ open: boolean; message: string; type: 'success' | 'error' }>({ open: false, message: '', type: 'error' });
+  const quizList = data?.list ?? [];
 
   const fetchQuiz = useCallback(async () => {
     try {
@@ -271,7 +272,7 @@ export default function AdminQuizPage() {
 
       {/* 题目列表 */}
       <div className="grid gap-3">
-        {data?.list.map((item) => {
+        {quizList.map((item) => {
           let opts: string[] = [];
           try { opts = JSON.parse(item.options || '[]'); } catch { /* */ }
           return (
@@ -327,7 +328,7 @@ export default function AdminQuizPage() {
             </div>
           );
         })}
-        {data && data.list.length === 0 && (
+        {quizList.length === 0 && (
           <div className="card py-12 text-center">
             <HelpCircle className="w-10 h-10 text-text-disabled mx-auto mb-3" />
             <p className="text-body text-text-muted">暂无题目</p>

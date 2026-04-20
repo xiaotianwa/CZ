@@ -39,6 +39,9 @@ export default function AdminPostsPage() {
   const [selectedAuthorId, setSelectedAuthorId] = useState('');
   const [userOptions, setUserOptions] = useState<UserOption[]>([]);
   const [confirmState, setConfirmState] = useState<{ open: boolean; id: string }>({ open: false, id: '' });
+  const postList = data?.list ?? [];
+  const totalPages = data?.pagination?.totalPages ?? 0;
+  const totalCount = data?.pagination?.total ?? 0;
 
   const fetchPosts = useCallback(async () => {
     setLoading(true);
@@ -60,9 +63,10 @@ export default function AdminPostsPage() {
   useEffect(() => {
     adminGet<{ list: UserOption[] }>('/api/admin/users?pageSize=100')
       .then((res) => {
-        setUserOptions(res.data.list);
-        if (res.data.list.length > 0 && !selectedAuthorId) {
-          setSelectedAuthorId(res.data.list[0].id);
+        const nextUserOptions = res.data?.list ?? [];
+        setUserOptions(nextUserOptions);
+        if (nextUserOptions.length > 0 && !selectedAuthorId) {
+          setSelectedAuthorId(nextUserOptions[0].id);
         }
       })
       .catch(() => {});
@@ -181,7 +185,7 @@ export default function AdminPostsPage() {
               {loading && (
                 <tr><td colSpan={6} className="px-4 py-8 text-center text-text-muted">加载中...</td></tr>
               )}
-              {!loading && data?.list.map((post) => (
+              {!loading && postList.map((post) => (
                 <tr key={post.id} className="border-b border-divider last:border-0 hover:bg-gray-50/30">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
@@ -231,7 +235,7 @@ export default function AdminPostsPage() {
                   </td>
                 </tr>
               ))}
-              {!loading && data?.list.length === 0 && (
+              {!loading && postList.length === 0 && (
                 <tr><td colSpan={6} className="px-4 py-8 text-center text-text-muted">暂无帖子</td></tr>
               )}
             </tbody>
@@ -239,11 +243,11 @@ export default function AdminPostsPage() {
         </div>
 
         {/* Pagination */}
-        {data && data.pagination.totalPages > 1 && (
+        {totalPages > 1 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-divider">
-            <span className="text-caption text-text-muted">共 {data.pagination.total} 条</span>
+            <span className="text-caption text-text-muted">共 {totalCount} 条</span>
             <div className="flex gap-1">
-              {Array.from({ length: data.pagination.totalPages }, (_, i) => i + 1).slice(0, 10).map((p) => (
+              {Array.from({ length: totalPages }, (_, i) => i + 1).slice(0, 10).map((p) => (
                 <button
                   key={p}
                   onClick={() => setPage(p)}

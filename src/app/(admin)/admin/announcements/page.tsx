@@ -62,6 +62,7 @@ export default function AdminAnnouncementsPage() {
   const [form, setForm] = useState(defaultForm);
   const [confirmState, setConfirmState] = useState<{ open: boolean; id: string }>({ open: false, id: '' });
   const [toast, setToast] = useState<{ open: boolean; message: string; type: 'success' | 'error' }>({ open: false, message: '', type: 'error' });
+  const announcementList = data?.list ?? [];
 
   const fetchList = useCallback(async () => {
     try {
@@ -323,10 +324,11 @@ export default function AdminAnnouncementsPage() {
 
       {/* 列表 */}
       <div className="grid gap-3">
-        {data?.list.map((item) => {
+        {announcementList.map((item) => {
+          const isExpired = item.endAt ? new Date(item.endAt).getTime() < Date.now() : false;
           const tp = typeMap[item.type] || typeMap.info;
           return (
-            <div key={item.id} className={`card transition-opacity ${!item.isActive ? 'opacity-50' : ''}`}>
+            <div key={item.id} className={`card transition-opacity ${!item.isActive || isExpired ? 'opacity-50' : ''}`}>
               <div className="flex items-start gap-3">
                 {item.image ? (
                   <div className="w-16 h-10 rounded bg-gray-100 flex-shrink-0 overflow-hidden">
@@ -379,7 +381,7 @@ export default function AdminAnnouncementsPage() {
             </div>
           );
         })}
-        {data && data.list.length === 0 && (
+        {announcementList.length === 0 && (
           <div className="card py-12 text-center">
             <Megaphone className="w-10 h-10 text-text-disabled mx-auto mb-3" />
             <p className="text-body text-text-muted">暂无公告</p>

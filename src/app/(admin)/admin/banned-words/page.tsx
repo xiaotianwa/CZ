@@ -43,6 +43,8 @@ export default function AdminBannedWordsPage() {
   const [batchForm, setBatchForm] = useState({ words: '', category: 'custom' });
   const [confirmState, setConfirmState] = useState<{ open: boolean; id: string }>({ open: false, id: '' });
   const [toast, setToast] = useState<{ open: boolean; message: string; type: 'success' | 'error' }>({ open: false, message: '', type: 'error' });
+  const wordList = data?.list ?? [];
+  const totalPages = data?.pagination?.totalPages ?? 0;
 
   const fetchList = useCallback(async () => {
     try {
@@ -311,15 +313,15 @@ export default function AdminBannedWordsPage() {
         <table className="w-full text-body">
           <thead>
             <tr className="border-b border-border/60 bg-gray-50/50">
-              <th className="text-left px-4 py-3 text-caption font-medium text-text-muted">违禁词</th>
-              <th className="text-left px-4 py-3 text-caption font-medium text-text-muted">分类</th>
+              <th className="text-left px-4 py-3 font-medium text-text-muted">违禁词</th>
+              <th className="text-left px-4 py-3 font-medium text-text-muted w-32">分类</th>
               <th className="text-left px-4 py-3 text-caption font-medium text-text-muted">状态</th>
               <th className="text-left px-4 py-3 text-caption font-medium text-text-muted">添加时间</th>
-              <th className="text-right px-4 py-3 text-caption font-medium text-text-muted">操作</th>
+              <th className="text-center px-4 py-3 font-medium text-text-muted w-28">操作</th>
             </tr>
           </thead>
           <tbody>
-            {data?.list.map((item) => {
+            {wordList.map((item) => {
               const cat = categoryMap[item.category] || categoryMap.custom;
               return (
                 <tr key={item.id} className={`border-b border-border/40 hover:bg-gray-50/50 transition-colors ${!item.isActive ? 'opacity-50' : ''}`}>
@@ -362,7 +364,7 @@ export default function AdminBannedWordsPage() {
           </tbody>
         </table>
 
-        {data && data.list.length === 0 && (
+        {wordList.length === 0 && (
           <div className="py-12 text-center">
             <ShieldBan className="w-10 h-10 text-text-disabled mx-auto mb-3" />
             <p className="text-body text-text-muted">暂无违禁词</p>
@@ -372,7 +374,7 @@ export default function AdminBannedWordsPage() {
       </div>
 
       {/* 分页 */}
-      {data && data.pagination.totalPages > 1 && (
+      {totalPages > 1 && (
         <div className="flex items-center justify-center gap-2">
           <button
             onClick={() => setPage((p) => Math.max(1, p - 1))}
@@ -382,11 +384,11 @@ export default function AdminBannedWordsPage() {
             上一页
           </button>
           <span className="text-caption text-text-muted">
-            {page} / {data.pagination.totalPages}
+            {page} / {totalPages}
           </span>
           <button
-            onClick={() => setPage((p) => Math.min(data!.pagination.totalPages, p + 1))}
-            disabled={page >= data.pagination.totalPages}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page >= totalPages}
             className="btn-outline h-8 px-3 text-caption disabled:opacity-40"
           >
             下一页

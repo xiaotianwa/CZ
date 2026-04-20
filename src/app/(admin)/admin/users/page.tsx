@@ -153,6 +153,9 @@ export default function AdminUsersPage() {
   const [keyword, setKeyword] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const userList = data?.list ?? [];
+  const totalPages = data?.pagination?.totalPages ?? 0;
+  const totalCount = data?.pagination?.total ?? 0;
 
   // 确认弹窗
   const [modal, setModal] = useState<{
@@ -268,7 +271,7 @@ export default function AdminUsersPage() {
               </tr>
             </thead>
             <tbody>
-              {data?.list.map((user) => (
+              {userList.map((user) => (
                 <tr key={user.id} className={`border-b border-divider last:border-0 hover:bg-gray-50/30 ${!user.isActive ? 'opacity-60' : ''}`}>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2.5">
@@ -311,18 +314,18 @@ export default function AdminUsersPage() {
                   </td>
                 </tr>
               ))}
-              {data?.list.length === 0 && (
+              {userList.length === 0 && (
                 <tr><td colSpan={9} className="px-4 py-8 text-center text-text-muted">暂无用户</td></tr>
               )}
             </tbody>
           </table>
         </div>
 
-        {data && data.pagination.totalPages > 1 && (
+        {totalPages > 1 && (
           <div className="flex items-center justify-between px-4 py-3 border-t border-divider">
-            <span className="text-caption text-text-muted">共 {data.pagination.total} 人</span>
+            <span className="text-caption text-text-muted">共 {totalCount} 人</span>
             <div className="flex gap-1">
-              {Array.from({ length: data.pagination.totalPages }, (_, i) => i + 1).slice(0, 10).map((p) => (
+              {Array.from({ length: totalPages }, (_, i) => i + 1).slice(0, 10).map((p) => (
                 <button key={p} onClick={() => setPage(p)} className={`w-8 h-8 rounded-btn text-caption font-medium transition-colors cursor-pointer ${p === page ? 'bg-primary text-white' : 'text-text-body hover:bg-gray-100'}`}>
                   {p}
                 </button>
