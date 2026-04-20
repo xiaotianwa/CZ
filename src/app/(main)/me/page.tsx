@@ -26,6 +26,7 @@ interface UserProfile {
   bio: string | null;
   city: string | null;
   createdAt: string;
+  joinOrder?: number;
 }
 
 interface PostItem {
@@ -399,6 +400,25 @@ function ProfileTab({ user, onUpdate, showToast }: { user: UserProfile; onUpdate
             </div>
           )}
         </div>
+
+        {/* 注册顺序徽章 */}
+        {user.joinOrder && user.joinOrder > 0 && (
+          <div className="mb-5 sm:mb-6 rounded-card bg-gradient-to-r from-primary/10 via-primary/5 to-amber-50 dark:from-primary/20 dark:via-primary/10 dark:to-amber-900/10 border border-primary/20 dark:border-primary/30 p-4 flex items-center gap-3 animate-fade-in-up">
+            <div className="w-11 h-11 rounded-full bg-gradient-to-br from-primary to-primary-hover flex items-center justify-center flex-shrink-0 shadow-sm">
+              <Trophy className="w-5 h-5 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-body text-text-body leading-snug">
+                你是第{' '}
+                <span className="font-bold text-primary text-heading-sm">
+                  {user.joinOrder.toLocaleString()}
+                </span>{' '}
+                位进入该社区的泽小将
+              </p>
+              <p className="text-caption text-text-muted mt-0.5">感谢你的到来，始于热爱，聚于 1103 ✨</p>
+            </div>
+          </div>
+        )}
 
         {/* Avatar */}
         <div className="flex items-start sm:items-center gap-4 pb-5 sm:pb-6 border-b border-divider">

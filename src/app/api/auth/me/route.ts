@@ -31,7 +31,12 @@ export async function GET(req: NextRequest) {
       return fail('用户不存在', 404);
     }
 
-    return ok(user);
+    // 计算注册顺序：注册时间 <= 当前用户的用户数量 = 该用户是第几位
+    const joinOrder = await prisma.user.count({
+      where: { createdAt: { lte: user.createdAt } },
+    });
+
+    return ok({ ...user, joinOrder });
   } catch (err) {
     return handleError(err);
   }
