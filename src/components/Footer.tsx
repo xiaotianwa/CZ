@@ -204,7 +204,8 @@ export default function Footer({ profileName, siteDescription }: { profileName: 
             <p className="text-caption text-text-muted">
               &copy; {new Date().getFullYear()} <span className="font-waterbrush">1103</span>. All rights reserved.
             </p>
-            <div className="flex gap-4">
+            <div className="flex items-center gap-4">
+              <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" className="text-caption text-text-muted hover:text-text-body transition-colors duration-150">渝ICP备2026000583号</a>
               <Link href="/privacy" className="text-caption text-text-muted hover:text-text-body transition-colors duration-150 cursor-pointer">隐私政策</Link>
               <Link href="/terms" className="text-caption text-text-muted hover:text-text-body transition-colors duration-150 cursor-pointer">使用条款</Link>
             </div>
