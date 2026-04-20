@@ -59,7 +59,7 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              `script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === 'development' ? " 'unsafe-eval'" : ''} ${MAP_SOURCES}`,
+              `script-src 'self' 'unsafe-inline' 'unsafe-eval' ${MAP_SOURCES}`,
               `style-src 'self' 'unsafe-inline' ${MAP_SOURCES}`,
               `img-src 'self' data: blob: ${MEDIA_SOURCES} ${MAP_SOURCES}`,
               `media-src 'self' blob: ${MEDIA_SOURCES}`,
