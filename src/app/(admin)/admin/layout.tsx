@@ -6,8 +6,8 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, FileText, Image, Calendar, Gamepad2,
   Clock, SlidersHorizontal, FolderOpen, Users, Settings,
-  LogOut, Menu, X, ChevronRight, MessageSquarePlus, HelpCircle, Megaphone, Music, Flag, ShieldBan,
-  BookOpen, Palette, Vote,
+  LogOut, Menu, X, ChevronDown, MessageSquarePlus, HelpCircle, Megaphone, Music, Flag, ShieldBan,
+  BookOpen, Palette, Vote, UserCog,
 } from 'lucide-react';
 
 interface SidebarLink {
@@ -17,19 +17,21 @@ interface SidebarLink {
 }
 
 interface SidebarGroup {
+  key: string;
   title: string;
+  icon: typeof LayoutDashboard;
   links: SidebarLink[];
 }
 
+const topLinks: SidebarLink[] = [
+  { href: '/admin', label: '仪表盘', icon: LayoutDashboard },
+];
+
 const sidebarGroups: SidebarGroup[] = [
   {
-    title: '',
-    links: [
-      { href: '/admin', label: '仪表盘', icon: LayoutDashboard },
-    ],
-  },
-  {
+    key: 'content',
     title: '内容管理',
+    icon: FileText,
     links: [
       { href: '/admin/posts', label: '帖子管理', icon: FileText },
       { href: '/admin/albums', label: '相册管理', icon: Image },
@@ -42,7 +44,9 @@ const sidebarGroups: SidebarGroup[] = [
     ],
   },
   {
+    key: 'media',
     title: '媒体资源',
+    icon: FolderOpen,
     links: [
       { href: '/admin/slides', label: '轮播管理', icon: SlidersHorizontal },
       { href: '/admin/media', label: '媒体库', icon: FolderOpen },
@@ -50,7 +54,9 @@ const sidebarGroups: SidebarGroup[] = [
     ],
   },
   {
+    key: 'interaction',
     title: '用户互动',
+    icon: Users,
     links: [
       { href: '/admin/users', label: '用户管理', icon: Users },
       { href: '/admin/quiz', label: '答题管理', icon: HelpCircle },
@@ -60,8 +66,11 @@ const sidebarGroups: SidebarGroup[] = [
     ],
   },
   {
+    key: 'system',
     title: '系统设置',
+    icon: Settings,
     links: [
+      { href: '/admin/admins', label: '管理员管理', icon: UserCog },
       { href: '/admin/banned-words', label: '违禁词管理', icon: ShieldBan },
       { href: '/admin/settings', label: '站点设置', icon: Settings },
     ],
@@ -69,13 +78,33 @@ const sidebarGroups: SidebarGroup[] = [
 ];
 
 // 扁平列表用于头部标题查找
-const allSidebarLinks = sidebarGroups.flatMap((g) => g.links);
+const allSidebarLinks = [...topLinks, ...sidebarGroups.flatMap((g) => g.links)];
+
+/** 判断当前分组是否有激活的链接 */
+function isGroupActive(group: SidebarGroup, pathname: string) {
+  return group.links.some(
+    (l) => pathname === l.href || (l.href !== '/admin' && pathname.startsWith(l.href)),
+  );
+}
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [user, setUser] = useState<{ name: string; role: string } | null>(null);
+
+  // 初始化展开状态：包含当前激活路径的分组默认展开
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(() => {
+    const init: Record<string, boolean> = {};
+    sidebarGroups.forEach((g) => {
+      init[g.key] = isGroupActive(g, pathname);
+    });
+    return init;
+  });
+
+  const toggleGroup = (key: string) => {
+    setExpandedGroups((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
 
   const isLoginPage = pathname === '/admin/login';
 
@@ -95,6 +124,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         router.push('/admin/login');
       });
   }, [router, isLoginPage]);
+
+  // 路由变化时自动展开对应分组
+  useEffect(() => {
+    sidebarGroups.forEach((g) => {
+      if (isGroupActive(g, pathname)) {
+        setExpandedGroups((prev) => ({ ...prev, [g.key]: true }));
+      }
+    });
+  }, [pathname]);
 
   const handleLogout = () => {
     fetch('/api/admin/auth/logout', { method: 'POST', credentials: 'same-origin' })
@@ -117,51 +155,90 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <div className="min-h-screen bg-bg-page flex">
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-60 bg-white border-r border-divider transform transition-transform duration-200 lg:translate-x-0 lg:static lg:inset-auto ${
+        className={`fixed inset-y-0 left-0 z-40 w-60 bg-white border-r border-divider transform transition-transform duration-200 lg:translate-x-0 lg:static lg:inset-auto flex flex-col ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex items-center justify-between h-14 px-4 border-b border-divider">
+        <div className="flex items-center justify-between h-14 px-4 border-b border-divider flex-shrink-0">
           <Link href="/admin" className="font-waterbrush text-heading-sm text-primary">
             1103
           </Link>
           <span className="tag-primary text-caption">管理端</span>
         </div>
 
-        <nav className="p-3 overflow-y-auto" style={{ height: 'calc(100vh - 56px - 64px)' }}>
-          {sidebarGroups.map((group, gi) => (
-            <div key={gi} className={gi > 0 ? 'mt-4' : ''}>
-              {group.title && (
-                <div className="px-3 mb-1.5">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-text-disabled">{group.title}</span>
+        <nav className="flex-1 p-3 overflow-y-auto">
+          {/* 顶级链接（仪表盘） */}
+          {topLinks.map((link) => {
+            const isActive = pathname === link.href;
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                onClick={() => setSidebarOpen(false)}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-btn text-body font-medium transition-colors duration-150 ${
+                  isActive
+                    ? 'bg-primary-bg text-primary'
+                    : 'text-text-body hover:bg-gray-50 hover:text-primary'
+                }`}
+              >
+                <link.icon className="w-4 h-4 flex-shrink-0" />
+                {link.label}
+              </Link>
+            );
+          })}
+
+          {/* 可折叠分组 */}
+          {sidebarGroups.map((group) => {
+            const isOpen = !!expandedGroups[group.key];
+            const hasActive = isGroupActive(group, pathname);
+            return (
+              <div key={group.key} className="mt-1">
+                <button
+                  onClick={() => toggleGroup(group.key)}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-btn text-body font-medium transition-colors duration-150 cursor-pointer ${
+                    hasActive ? 'text-primary' : 'text-text-body hover:bg-gray-50 hover:text-primary'
+                  }`}
+                >
+                  <group.icon className="w-4 h-4 flex-shrink-0" />
+                  <span className="flex-1 text-left">{group.title}</span>
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 text-text-muted transition-transform duration-200 ${
+                      isOpen ? 'rotate-180' : ''
+                    }`}
+                  />
+                </button>
+                <div
+                  className={`overflow-hidden transition-all duration-200 ${
+                    isOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
+                  }`}
+                >
+                  <div className="ml-4 pl-3 border-l border-divider space-y-0.5 mt-0.5 mb-1">
+                    {group.links.map((link) => {
+                      const isActive = pathname === link.href || (link.href !== '/admin' && pathname.startsWith(link.href));
+                      return (
+                        <Link
+                          key={link.href}
+                          href={link.href}
+                          onClick={() => setSidebarOpen(false)}
+                          className={`flex items-center gap-2 px-2.5 py-1.5 rounded-btn text-caption font-medium transition-colors duration-150 ${
+                            isActive
+                              ? 'bg-primary-bg text-primary'
+                              : 'text-text-muted hover:bg-gray-50 hover:text-primary'
+                          }`}
+                        >
+                          <link.icon className="w-3.5 h-3.5 flex-shrink-0" />
+                          {link.label}
+                        </Link>
+                      );
+                    })}
+                  </div>
                 </div>
-              )}
-              <div className="space-y-0.5">
-                {group.links.map((link) => {
-                  const isActive = pathname === link.href || (link.href !== '/admin' && pathname.startsWith(link.href));
-                  return (
-                    <Link
-                      key={link.href}
-                      href={link.href}
-                      onClick={() => setSidebarOpen(false)}
-                      className={`flex items-center gap-2.5 px-3 py-2 rounded-btn text-body font-medium transition-colors duration-150 ${
-                        isActive
-                          ? 'bg-primary-bg text-primary'
-                          : 'text-text-body hover:bg-gray-50 hover:text-primary'
-                      }`}
-                    >
-                      <link.icon className="w-4 h-4 flex-shrink-0" />
-                      {link.label}
-                      {isActive && <ChevronRight className="w-3.5 h-3.5 ml-auto" />}
-                    </Link>
-                  );
-                })}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </nav>
 
-        <div className="absolute bottom-0 left-0 right-0 p-3 border-t border-divider bg-white">
+        <div className="flex-shrink-0 p-3 border-t border-divider bg-white">
           <div className="flex items-center gap-2 px-3 py-2">
             <div className="w-8 h-8 rounded-full bg-primary-bg flex items-center justify-center text-primary text-caption font-bold">
               {user.name[0]}
