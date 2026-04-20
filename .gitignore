@@ -19,5 +19,9 @@ tsconfig.tsbuildinfo
 # 部署配置（服务器独立管理）
 deploy/
 
-# 个人笔记
-游戏TODO.md
+# 个人笔记 / 方案文档（仅保留 README.md）
+*.md
+!README.md
+
+# design-system 文档
+design-system/
