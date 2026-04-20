@@ -175,6 +175,7 @@ export default function JoinPage() {
       const res = await fetch('/api/public/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
         body: JSON.stringify({
           name: nickname.trim(),
           email: email.trim(),

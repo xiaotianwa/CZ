@@ -73,14 +73,22 @@ export async function verifyAdminToken(token: string): Promise<JwtPayload | null
 
 // ===== Cookie 工具 =====
 
-function cookieOptions() {
+/**
+ * 生成 cookie 选项。
+ * 注意：同时设置 maxAge（Max-Age）和 expires（Expires），
+ * 因为部分移动端浏览器（尤其 iOS Safari / 微信内置浏览器）
+ * 对只有 Max-Age 没有 Expires 的 cookie 会视为 session cookie，
+ * 关闭浏览器/后台切出即丢失，导致用户需反复登录。
+ */
+function cookieOptions(maxAgeSec: number = COOKIE_MAX_AGE) {
   const isProd = process.env.NODE_ENV === 'production';
   return {
     httpOnly: true,
     secure: isProd,
     sameSite: 'lax' as const,
     path: '/',
-    maxAge: COOKIE_MAX_AGE,
+    maxAge: maxAgeSec,
+    expires: new Date(Date.now() + maxAgeSec * 1000),
   };
 }
 
@@ -89,7 +97,15 @@ export function setTokenCookie(res: NextResponse, token: string, cookieName: str
 }
 
 export function clearTokenCookie(res: NextResponse, cookieName: string): void {
-  res.cookies.set(cookieName, '', { ...cookieOptions(), maxAge: 0 });
+  const isProd = process.env.NODE_ENV === 'production';
+  res.cookies.set(cookieName, '', {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: 'lax' as const,
+    path: '/',
+    maxAge: 0,
+    expires: new Date(0), // 1970-01-01，强制浏览器立即删除
+  });
 }
 
 // ===== 请求解析 =====
