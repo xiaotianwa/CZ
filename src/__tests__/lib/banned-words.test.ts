@@ -34,6 +34,35 @@ describe('checkBannedWords', () => {
   it('test_checkBannedWords_bannedWordInMiddle_returnsWord', async () => {
     expect(await checkBannedWords('我要去赌博了明天')).toBe('赌博');
   });
+
+  // 变体检测测试
+  it('test_checkBannedWords_variant_shaB_detected', async () => {
+    expect(await checkBannedWords('傻b')).toBe('傻逼');
+  });
+
+  it('test_checkBannedWords_variant_sb_detected', async () => {
+    expect(await checkBannedWords('你是个sb')).toBe('傻逼');
+  });
+
+  it('test_checkBannedWords_variant_symbolBypass_detected', async () => {
+    expect(await checkBannedWords('傻.逼')).toBe('傻逼');
+  });
+
+  it('test_checkBannedWords_variant_tmd_detected', async () => {
+    expect(await checkBannedWords('tmd真烦')).toBe('他妈的');
+  });
+
+  it('test_checkBannedWords_variant_nmb_detected', async () => {
+    expect(await checkBannedWords('nmb')).toBe('你妈逼');
+  });
+
+  it('test_checkBannedWords_variant_fuckSpaced_detected', async () => {
+    expect(await checkBannedWords('f u c k')).toBe('fuck');
+  });
+
+  it('test_checkBannedWords_variant_shaBI_detected', async () => {
+    expect(await checkBannedWords('沙比东西')).toBe('傻逼');
+  });
 });
 
 describe('findAllBannedWords', () => {

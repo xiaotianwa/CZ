@@ -12,10 +12,10 @@
 import { createHmac, createHash } from 'crypto';
 import { prisma } from '@/lib/db';
 
-const SECRET_ID = process.env.COS_SECRET_ID || '';
-const SECRET_KEY = process.env.COS_SECRET_KEY || '';
-const MODERATION_ENABLED = process.env.CONTENT_MODERATION_ENABLED === 'true';
-const MODERATION_REGION = process.env.COS_REGION || 'ap-guangzhou';
+function getSecretId() { return process.env.COS_SECRET_ID || ''; }
+function getSecretKey() { return process.env.COS_SECRET_KEY || ''; }
+function isModerationEnabled() { return process.env.CONTENT_MODERATION_ENABLED === 'true'; }
+function getModerationRegion() { return process.env.COS_REGION || 'ap-guangzhou'; }
 
 export interface ModerationResult {
   pass: boolean;
@@ -103,12 +103,12 @@ function buildTencentCloudHeaders(
     sha256Hex(canonicalRequest),
   ].join('\n');
 
-  const secretDate = hmacSha256(`TC3${SECRET_KEY}`, date);
+  const secretDate = hmacSha256(`TC3${getSecretKey()}`, date);
   const secretService = hmacSha256(secretDate, service);
   const secretSigning = hmacSha256(secretService, 'tc3_request');
   const signature = createHmac('sha256', secretSigning).update(stringToSign).digest('hex');
 
-  const authorization = `TC3-HMAC-SHA256 Credential=${SECRET_ID}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+  const authorization = `TC3-HMAC-SHA256 Credential=${getSecretId()}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
 
   return {
     'Content-Type': 'application/json',
@@ -129,22 +129,21 @@ function buildTencentCloudHeaders(
  * @returns ModerationResult
  */
 export async function moderateImage(imageUrl: string): Promise<ModerationResult> {
-  if (!MODERATION_ENABLED) {
+  if (!isModerationEnabled()) {
     return { pass: true };
   }
 
-  if (!SECRET_ID || !SECRET_KEY) {
+  if (!getSecretId() || !getSecretKey()) {
     console.warn('[内容审核] 未配置密钥，跳过审核');
     return { pass: true };
   }
 
   try {
     const payload = JSON.stringify({
-      BizType: 'community_image',
       FileUrl: imageUrl,
     });
 
-    const headers = buildTencentCloudHeaders('ims', 'ImageModeration', payload, MODERATION_REGION);
+    const headers = buildTencentCloudHeaders('ims', 'ImageModeration', payload, getModerationRegion());
 
     const res = await fetch(`https://ims.tencentcloudapi.com`, {
       method: 'POST',
@@ -189,23 +188,22 @@ export async function moderateImage(imageUrl: string): Promise<ModerationResult>
  * @returns taskId 或审核结果
  */
 export async function moderateVideo(videoUrl: string): Promise<ModerationResult & { taskId?: string }> {
-  if (!MODERATION_ENABLED) {
+  if (!isModerationEnabled()) {
     return { pass: true };
   }
 
-  if (!SECRET_ID || !SECRET_KEY) {
+  if (!getSecretId() || !getSecretKey()) {
     console.warn('[内容审核] 未配置密钥，跳过审核');
     return { pass: true };
   }
 
   try {
     const payload = JSON.stringify({
-      BizType: 'community_video',
       Type: 'URL',
       Url: videoUrl,
     });
 
-    const headers = buildTencentCloudHeaders('vm', 'CreateVideoModerationTask', payload, MODERATION_REGION);
+    const headers = buildTencentCloudHeaders('vm', 'CreateVideoModerationTask', payload, getModerationRegion());
 
     const res = await fetch(`https://vm.tencentcloudapi.com`, {
       method: 'POST',
@@ -241,11 +239,15 @@ export async function moderateVideo(videoUrl: string): Promise<ModerationResult 
  * @returns ModerationResult
  */
 export async function moderateText(text: string): Promise<ModerationResult> {
-  if (!MODERATION_ENABLED) {
+  const enabled = isModerationEnabled();
+  const hasKeys = !!(getSecretId() && getSecretKey());
+  console.log('[内容审核] moderateText 调用', { enabled, hasKeys, textLen: text?.length ?? 0 });
+
+  if (!enabled) {
     return { pass: true };
   }
 
-  if (!SECRET_ID || !SECRET_KEY) {
+  if (!hasKeys) {
     console.warn('[内容审核] 未配置密钥，跳过文本审核');
     return { pass: true };
   }
@@ -255,12 +257,12 @@ export async function moderateText(text: string): Promise<ModerationResult> {
   }
 
   try {
+    console.log('[内容审核] 文本审核开始, 文本长度:', text.length);
     const payload = JSON.stringify({
-      BizType: 'community_text',
       Content: Buffer.from(text).toString('base64'),
     });
 
-    const headers = buildTencentCloudHeaders('tms', 'TextModeration', payload, MODERATION_REGION);
+    const headers = buildTencentCloudHeaders('tms', 'TextModeration', payload, getModerationRegion());
 
     const res = await fetch(`https://tms.tencentcloudapi.com`, {
       method: 'POST',
@@ -270,6 +272,7 @@ export async function moderateText(text: string): Promise<ModerationResult> {
 
     const data = await res.json();
     const response = data?.Response;
+    console.log('[内容审核] 文本审核响应:', JSON.stringify({ Suggestion: response?.Suggestion, Label: response?.Label, Error: response?.Error }));
 
     if (response?.Error) {
       console.error('[内容审核] 文本审核 API 错误:', response.Error);
@@ -306,7 +309,7 @@ export async function moderateMediaFiles(
   urls: string[],
   mimeTypes: string[]
 ): Promise<ModerationResult> {
-  if (!MODERATION_ENABLED) {
+  if (!isModerationEnabled()) {
     return { pass: true };
   }
 
