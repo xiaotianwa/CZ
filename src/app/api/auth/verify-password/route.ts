@@ -2,10 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getCurrentUser, verifyPassword } from '@/lib/auth';
 import { ok, fail, handleError } from '@/lib/api';
-
-const attempts = new Map<string, { count: number; resetAt: number }>();
-const MAX_ATTEMPTS = 5;
-const WINDOW_MS = 60_000;
+import { checkRateLimit } from '@/lib/rate-limit';
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,15 +11,9 @@ export async function POST(req: NextRequest) {
       return fail('未登录', 401);
     }
 
-    const now = Date.now();
-    const record = attempts.get(payload.id);
-    if (record && now < record.resetAt) {
-      if (record.count >= MAX_ATTEMPTS) {
-        return fail('操作过于频繁，请稍后再试', 429);
-      }
-      record.count++;
-    } else {
-      attempts.set(payload.id, { count: 1, resetAt: now + WINDOW_MS });
+    const wait = await checkRateLimit(payload.id, { namespace: 'verify-pwd', windowMs: 60_000, max: 5 });
+    if (wait !== null) {
+      return fail(`操作过于频繁，请 ${wait} 秒后再试`, 429);
     }
 
     const body = await req.json();
