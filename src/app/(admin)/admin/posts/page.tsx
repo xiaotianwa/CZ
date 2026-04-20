@@ -23,6 +23,11 @@ interface PaginatedResponse {
   pagination: { total: number; page: number; pageSize: number; totalPages: number };
 }
 
+interface UserOption {
+  id: string;
+  name: string;
+}
+
 export default function AdminPostsPage() {
   const [data, setData] = useState<PaginatedResponse | null>(null);
   const [page, setPage] = useState(1);
@@ -31,6 +36,8 @@ export default function AdminPostsPage() {
   const [loading, setLoading] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [newContent, setNewContent] = useState('');
+  const [selectedAuthorId, setSelectedAuthorId] = useState('');
+  const [userOptions, setUserOptions] = useState<UserOption[]>([]);
   const [confirmState, setConfirmState] = useState<{ open: boolean; id: string }>({ open: false, id: '' });
 
   const fetchPosts = useCallback(async () => {
@@ -49,6 +56,18 @@ export default function AdminPostsPage() {
   }, [page, keyword, statusFilter]);
 
   useEffect(() => { fetchPosts(); }, [fetchPosts]);
+
+  useEffect(() => {
+    adminGet<{ list: UserOption[] }>('/api/admin/users?pageSize=100')
+      .then((res) => {
+        setUserOptions(res.data.list);
+        if (res.data.list.length > 0 && !selectedAuthorId) {
+          setSelectedAuthorId(res.data.list[0].id);
+        }
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleTogglePin = async (id: string, isPinned: boolean) => {
     await adminPut(`/api/admin/posts/${id}`, { isPinned: !isPinned });
@@ -74,9 +93,10 @@ export default function AdminPostsPage() {
 
   const handleCreate = async () => {
     if (!newContent.trim()) return;
+    if (!selectedAuthorId) { alert('请选择发帖用户'); return; }
     await adminPost('/api/admin/posts', {
       content: newContent,
-      authorId: 'admin',
+      authorId: selectedAuthorId,
       status: 'published',
     });
     setNewContent('');
@@ -117,6 +137,18 @@ export default function AdminPostsPage() {
       {/* Create Form */}
       {showCreate && (
         <div className="card space-y-3">
+          <div className="flex items-center gap-2">
+            <label className="text-caption text-text-muted flex-shrink-0">发帖用户</label>
+            <select
+              value={selectedAuthorId}
+              onChange={(e) => setSelectedAuthorId(e.target.value)}
+              className="h-9 px-3 rounded-btn border border-border bg-white text-body focus:outline-none focus:border-primary flex-1 max-w-xs"
+            >
+              {userOptions.map((u) => (
+                <option key={u.id} value={u.id}>{u.name}</option>
+              ))}
+            </select>
+          </div>
           <textarea
             value={newContent}
             onChange={(e) => setNewContent(e.target.value)}

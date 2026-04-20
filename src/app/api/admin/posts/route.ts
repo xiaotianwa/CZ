@@ -55,6 +55,12 @@ export async function POST(req: NextRequest) {
 
     const { tagIds, images, ...data } = parsed.data;
 
+    // 校验 authorId 是否是真实存在的用户
+    const userExists = await prisma.user.findUnique({ where: { id: data.authorId }, select: { id: true } });
+    if (!userExists) {
+      return fail('指定的作者用户不存在');
+    }
+
     const post = await prisma.post.create({
       data: {
         ...data,
