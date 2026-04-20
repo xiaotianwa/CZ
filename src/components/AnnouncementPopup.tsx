@@ -44,8 +44,12 @@ export default function AnnouncementPopup() {
       .then((r) => r.json())
       .then((res) => {
         if (res.code !== 0 || !res.data?.length) return;
-        const dismissed = getDismissed();
-        const active = (res.data as Announcement[]).filter((a) => !dismissed.includes(a.id));
+        const allItems = res.data as Announcement[];
+        const allIds = new Set(allItems.map((a) => a.id));
+        // 清理 localStorage 中已不存在的旧公告 ID，防止僵尸数据
+        const dismissed = getDismissed().filter((id) => allIds.has(id));
+        setDismissed(dismissed);
+        const active = allItems.filter((a) => !dismissed.includes(a.id));
         if (active.length > 0) {
           setAnnouncements(active);
           setVisible(true);
