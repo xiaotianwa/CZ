@@ -295,6 +295,63 @@ model QuizQuestion {
   @@index([isActive])
 }
 
+// ==================== 注册安全闭环 ====================
+
+model VerificationCode {
+  id         String   @id @default(cuid())
+  email      String
+  scene      String   // register | reset
+  codeHash   String
+  ip         String?
+  uaHash     String?
+  status     String   @default("pending") // pending | consumed | expired | revoked
+  sendCount  Int      @default(1)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([email, scene, createdAt])
+  @@index([status, expiresAt])
+}
+
+model QuizPassToken {
+  id          String   @id @default(cuid())
+  tokenHash   String   @unique
+  email       String?
+  ip          String?
+  uaHash      String?
+  questionSet String?  // JSON array of quiz ids
+  score       Int      @default(0)
+  status      String   @default("active") // active | consumed | expired | revoked
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status, expiresAt])
+  @@index([email, createdAt])
+}
+
+model SecurityEvent {
+  id         String   @id @default(cuid())
+  eventType  String
+  userId     String?
+  email      String?
+  ip         String?
+  uaHash     String?
+  targetType String?
+  targetId   String?
+  result     String   @default("success") // success | reject | error
+  reason     String?
+  meta       String?  // JSON string
+  createdAt  DateTime @default(now())
+
+  @@index([eventType, createdAt])
+  @@index([email, createdAt])
+  @@index([ip, createdAt])
+}
+
 // ==================== 音乐播放器 ====================
 
 model MusicTrack {
