@@ -262,6 +262,7 @@ export default function AdminUsersPage() {
                 <th className="text-center px-4 py-3 font-medium text-text-muted w-20">积分</th>
                 <th className="text-center px-4 py-3 font-medium text-text-muted w-20">帖子</th>
                 <th className="text-center px-4 py-3 font-medium text-text-muted w-20">评论</th>
+                <th className="text-center px-4 py-3 font-medium text-text-muted w-32">注册时间</th>
                 <th className="text-center px-4 py-3 font-medium text-text-muted w-24">状态</th>
                 <th className="text-center px-4 py-3 font-medium text-text-muted w-16">操作</th>
               </tr>
@@ -299,6 +300,7 @@ export default function AdminUsersPage() {
                   <td className="px-4 py-3 text-center text-text-muted">{user.points.toLocaleString()}</td>
                   <td className="px-4 py-3 text-center text-text-muted">{user._count.posts}</td>
                   <td className="px-4 py-3 text-center text-text-muted">{user._count.comments}</td>
+                  <td className="px-4 py-3 text-center text-caption text-text-muted">{new Date(user.createdAt).toLocaleDateString('zh-CN')}</td>
                   <td className="px-4 py-3 text-center">
                     <span className={`tag text-[10px] ${user.isActive ? 'tag-success' : 'tag bg-red-50 text-danger'}`}>
                       {user.isActive ? '正常' : '禁用'}
@@ -310,7 +312,7 @@ export default function AdminUsersPage() {
                 </tr>
               ))}
               {data?.list.length === 0 && (
-                <tr><td colSpan={8} className="px-4 py-8 text-center text-text-muted">暂无用户</td></tr>
+                <tr><td colSpan={9} className="px-4 py-8 text-center text-text-muted">暂无用户</td></tr>
               )}
             </tbody>
           </table>
