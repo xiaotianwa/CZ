@@ -67,11 +67,17 @@ if (typeof globalThis !== 'undefined') {
 // ===================== 中间件主函数 =====================
 
 function getClientIp(req: NextRequest): string {
-  // 优先使用反向代理设置的 X-Real-IP（不可伪造）
+  // 优先使用反向代理设置的 X-Real-IP（由 Nginx 设置，不可伪造）
   const realIp = req.headers.get('x-real-ip');
   if (realIp) return realIp;
+  // x-forwarded-for 在无反代时可被客户端伪造，仅作为降级手段
+  // 生产环境应确保 Nginx 设置了 X-Real-IP
   const xff = req.headers.get('x-forwarded-for');
-  if (xff) return xff.split(',')[0].trim();
+  if (xff) {
+    // 只取第一个 IP（最外层代理添加的），并验证基本格式
+    const ip = xff.split(',')[0].trim();
+    if (/^[\d.:a-fA-F]+$/.test(ip)) return ip;
+  }
   return '127.0.0.1';
 }
 
@@ -155,7 +161,7 @@ export function middleware(req: NextRequest) {
     }
   }
 
-  logRequest(200);
+  // 正常放行的请求不记录 200（实际状态码由后续 handler 决定）
   return NextResponse.next();
 }
 

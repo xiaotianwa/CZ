@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { hashPassword } from '@/lib/auth';
+import { revokeUserTokens } from '@/lib/token-blacklist';
 import { ok, fail, handleError } from '@/lib/api';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { consumeVerificationCode, getRequestMeta, recordSecurityEvent } from '@/lib/registration-security';
@@ -56,6 +57,9 @@ export async function POST(req: NextRequest) {
       where: { email },
       data: { password: hashed },
     });
+
+    // 撤销该用户所有旧 token（防止旧 token 在 7 天过期前继续使用）
+    await revokeUserTokens(user.id);
 
     await recordSecurityEvent(prisma as any, {
       eventType: 'reset_password',

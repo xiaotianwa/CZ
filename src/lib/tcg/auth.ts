@@ -7,9 +7,15 @@
 import jwt from 'jsonwebtoken';
 import { NextRequest, NextResponse } from 'next/server';
 import { AuthError } from '@/lib/auth';
+import { isTokenRevoked } from '@/lib/token-blacklist';
 
 function getTcgSecret(): string {
-  const s = process.env.TCG_JWT_SECRET || process.env.ADMIN_JWT_SECRET;
+  const tcgSecret = process.env.TCG_JWT_SECRET;
+  const adminSecret = process.env.ADMIN_JWT_SECRET;
+  if (!tcgSecret && adminSecret) {
+    console.warn('[TCG Auth] TCG_JWT_SECRET 未配置，降级使用 ADMIN_JWT_SECRET。生产环境建议配置独立密钥以隔离风险。');
+  }
+  const s = tcgSecret || adminSecret;
   if (!s) {
     throw new Error('环境变量 TCG_JWT_SECRET 或 ADMIN_JWT_SECRET 必须设置，服务拒绝启动');
   }
@@ -80,7 +86,14 @@ function getTokenFromRequest(req: NextRequest): string | null {
 export async function getCurrentTcgAdmin(req: NextRequest): Promise<TcgPayload | null> {
   const token = getTokenFromRequest(req);
   if (!token) return null;
-  return verifyTcgToken(token);
+  const payload = verifyTcgToken(token);
+  if (!payload) return null;
+  // 黑名单检查：密码修改/账号禁用后旧 token 失效
+  const decoded = jwt.decode(token) as { iat?: number } | null;
+  if (decoded?.iat && await isTokenRevoked(payload.id, decoded.iat)) {
+    return null;
+  }
+  return payload;
 }
 
 // ===== 守卫（分级） =====

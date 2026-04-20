@@ -50,34 +50,27 @@ export async function POST(req: NextRequest, { params }: { params: { userId: str
       if (!cardMap.has(id)) return fail(`卡牌 ${id} 不存在`);
     }
 
-    // 发放（使用 upsert 保证幂等，多次运行结果一致）
-    const results: Array<{ cardId: string; type: string; count: number; newCount: number; newShards: number }> = [];
-    for (const it of items) {
-      const existing = await prisma.tcgCollection.findUnique({
-        where: { userId_cardId: { userId, cardId: it.cardId } },
-      });
-
-      if (existing) {
-        const updated = await prisma.tcgCollection.update({
+    // 发放（事务 + upsert + increment 原子化，防止并发多加）
+    const results = await prisma.$transaction(async (tx) => {
+      const res: Array<{ cardId: string; type: string; count: number; newCount: number; newShards: number }> = [];
+      for (const it of items) {
+        const row = await tx.tcgCollection.upsert({
           where: { userId_cardId: { userId, cardId: it.cardId } },
-          data: {
-            count: it.type === 'card' ? existing.count + it.count : existing.count,
-            shards: it.type === 'shards' ? existing.shards + it.count : existing.shards,
-          },
-        });
-        results.push({ cardId: it.cardId, type: it.type, count: it.count, newCount: updated.count, newShards: updated.shards });
-      } else {
-        const created = await prisma.tcgCollection.create({
-          data: {
+          create: {
             userId,
             cardId: it.cardId,
             count: it.type === 'card' ? it.count : 0,
             shards: it.type === 'shards' ? it.count : 0,
           },
+          update: {
+            count: it.type === 'card' ? { increment: it.count } : undefined,
+            shards: it.type === 'shards' ? { increment: it.count } : undefined,
+          },
         });
-        results.push({ cardId: it.cardId, type: it.type, count: it.count, newCount: created.count, newShards: created.shards });
+        res.push({ cardId: it.cardId, type: it.type, count: it.count, newCount: row.count, newShards: row.shards });
       }
-    }
+      return res;
+    });
 
     await auditLog({
       operatorId: admin.id,

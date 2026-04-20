@@ -14,13 +14,14 @@ let handlersRegistered = false;
 
 export async function POST(req: NextRequest) {
   try {
-    // 简单鉴权：校验内部 API 密钥
+    // 鉴权：校验内部 API 密钥（必须配置）
     const secret = process.env.INTERNAL_API_SECRET;
-    if (secret) {
-      const authHeader = req.headers.get('Authorization');
-      if (authHeader !== `Bearer ${secret}`) {
-        return fail('Unauthorized', 401);
-      }
+    if (!secret) {
+      return fail('INTERNAL_API_SECRET not configured', 500);
+    }
+    const authHeader = req.headers.get('Authorization');
+    if (authHeader !== `Bearer ${secret}`) {
+      return fail('Unauthorized', 401);
     }
 
     // 懒注册 handlers

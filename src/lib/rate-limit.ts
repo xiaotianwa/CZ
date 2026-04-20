@@ -167,8 +167,11 @@ export function getClientIp(req: Request): string {
   // 优先使用反向代理设置的 X-Real-IP（不可伪造）
   const realIp = req.headers.get('x-real-ip');
   if (realIp) return realIp;
-  // 其次使用 X-Forwarded-For 的第一个 IP
+  // x-forwarded-for 在无反代时可被客户端伪造，仅作为降级手段
   const xff = req.headers.get('x-forwarded-for');
-  if (xff) return xff.split(',')[0].trim();
+  if (xff) {
+    const ip = xff.split(',')[0].trim();
+    if (/^[\d.:a-fA-F]+$/.test(ip)) return ip;
+  }
   return '127.0.0.1';
 }

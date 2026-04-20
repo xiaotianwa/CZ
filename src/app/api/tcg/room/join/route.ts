@@ -36,8 +36,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ code: 409, message: '不能加入自己创建的房间' }, { status: 409 });
     }
 
-    await prisma.tcgRoom.update({
-      where: { id: room.id },
+    // 使用条件更新防止并发 join 竞态：只有 guestId 仍为空时才更新成功
+    const updated = await prisma.tcgRoom.updateMany({
+      where: { id: room.id, guestId: null, status: 'waiting' },
       data: {
         guestId: user.id,
         guestDeck: JSON.stringify(guestDeck),
@@ -45,6 +46,9 @@ export async function POST(req: NextRequest) {
         version: room.version + 1,
       },
     });
+    if (updated.count === 0) {
+      return NextResponse.json({ code: 409, message: '房间已有对手或状态已变更' }, { status: 409 });
+    }
 
     const gameState = JSON.parse(room.state || '{}');
     const hostDeck = JSON.parse(room.hostDeck || '{}');

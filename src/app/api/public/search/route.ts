@@ -1,10 +1,16 @@
 import { prisma } from '@/lib/db';
 import { ok, fail, handleError } from '@/lib/api';
+import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
   try {
+    const wait = await checkRateLimit(getClientIp(req), { namespace: 'search', windowMs: 60_000, max: 30 });
+    if (wait !== null) {
+      return fail(`搜索过于频繁，请 ${wait} 秒后再试`, 429);
+    }
+
     const { searchParams } = new URL(req.url);
     const q = (searchParams.get('q') || '').trim();
     const type = searchParams.get('type') || 'all'; // all | posts | users

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { randomInt } from 'crypto';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 
@@ -6,7 +7,7 @@ function generateRoomCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = '';
   for (let i = 0; i < 6; i++) {
-    code += chars[Math.floor(Math.random() * chars.length)];
+    code += chars[randomInt(chars.length)];
   }
   return code;
 }
@@ -25,8 +26,8 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const hostDeck = body.hostDeck || {};
-    const seed = Math.floor(Math.random() * 2147483647);
-    const firstPlayer = Math.random() < 0.5 ? 'P1' : 'P2';
+    const seed = randomInt(2147483647);
+    const firstPlayer = randomInt(2) === 0 ? 'P1' : 'P2';
 
     // Phase A3：按需清理过期房间（避免 6 位码空间被废弃房间占满）
     //   - waiting > 30min  → 删除（无人加入）

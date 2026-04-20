@@ -24,25 +24,26 @@ export async function POST(req: NextRequest, { params }: { params: { postId: str
       return fail('帖子不存在', 404);
     }
 
-    // 防止重复点赞
-    const existingLike = await prisma.postLike.findUnique({
-      where: { userId_postId: { userId: payload.id, postId } },
-    });
-
-    if (existingLike) {
-      return fail('你已经点过赞了');
+    // 原子操作：点赞计数 +1，同时创建点赞记录
+    // 依赖 unique 约束 (userId, postId) 防止重复，catch 处理并发冲突
+    let updatedPost;
+    try {
+      [updatedPost] = await prisma.$transaction([
+        prisma.post.update({
+          where: { id: postId },
+          data: { likes: { increment: 1 } },
+        }),
+        prisma.postLike.create({
+          data: { userId: payload.id, postId },
+        }),
+      ]);
+    } catch (err: unknown) {
+      // Prisma unique constraint violation = P2002
+      if (err && typeof err === 'object' && 'code' in err && (err as { code: string }).code === 'P2002') {
+        return fail('你已经点过赞了');
+      }
+      throw err;
     }
-
-    // 原子操作：点赞计数 +1，同时创建点赞记录（防竞态）
-    const [updatedPost] = await prisma.$transaction([
-      prisma.post.update({
-        where: { id: postId },
-        data: { likes: { increment: 1 } },
-      }),
-      prisma.postLike.create({
-        data: { userId: payload.id, postId },
-      }),
-    ]);
 
     // 被点赞积分 +2（给帖子作者，不给自己点赞）
     if (post.authorId !== payload.id) {
