@@ -43,14 +43,12 @@ export default async function ProfilePage() {
         <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900" />
         <div className="absolute inset-0 flex items-center justify-center gap-4 sm:gap-6 select-none pointer-events-none">
           <span
-            className="text-[56px] sm:text-[80px] leading-none font-bold text-white/10"
-            style={{ fontFamily: "'Blazed', sans-serif" }}
+            className="font-waterbrush text-[56px] sm:text-[80px] leading-none text-white/10"
           >
             1103
           </span>
           <span
-            className="text-[28px] sm:text-[40px] leading-none text-primary/50 tracking-[0.15em]"
-            style={{ fontFamily: "'Blazed', sans-serif" }}
+            className="font-waterbrush text-[28px] sm:text-[40px] leading-none text-primary/50 tracking-[0.15em]"
           >
             ChenZe
           </span>
@@ -146,8 +144,8 @@ export default async function ProfilePage() {
                       {/* Header Banner */}
                       <div className="h-14 bg-gray-900 relative overflow-hidden">
                         <div className="absolute inset-0 flex items-center justify-center gap-3 select-none">
-                          <span className="text-[24px] leading-none font-bold text-white/10" style={{ fontFamily: "'Blazed', sans-serif" }}>1103</span>
-                          <span className="text-[13px] leading-none text-white/25 tracking-[0.12em]" style={{ fontFamily: "'Blazed', sans-serif" }}>ChenZe</span>
+                          <span className="font-waterbrush text-[24px] leading-none text-white/10">1103</span>
+                          <span className="font-waterbrush text-[13px] leading-none text-white/25 tracking-[0.12em]">ChenZe</span>
                         </div>
                       </div>
 

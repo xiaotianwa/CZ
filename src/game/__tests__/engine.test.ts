@@ -14,11 +14,11 @@ beforeAll(() => {
 
 // ============ 工具 ============
 
-/** 构造一个由指定卡 id 组成的 25 张卡组（不够的用 C02 填充） */
+/** 构造一个由指定卡 id 组成的 35 张卡组（不够的用 C02 填充） */
 function buildDeck(cardIds: string[]): Deck {
   const padded = [...cardIds];
-  while (padded.length < 25) padded.push('C02');
-  return { heroName: '测试经纪人', heroPowerId: 'hp_draw1', cards: padded.slice(0, 25) };
+  while (padded.length < 35) padded.push('C02');
+  return { heroName: '测试经纪人', heroPowerId: 'hp_draw1', cards: padded.slice(0, 35) };
 }
 
 function findCardInHand(s: GameState, player: PlayerId, defId: string): string | undefined {
@@ -109,7 +109,7 @@ describe('打出人物卡', () => {
     expect(s.log.some((l) => l.kind === 'invalid')).toBe(true);
   });
 
-  it('C05 4哥（冲锋）当回合可攻击', () => {
+  it('C05 4哥（紧急通告）当回合可攻击', () => {
     let s = initGame({ seed: 4, firstPlayer: 'P1', p1Deck: buildDeck([]), p2Deck: buildDeck([]) });
     s = forceCardIntoHand(s, 'P1', 'C05');
     s = setMana(s, 'P1', 2, 2);
@@ -126,28 +126,28 @@ describe('打出人物卡', () => {
     expect(s.players.P2.hp).toBe(before - 5);
   });
 
-  it('C01 战吼抽 1 张', () => {
+  it('C01 登场抽 1 张', () => {
     let s = initGame({ seed: 5, firstPlayer: 'P1', p1Deck: buildDeck([]), p2Deck: buildDeck([]) });
     s = forceCardIntoHand(s, 'P1', 'C01');
     const handBefore = s.players.P1.hand.length;
     const id = findCardInHand(s, 'P1', 'C01')!;
     s = applyAction(s, { type: 'PLAY_CARD', player: 'P1', instanceId: id });
-    // 打出后手牌数：-1（打出） +1（战吼抽）= 不变
+    // 打出后手牌数：-1（打出） +1（登场抽）= 不变
     expect(s.players.P1.hand.length).toBe(handBefore);
   });
 });
 
-describe('嘲讽机制', () => {
-  it('敌方有嘲讽时必须先打嘲讽', () => {
+describe('挡枪机制（旧称「嘲讽」）', () => {
+  it('敌方有挡枪时必须先打挡枪', () => {
     let s = initGame({ seed: 6, firstPlayer: 'P2', p1Deck: buildDeck([]), p2Deck: buildDeck([]) });
-    // P2 出嘲讽 C03
+    // P2 出挡枪 C03
     s = forceCardIntoHand(s, 'P2', 'C03');
     s = setMana(s, 'P2', 3, 3);
     const tauntId = findCardInHand(s, 'P2', 'C03')!;
     s = applyAction(s, { type: 'PLAY_CARD', player: 'P2', instanceId: tauntId });
     s = applyAction(s, { type: 'END_TURN', player: 'P2' });
 
-    // P1 出 C05 冲锋 然后想打脸
+    // P1 出 C05 紧急通告 然后想打脸
     s = forceCardIntoHand(s, 'P1', 'C05');
     s = setMana(s, 'P1', 2, 2);
     const cid = findCardInHand(s, 'P1', 'C05')!;
@@ -161,7 +161,7 @@ describe('嘲讽机制', () => {
       target: { kind: 'hero', player: 'P2' },
     });
     expect(s.players.P2.hp).toBe(hpBefore); // 打脸被拒
-    expect(s.log.at(-1)?.text).toContain('嘲讽');
+    expect(s.log.at(-1)?.text).toContain('挡枪');
   });
 });
 

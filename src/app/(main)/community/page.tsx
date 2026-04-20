@@ -1228,14 +1228,12 @@ export default function CommunityPage() {
         <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900" />
         <div className="absolute inset-0 flex items-center justify-center gap-4 sm:gap-6 select-none pointer-events-none">
           <span
-            className="text-[56px] sm:text-[80px] leading-none font-bold text-white/10"
-            style={{ fontFamily: "'Blazed', sans-serif" }}
+            className="font-waterbrush text-[56px] sm:text-[80px] leading-none text-white/10"
           >
             1103
           </span>
           <span
-            className="text-[28px] sm:text-[40px] leading-none text-primary/50 tracking-[0.15em]"
-            style={{ fontFamily: "'Blazed', sans-serif" }}
+            className="font-waterbrush text-[28px] sm:text-[40px] leading-none text-primary/50 tracking-[0.15em]"
           >
             ChenZe
           </span>
@@ -1248,7 +1246,7 @@ export default function CommunityPage() {
           </div>
           <h1 className="text-heading-lg text-white">老铁们一起唠嗑、整活、开黑</h1>
           <p className="text-body text-gray-400 mt-1.5 max-w-md mx-auto">
-            发布动态、参与热门话题、分享追星现场
+            发布动态、参与热门话题
           </p>
         </div>
       </section>
@@ -1275,8 +1273,8 @@ export default function CommunityPage() {
                   <p className="text-caption font-medium text-text-title">{activeTopicName}</p>
                   <p className="mt-1 text-caption leading-6 text-text-muted">按话题筛选并切换热门或最新排序，快速找到你想看的社区动态。</p>
                 </div>
-                <div className="flex items-center justify-between gap-3 sm:justify-end">
-                  <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-3 sm:justify-end">
+                  <div className="flex flex-shrink-0 items-center gap-2">
                     <div className="relative">
                       <input
                         value={keywordInput}
@@ -1293,8 +1291,9 @@ export default function CommunityPage() {
                       <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-text-muted" />
                     </div>
                     <button
+                      type="button"
                       onClick={handleSearch}
-                      className="h-9 rounded-btn border border-primary/25 bg-primary/10 px-3 text-caption font-medium text-primary transition-colors hover:bg-primary/15"
+                      className="h-9 min-w-[56px] flex-shrink-0 whitespace-nowrap rounded-btn border border-primary/25 bg-primary/10 px-3 text-caption font-medium text-primary transition-colors hover:bg-primary/15"
                     >
                       搜索
                     </button>

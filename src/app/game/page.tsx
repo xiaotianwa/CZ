@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 export const metadata: Metadata = {
   title: '卡牌对战 · CHENZE TCG',
-  description: '1103 陈泽传媒 · 卡牌对战 Demo · 卡池 / 制作器 / 构筑 / 练习 / 对战',
+  description: '1103 陈泽传媒 · 卡牌对战 Demo · 卡池 / 练习 / 对战',
 };
 
 const ENTRIES: Array<{
@@ -23,22 +23,6 @@ const ENTRIES: Array<{
     icon: IconCards,
   },
   {
-    href: '/game/preview',
-    title: '制作器',
-    subtitle: 'CRAFT',
-    desc: '自定义卡面数值与效果进行预览',
-    accent: 'from-[#38BDF8] to-[#7C3AED]',
-    icon: IconPalette,
-  },
-  {
-    href: '/game/deck',
-    title: '构筑',
-    subtitle: 'DECK BUILD',
-    desc: '组建你的 20 张对战套牌',
-    accent: 'from-[#F43F5E] to-[#7C3AED]',
-    icon: IconDeck,
-  },
-  {
     href: '/game/practice',
     title: '练习',
     subtitle: 'PRACTICE',
@@ -47,12 +31,20 @@ const ENTRIES: Array<{
     icon: IconRobot,
   },
   {
-    href: '/game/play',
-    title: '对战',
-    subtitle: 'BATTLE',
-    desc: '完整规则对战 Demo',
-    accent: 'from-[#F59E0B] to-[#F43F5E]',
-    icon: IconSwords,
+    href: '/game/room',
+    title: '好友对战',
+    subtitle: 'FRIEND ROOM',
+    desc: '创建房间邀请好友进行 1v1 对决',
+    accent: 'from-[#38BDF8] to-[#7C3AED]',
+    icon: IconInvite,
+  },
+  {
+    href: '/game/rank',
+    title: '排行榜',
+    subtitle: 'LEADERBOARD',
+    desc: '查看玩家战绩与排名',
+    accent: 'from-[#F43F5E] to-[#F59E0B]',
+    icon: IconTrophy,
   },
 ];
 
@@ -61,7 +53,7 @@ export default function GameHomePage() {
     <div className="relative mx-auto max-w-7xl px-4 sm:px-6 pt-10 sm:pt-16 pb-20">
       {/* 头图 / 标题 */}
       <header className="mb-10 sm:mb-14 text-center">
-        <p className="text-[11px] tracking-[0.5em] text-[#A78BFA]/80 mb-3">CHENZE · TCG · 1103</p>
+        <p className="font-waterbrush text-[11px] tracking-[0.5em] text-[#A78BFA]/80 mb-3">CHENZE · TCG · 1103</p>
         <h1 className="font-display text-4xl sm:text-6xl font-bold tracking-wide text-white drop-shadow-[0_0_24px_rgba(124,58,237,0.35)]">
           卡牌对战
         </h1>
@@ -171,17 +163,27 @@ function IconRobot({ className = '' }: { className?: string }) {
   );
 }
 
-function IconSwords({ className = '' }: { className?: string }) {
+function IconInvite({ className = '' }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M14.5 17.5 3 6V3h3l11.5 11.5" />
-      <path d="m13 19 6-6" />
-      <path d="m16 16 4 4" />
-      <path d="m19 21 2-2" />
-      <path d="M9.5 17.5 21 6V3h-3L6.5 14.5" />
-      <path d="m11 19-6-6" />
-      <path d="m8 16-4 4" />
-      <path d="m5 21-2-2" />
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <line x1="19" y1="8" x2="19" y2="14" />
+      <line x1="22" y1="11" x2="16" y2="11" />
     </svg>
   );
 }
+
+function IconTrophy({ className = '' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+      <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+      <path d="M4 22h16" />
+      <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20 7 22" />
+      <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20 17 22" />
+      <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+    </svg>
+  );
+}
+

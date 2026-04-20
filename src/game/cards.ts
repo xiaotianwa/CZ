@@ -48,7 +48,7 @@ export const ALL_CARDS: CardDef[] = [
     cost: 4, attack: 3, health: 5,
     keywords: ['taunt'],
     effects: [{ trigger: 'deathrattle', effectId: 'damage_enemy_hero', params: { amount: 2 } }],
-    // 亡语设计原文是对己方扣 2，但"反噬黑料"在规则里有两种写法；暂对敌方造成 2 伤害（更具游戏性）
+    // 退场设计原文是对己方扣 2，但"反噬黑料"在规则里有两种写法；暂对敌方造成 2 伤害（更具游戏性）
     flavor: '典，太典了',
   },
   {

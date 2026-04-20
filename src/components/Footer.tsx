@@ -172,7 +172,7 @@ export default function Footer({ profileName, siteDescription }: { profileName: 
         <div className="container-main px-4 sm:px-6 lg:px-8 py-10">
           <div className="flex flex-col md:flex-row justify-between gap-8">
             <div>
-              <p className="text-heading-sm text-text-title" style={{ fontFamily: "'Blazed', sans-serif" }}>1103</p>
+              <p className="font-waterbrush text-heading-sm text-text-title">1103</p>
               <p className="text-body text-text-muted mt-2 max-w-xs">
                 {siteDescription}
               </p>
@@ -202,7 +202,7 @@ export default function Footer({ profileName, siteDescription }: { profileName: 
 
           <div className="border-t border-divider mt-8 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
             <p className="text-caption text-text-muted">
-              &copy; {new Date().getFullYear()} 1103. All rights reserved.
+              &copy; {new Date().getFullYear()} <span className="font-waterbrush">1103</span>. All rights reserved.
             </p>
             <div className="flex gap-4">
               <Link href="/privacy" className="text-caption text-text-muted hover:text-text-body transition-colors duration-150 cursor-pointer">隐私政策</Link>

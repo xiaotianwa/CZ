@@ -165,29 +165,29 @@ export function dealDamage(
   if (target.kind === 'hero') {
     let finalAmount = amount;
     let s = state;
-    // 奥秘：heroTakesDamageGte5（如 V06 危机公关）
+    // 暗箱（旧称「奥秘」）：heroTakesDamageGte5（如 V06 危机公关）
     if (finalAmount >= 5 && source.owner !== target.player) {
       const secrets = s.players[target.player].events.filter(
         (e) => e.kind === 'secret' && e.secretTrigger === 'heroTakesDamageGte5',
       );
       if (secrets.length > 0) {
-        // 只触发首个符合条件的奥秘
+        // 只触发首个符合条件的暗箱
         const sec = secrets[0];
         s = addLog(s, {
           turn: s.turn,
           player: target.player,
           kind: 'secret',
-          text: `奥秘触发: ${sec.defId}（伤害改为 1）`,
+          text: `暗箱触发: ${sec.defId}（伤害改为 1）`,
         });
         finalAmount = 1;
-        // 运行该奥秘的 onSecretTrigger 效果
+        // 运行该暗箱的 onSecretTrigger 效果
         const mod = Effects;
         // 在 registered effects 中找 hooks
         // 这里简化：直接按 defId 硬编码 crisis_pr
         s = mod.runEffect(s, 'crisis_pr', {
           source: { kind: 'event', id: sec.instanceId, owner: target.player },
         });
-        // 移除该奥秘
+        // 移除该暗箱
         s = updatePlayer(s, target.player, (p) => ({
           ...p,
           events: p.events.filter((e) => e.instanceId !== sec.instanceId),
@@ -250,7 +250,7 @@ function updateMinionWithDamage(
     text: `${m.defId} -${amount}`,
   });
 
-  // 剧毒：来源若是携带 poisonous 的人物，目标直接死
+  // 封杀（旧称「剧毒」）：来源若是携带 poisonous 的人物，目标直接死
   if (source.kind === 'minion') {
     const src = findMinionAnywhere(state, source.id);
     if (src && src.minion.keywords.has('poisonous') && !src.minion.silenced) {
@@ -292,9 +292,9 @@ export function healMinion(
 
 // ============ 死亡结算 ============
 
-/** 清理所有 HP<=0 的人物，触发亡语 */
+/** 清理所有 HP<=0 的人物，触发退场（旧称「亡语」） */
 export function reapMinions(state: GameState): GameState {
-  // 需要反复扫描，直到没有新死亡（亡语可能产生连锁死亡）
+  // 需要反复扫描，直到没有新死亡（退场可能产生连锁死亡）
   let next = state;
   for (let pass = 0; pass < 10; pass++) {
     const dead: { owner: PlayerId; minion: Minion }[] = [];
@@ -306,7 +306,7 @@ export function reapMinions(state: GameState): GameState {
     if (dead.length === 0) break;
     // 移除并放入墓地，顺序 log
     for (const { owner, minion } of dead) {
-      // 不朽：首次死亡后以 1 血复活（未被沉默时生效）
+      // 复出（旧称「不朽」）：首次死亡后以 1 血复活（未被沉默时生效）
       if (minion.rebornAvailable && !minion.silenced) {
         next = updateMinion(next, owner, minion.instanceId, (m) => ({
           ...m,
@@ -340,7 +340,7 @@ export function reapMinions(state: GameState): GameState {
         kind: 'death',
         text: `${minion.defId} 死亡`,
       });
-      // 亡语：仅未被沉默时触发
+      // 退场（旧称「亡语」）：仅未被沉默时触发
       if (!minion.silenced) {
         for (const hook of minion.deathrattles) {
           next = Effects.runEffect(next, hook.effectId, {
@@ -351,7 +351,7 @@ export function reapMinions(state: GameState): GameState {
             turn: next.turn,
             player: owner,
             kind: 'deathrattle',
-            text: `${minion.defId} 亡语: ${hook.effectId}`,
+            text: `${minion.defId} 退场: ${hook.effectId}`,
           });
         }
       }
@@ -382,7 +382,7 @@ export function checkGameOver(state: GameState): GameState {
   );
 }
 
-// ============ 嘲讽辅助 ============
+// ============ 挡枪辅助（旧称「嘲讽」） ============
 
 export function hasTauntMinion(state: GameState, owner: PlayerId): boolean {
   return state.players[owner].minions.some(

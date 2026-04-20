@@ -3,7 +3,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import CardFrame, { CardRarity, CardType, CardSubtype } from '@/components/game/CardFrame';
 import { drawCard, fileToImage } from '@/lib/game/drawCard';
-import { CARD_PRESETS, CardPreset, findPreset } from '@/data/cardPresets';
+import type { CardPreset } from '@/data/cardPresets';
+import { useCardPresets, findInPresets } from '@/lib/tcg/useCardPresets';
 import * as Icons from '@/components/game/GameIcons';
 
 // ============ 类型 ============
@@ -80,6 +81,8 @@ export default function CardMakerPage() {
     img.src = url;
   }, []);
 
+  const presets = useCardPresets();
+
   // 加载预设卡
   const loadPreset = useCallback((preset: CardPreset | undefined) => {
     if (!preset) return;
@@ -107,8 +110,8 @@ export default function CardMakerPage() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const p = new URLSearchParams(window.location.search).get('preset');
-    if (p) loadPreset(findPreset(p));
-  }, [loadPreset]);
+    if (p) loadPreset(findInPresets(presets, p));
+  }, [loadPreset, presets]);
 
   // Canvas 实时渲染
   useEffect(() => {
@@ -181,14 +184,14 @@ export default function CardMakerPage() {
       </div>
       <div className="relative z-10 max-w-6xl mx-auto">
         <header className="mb-8 text-center">
-          <div className="inline-flex items-center gap-2 text-[11px] tracking-[0.3em] text-[#A78BFA]/80 mb-2">
+          <div className="inline-flex items-center gap-2 text-[11px] tracking-[0.3em] text-[#A78BFA]/80 uppercase mb-2">
             <span className="inline-block w-6 h-px bg-[#A78BFA]/60" /> CARD MAKER <span className="inline-block w-6 h-px bg-[#A78BFA]/60" />
           </div>
           <h1 className="neon-heading text-3xl md:text-4xl">陈泽传媒卡牌制作器</h1>
           <p className="mt-3 text-white/60 text-sm">
             上传图片 · 填写属性 · 一键生成 <b className="text-[#A78BFA]">750×1050 PNG</b>
             <span className="mx-2 text-white/20">·</span>
-            Logo: <span className="font-display text-[#A78BFA] tracking-[0.3em]">1103</span>
+            Logo: <span className="font-waterbrush text-[#A78BFA] tracking-[0.3em]">1103</span>
           </p>
         </header>
 
@@ -203,33 +206,33 @@ export default function CardMakerPage() {
                 defaultValue=""
                 onChange={(e) => {
                   const id = e.target.value;
-                  if (id) loadPreset(findPreset(id));
+                  if (id) loadPreset(findInPresets(presets, id));
                   e.target.value = '';
                 }}
               >
                 <option value="">-- 选择一张预设卡 --</option>
                 <optgroup label="角色 Character">
-                  {CARD_PRESETS.filter((p) => p.type === 'character').map((p) => (
+                  {presets.filter((p) => p.type === 'character').map((p) => (
                     <option key={p.id} value={p.id}>{p.id} · {p.name}（{p.rarity}）</option>
                   ))}
                 </optgroup>
                 <optgroup label="道具 Item">
-                  {CARD_PRESETS.filter((p) => p.type === 'item').map((p) => (
+                  {presets.filter((p) => p.type === 'item').map((p) => (
                     <option key={p.id} value={p.id}>{p.id} · {p.name}（{p.rarity}）</option>
                   ))}
                 </optgroup>
                 <optgroup label="装备 Equipment">
-                  {CARD_PRESETS.filter((p) => p.type === 'equipment').map((p) => (
+                  {presets.filter((p) => p.type === 'equipment').map((p) => (
                     <option key={p.id} value={p.id}>{p.id} · {p.name}（{p.rarity}）</option>
                   ))}
                 </optgroup>
                 <optgroup label="消耗 Effect">
-                  {CARD_PRESETS.filter((p) => p.type === 'effect').map((p) => (
+                  {presets.filter((p) => p.type === 'effect').map((p) => (
                     <option key={p.id} value={p.id}>{p.id} · {p.name}（{p.rarity}）</option>
                   ))}
                 </optgroup>
                 <optgroup label="事件 Event">
-                  {CARD_PRESETS.filter((p) => p.type === 'event').map((p) => (
+                  {presets.filter((p) => p.type === 'event').map((p) => (
                     <option key={p.id} value={p.id}>{p.id} · {p.name}（{p.rarity}）</option>
                   ))}
                 </optgroup>
@@ -475,7 +478,7 @@ export default function CardMakerPage() {
         </div>
 
         <footer className="mt-10 text-center text-white/30 text-[11px] tracking-[0.2em] uppercase">
-          © 1103 · Card Maker v1
+          © <span className="font-waterbrush">1103</span> · Card Maker v1
         </footer>
       </div>
     </div>

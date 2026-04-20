@@ -422,6 +422,7 @@ model Meme {
   description String   // 详细解释
   example     String?  // 用法示例
   image       String?  // 配图 URL
+  video       String?  // 视频 URL
   tags        String   @default("[]") // JSON array of tag strings, e.g. ["直播","名场面"]
   popularity  Int      @default(0) // 热度/引用次数
   isActive    Boolean  @default(true)
@@ -468,34 +469,6 @@ model FanWork {
   @@index([userId])
 }
 
-// ==================== 微博抓取 ====================
-
-model WeiboPost {
-  id          String   @id @default(cuid())
-  mid         String   @unique // 微博唯一 ID（去重 key）
-  bid         String? // 短 ID，用于拼接 weibo.com/{uid}/{bid}
-  uid         String // 博主 UID
-  screenName  String // 博主昵称（冗余，避免每次查询）
-  avatar      String? // 博主头像
-  text        String // 纯文本内容（已去除 HTML）
-  textRaw     String? // 原始 HTML（可为空）
-  images      String   @default("[]") // JSON 数组：图片 URL 列表
-  videoUrl    String? // 视频直链（若有）
-  videoCover  String? // 视频封面
-  source      String? // 发自何处（如 "iPhone 15 Pro"）
-  sourceUrl   String // 微博详情链接
-  repostCount Int      @default(0)
-  commentCount Int     @default(0)
-  likeCount   Int      @default(0)
-  publishedAt DateTime // 微博原始发布时间
-  fetchedAt   DateTime @default(now()) // 抓取入库时间
-  isVisible   Boolean  @default(true) // 后台可隐藏
-
-  @@index([uid])
-  @@index([publishedAt])
-  @@index([isVisible, publishedAt])
-}
-
 // ==================== 举报系统 ====================
 
 model Report {
@@ -515,5 +488,202 @@ model Report {
   @@index([status])
   @@index([targetType, targetId])
   @@index([reporterId])
+  @@index([createdAt])
+}
+
+// ============================================================
+// ==================== TCG 卡牌对战系统 ====================
+// 独立于社区系统，管理后台路由 /tcg-admin/* · API /api/tcg/*
+// 表名统一 Tcg 前缀，与社区表完全隔离，可独立回滚 / 独立部署
+// ============================================================
+
+// -------------------- TCG · 卡牌数据 --------------------
+
+model TcgCard {
+  id          String   @id                    // 固定编号如 C01 / I08 / E12
+  name        String
+  type        String                           // character | item | equipment | effect | event
+  subtype     String?                          // instant | weapon | armor
+  rarity      String                           // N | R | SR | SSR
+  cost        Int      @default(0)
+  attack      Int?
+  health      Int?
+  description String                           // 含【关键字】的规则描述
+  flavor      String?
+  imagePath   String?                          // 本地路径 /cards/*.png 或 COS URL
+  effectHooks String   @default("[]")          // JSON array: CardEffectHook[]（trigger/effectId/params）见 src/lib/tcg/effectHooks.ts
+  keywords    String   @default("[]")          // JSON array: taunt / charge / stealth ...
+  synergies   String   @default("[]")          // JSON array: 卡牌联动配置（CardSynergy[]）见 src/lib/tcg/synergy.ts
+  seasonId    String?                          // 限定赛季 null = 通用池
+  status      String   @default("active")      // active | disabled | draft
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([type])
+  @@index([rarity])
+  @@index([status])
+  @@index([seasonId])
+}
+
+model TcgDeckPreset {
+  id          String   @id @default(cuid())
+  name        String                           // 「铁粉嘲讽」「连击流量」...
+  description String
+  archetype   String                           // aggro | control | combo
+  cardIds     String                           // JSON: [{id, count}]
+  isStarter   Boolean  @default(false)         // 新手起步卡组
+  status      String   @default("active")      // active | disabled
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isStarter])
+  @@index([status])
+}
+
+// -------------------- TCG · 玩家资产 --------------------
+
+model TcgPlayer {
+  userId      String   @id                     // 与 User.id 一致
+  rating      Int      @default(1000)          // ELO 分
+  tier        String   @default("iron")        // iron | silver | gold | diamond | master
+  energy      Int      @default(5)             // 当日剩余对战能量
+  energyDate  String   @default("")            // YYYY-MM-DD 重置日期
+  wins        Int      @default(0)
+  losses      Int      @default(0)
+  banStatus   String   @default("normal")      // normal | warned | banned
+  banUntil    DateTime?
+  banReason   String?
+  lastPlayAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tier])
+  @@index([banStatus])
+  @@index([lastPlayAt])
+}
+
+model TcgCollection {
+  id        String   @id @default(cuid())
+  userId    String
+  cardId    String
+  count     Int      @default(1)                // 持有数量
+  shards    Int      @default(0)                // 碎片（10 碎 = 1 张）
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, cardId])
+  @@index([userId])
+  @@index([cardId])
+}
+
+model TcgDeck {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  cardIds   String                               // JSON: [{id, count}]
+  isActive  Boolean  @default(false)             // 当前出战卡组
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([userId, isActive])
+}
+
+// -------------------- TCG · 对局 --------------------
+
+model TcgMatch {
+  id          String   @id @default(cuid())
+  mode        String                              // practice | ranked | friend | boss
+  seasonId    String?
+  playerAId   String                              // User.id
+  playerBId   String?                             // null = AI / Boss
+  deckA       String                              // JSON 快照
+  deckB       String                              // JSON 快照
+  replay      String                              // JSON action 序列（engine 可重放）
+  winnerId    String?
+  ratingDelta Int      @default(0)                // A 的 ELO 变化量
+  turns       Int      @default(0)
+  durationSec Int      @default(0)
+  endedReason String?                             // hp_zero | turn_15 | surrender | timeout
+  createdAt   DateTime @default(now())
+
+  @@index([playerAId, createdAt])
+  @@index([playerBId, createdAt])
+  @@index([seasonId])
+  @@index([mode])
+  @@index([createdAt])
+}
+
+model TcgSeason {
+  id            String   @id @default(cuid())
+  name          String                             // 「S1 · 流量纪元」
+  startAt       DateTime
+  endAt         DateTime
+  status        String   @default("draft")         // draft | ongoing | settling | closed
+  rewardRules   String   @default("{}")            // JSON：段位 → 奖励配置
+  featuredCards String   @default("[]")            // JSON: 本季限定卡 id 列表
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([status])
+}
+
+// -------------------- TCG · 运营 --------------------
+
+model TcgOperator {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  avatar    String?
+  role      String   @default("tcg_editor")       // tcg_super | tcg_ops | tcg_editor
+  isActive  Boolean  @default(true)
+  lastLogin DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([role])
+  @@index([isActive])
+}
+
+model TcgAuditLog {
+  id         String   @id @default(cuid())
+  operatorId String
+  action     String                                // card.update / player.ban / season.settle ...
+  targetType String?                               // card | player | match | season ...
+  targetId   String?
+  before     String?                               // JSON diff 前
+  after      String?                               // JSON diff 后
+  note       String?                               // 操作备注（补偿理由等）
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([operatorId, createdAt])
+  @@index([action])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+}
+
+// -------------------- TCG · 好友房对战 --------------------
+
+model TcgRoom {
+  id        String   @id @default(cuid())
+  code      String   @unique                 // 6 位邀请码
+  hostId    String                            // 创建者用户 ID
+  guestId   String?                           // 加入者用户 ID
+  hostDeck  String   @default("[]")          // JSON: 房主卡组
+  guestDeck String   @default("[]")          // JSON: 挑战者卡组
+  state     String   @default("{}")          // JSON: 对战 GameState
+  version   Int      @default(0)             // 客户端轮询版本号
+  status    String   @default("waiting")     // waiting | ready | playing | finished
+  winnerId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([code])
+  @@index([hostId])
+  @@index([status])
   @@index([createdAt])
 }

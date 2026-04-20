@@ -12,6 +12,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import CardFrame from '@/components/game/CardFrame';
+import { GamePromptDialog, GameConfirmDialog } from '@/components/game/GameDialog';
 import type { CardPreset } from '@/data/cardPresets';
 import { useCardPresetsWithMap } from '@/lib/tcg/useCardPresets';
 import { useCustomDecks } from '@/lib/tcg/useCustomDecks';
@@ -45,6 +46,11 @@ export default function DeckBuilderPage() {
   const [filterType, setFilterType] = useState<CardType | 'all'>('all');
   const [filterRarity, setFilterRarity] = useState<CardRarity | 'all'>('all');
   const { map: presetMap } = useCardPresetsWithMap();
+
+  // 自定义弹窗状态（替代 window.prompt / window.confirm）
+  const [newDialogOpen, setNewDialogOpen] = useState(false);
+  const [renameTarget, setRenameTarget] = useState<number | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
 
   const activeDeck = activeIdx !== null ? decks[activeIdx] : null;
   // B3: online 时按 server id 定位；offline 时按索引定位
@@ -89,31 +95,51 @@ export default function DeckBuilderPage() {
     await saveCards(activeRef, next);
   }, [activeDeck, activeRef, saveCards]);
 
-  // 新建 / 删除 / 重命名
-  const handleNewDeck = useCallback(async () => {
-    const name = prompt('卡组名称？', `自建卡组 ${decks.length + 1}`);
-    if (!name) return;
+  // 新建 / 删除 / 重命名 —— 打开自定义 Dialog
+  const handleNewDeck = useCallback(() => {
+    setNewDialogOpen(true);
+  }, []);
+
+  const handleDelete = useCallback((i: number) => {
+    setDeleteTarget(i);
+  }, []);
+
+  const handleRename = useCallback((i: number) => {
+    setRenameTarget(i);
+  }, []);
+
+  // Dialog 内部确认 —— 执行真实业务
+  const confirmNewDeck = useCallback(async (name: string) => {
+    setNewDialogOpen(false);
     const created = await createDeck(name.trim() || '未命名');
     if (created) setActiveIdx(decks.length); // hook 将新卡组追加到末尾
   }, [decks.length, createDeck]);
 
-  const handleDelete = useCallback(async (i: number) => {
-    if (!window.confirm(`确定删除「${decks[i].name}」？`)) return;
-    const ref: string | number = online === true && decks[i].id ? decks[i].id! : i;
+  const confirmRename = useCallback(async (name: string) => {
+    if (renameTarget === null) return;
+    const i = renameTarget;
+    setRenameTarget(null);
+    const target = decks[i];
+    if (!target) return;
+    const ref: string | number = online === true && target.id ? target.id : i;
+    await apiRenameDeck(ref, name.trim());
+  }, [renameTarget, decks, online, apiRenameDeck]);
+
+  const confirmDelete = useCallback(async () => {
+    if (deleteTarget === null) return;
+    const i = deleteTarget;
+    setDeleteTarget(null);
+    const target = decks[i];
+    if (!target) return;
+    const ref: string | number = online === true && target.id ? target.id : i;
     const ok = await apiDeleteDeck(ref);
     if (!ok) return;
     if (activeIdx === i) setActiveIdx(null);
     else if (activeIdx !== null && activeIdx > i) setActiveIdx(activeIdx - 1);
-  }, [decks, activeIdx, online, apiDeleteDeck]);
-
-  const handleRename = useCallback(async (i: number) => {
-    const name = prompt('修改名称', decks[i].name);
-    if (!name) return;
-    const ref: string | number = online === true && decks[i].id ? decks[i].id! : i;
-    await apiRenameDeck(ref, name.trim());
-  }, [decks, online, apiRenameDeck]);
+  }, [deleteTarget, decks, activeIdx, online, apiDeleteDeck]);
 
   return (
+    <>
     <div className="pt-4 pb-8 px-3 sm:px-4 max-w-[1400px] mx-auto">
       <div className="inline-flex items-center gap-2 text-[11px] tracking-[0.3em] text-[#A78BFA]/80 mb-2">
         <span className="inline-block w-6 h-px bg-[#A78BFA]/60" /> DECK · BUILDER
@@ -286,6 +312,48 @@ export default function DeckBuilderPage() {
         </aside>
       </div>
     </div>
+
+    {/* 新建卡组 —— 输入名称 */}
+    <GamePromptDialog
+      open={newDialogOpen}
+      title="新建卡组"
+      label="卡组名称"
+      placeholder="请输入卡组名称"
+      defaultValue={`自建卡组 ${decks.length + 1}`}
+      confirmText="创建"
+      onConfirm={confirmNewDeck}
+      onCancel={() => setNewDialogOpen(false)}
+    />
+
+    {/* 重命名卡组 */}
+    <GamePromptDialog
+      open={renameTarget !== null}
+      title="重命名卡组"
+      label="新名称"
+      placeholder="请输入卡组名称"
+      defaultValue={renameTarget !== null ? decks[renameTarget]?.name ?? '' : ''}
+      confirmText="保存"
+      onConfirm={confirmRename}
+      onCancel={() => setRenameTarget(null)}
+    />
+
+    {/* 删除卡组 —— 危险确认 */}
+    <GameConfirmDialog
+      open={deleteTarget !== null}
+      title="删除卡组"
+      message={
+        deleteTarget !== null ? (
+          <>
+            确定要删除 <span className="text-white font-semibold">「{decks[deleteTarget]?.name}」</span> 吗？此操作不可撤销。
+          </>
+        ) : null
+      }
+      confirmText="删除"
+      variant="danger"
+      onConfirm={confirmDelete}
+      onCancel={() => setDeleteTarget(null)}
+    />
+    </>
   );
 }
 

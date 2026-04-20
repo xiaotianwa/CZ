@@ -6,7 +6,8 @@
 import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import CardFrame from '@/components/game/CardFrame';
-import { CARD_PRESETS, CardPreset } from '@/data/cardPresets';
+import type { CardPreset } from '@/data/cardPresets';
+import { useCardPresets } from '@/lib/tcg/useCardPresets';
 import * as Icons from '@/components/game/GameIcons';
 
 type FilterType = 'all' | 'character' | 'item' | 'equipment' | 'effect' | 'event';
@@ -38,9 +39,10 @@ export default function CardGalleryPage() {
   const [ft, setFt] = useState<FilterType>('all');
   const [fr, setFr] = useState<FilterRarity>('all');
   const [fa, setFa] = useState<FilterAsset>('all');
+  const presets = useCardPresets();
 
   const filtered = useMemo(() => {
-    return CARD_PRESETS.filter((p) => {
+    return presets.filter((p) => {
       if (ft !== 'all' && p.type !== ft) return false;
       if (fr !== 'all' && p.rarity !== fr) return false;
       const has = !!p.imagePath;
@@ -48,13 +50,13 @@ export default function CardGalleryPage() {
       if (fa === 'without' && has) return false;
       return true;
     });
-  }, [ft, fr, fa]);
+  }, [ft, fr, fa, presets]);
 
   const stats = useMemo(() => {
-    const total = CARD_PRESETS.length;
-    const withImg = CARD_PRESETS.filter((p) => p.imagePath).length;
+    const total = presets.length;
+    const withImg = presets.filter((p) => p.imagePath).length;
     return { total, withImg, missing: total - withImg };
-  }, []);
+  }, [presets]);
 
   return (
     <div className="pt-6 pb-14 px-4 sm:px-6">
@@ -63,7 +65,7 @@ export default function CardGalleryPage() {
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
               <div className="flex items-center gap-2 text-[11px] tracking-[0.3em] text-[#A78BFA]/80 mb-1">
-                <span className="inline-block w-6 h-px bg-[#A78BFA]/60" /> CARD POOL · 1103
+                <span className="inline-block w-6 h-px bg-[#A78BFA]/60" /> CARD POOL · <span className="font-waterbrush">1103</span>
               </div>
               <h1 className="neon-heading text-3xl sm:text-4xl">首发卡池总览</h1>
               <p className="text-white/60 mt-2 text-sm">

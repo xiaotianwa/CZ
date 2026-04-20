@@ -1,5 +1,5 @@
 // 效果函数注册表
-// 每张卡的战吼/亡语/被动都通过 effectId 映射到此处的函数
+// 每张卡的登场/退场/被动都通过 effectId 映射到此处的函数（旧称「战吼/亡语」）
 // 函数必须是纯函数：接收 state 返回新 state，不 mutate
 
 import type {
@@ -216,7 +216,7 @@ registerEffect('combo_damage_with_chenze', (s, ctx) => {
 // - 登场时若己方场上已有伙伴卡（partnerId），立即触发：双方 +2/+0 并抽 1 张
 // - 触发后在被 buff 的两张卡上打个 `chenzeComboTriggered` 标记（通过 health>maxHealth 判断不可靠，改用 keyword 集合额外标记）
 // - 为简化不引入新状态，依靠"partner 必须尚未被 buff"判定（检查 minion.attack 是否已被本卡片 buff 过）。
-// - 实现上我们直接在双方战吼里调用此 effect，通过 ctx.source.id（当前登场的 minion）识别 self；
+// - 实现上我们直接在双方登场里调用此 effect，通过 ctx.source.id（当前登场的 minion）识别 self；
 //   若 self 或 partner 任一已被沉默/不存在，则不触发。
 registerEffect('chenze_partner_combo', (s, ctx) => {
   const partnerId = (ctx.params?.partnerId as string) ?? '';
@@ -328,7 +328,7 @@ registerEffect('copy_random_friendly_minion', (s, ctx) => {
   return updatePlayer(ns, owner, (p) => ({ ...p, minions: [...p.minions, copy] }));
 });
 
-// ============ 奥秘效果 ============
+// ============ 暗箱效果（旧称「奥秘」） ============
 
 // freeze_target_attacks_this_turn: 目标人物本回合不能攻击（V02 路透流出）
 registerEffect('freeze_target_attacks_this_turn', (s, ctx) => {
@@ -340,7 +340,7 @@ registerEffect('freeze_target_attacks_this_turn', (s, ctx) => {
   }));
 });
 
-// silence_trigger_minion: 沉默触发目标（V04 塑料奥秘）
+// silence_trigger_minion: 沉默触发目标（V04 塑料奥秘，卡名保留文学引用）
 registerEffect('silence_trigger_minion', (s, ctx) => {
   if (!ctx.target || ctx.target.kind !== 'minion') return s;
   return updateMinion(s, ctx.target.player, ctx.target.instanceId, (m) => ({

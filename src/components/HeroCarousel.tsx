@@ -99,7 +99,7 @@ export default function HeroCarousel({ slides, profile, communityStats }: HeroCa
             className="animate-fade-in-up inline-flex items-center gap-2 text-white/75 text-sm font-medium"
             style={{ animationDelay: '0.05s' }}
           >
-            <Check className="w-4 h-4" /> 1103  ·  幺幺零叁
+            <Check className="w-4 h-4" /> <span className="font-waterbrush">1103</span>  ·  幺幺零叁
           </p>
 
           <p
@@ -109,12 +109,12 @@ export default function HeroCarousel({ slides, profile, communityStats }: HeroCa
             成功之路步履蹒跚
           </p>
           <h1
-            className="animate-fade-in-up mt-2 text-[42px] sm:text-[56px] lg:text-[64px] leading-[1.05] font-bold text-white tracking-tight font-logo"
+            className="animate-fade-in-up mt-2 text-[42px] sm:text-[56px] lg:text-[64px] leading-[1.05] text-white tracking-tight"
             style={{ animationDelay: '0.22s' }}
           >
-            举起呐喊
+            <span className="font-logo">举起呐喊</span>
             <span className="text-white/40 mx-1 font-light">—</span>
-            <span className="text-white">1103</span>
+            <span className="font-waterbrush text-white inline-block translate-y-[0.02em] tracking-[0.02em]">1103</span>
           </h1>
 
           <p

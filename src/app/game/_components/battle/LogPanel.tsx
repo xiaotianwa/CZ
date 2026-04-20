@@ -23,7 +23,7 @@ const KIND_COLOR: Record<string, string> = {
   gameOver: 'text-lime-400 font-bold',
   draw: 'text-white/40',
   fatigue: 'text-red-400',
-  turnStart: 'text-white font-semibold border-t border-white/10 pt-1 mt-1',
+  turnStart: 'text-white/90 font-semibold',
   turnEnd: 'text-white/30',
   combo: 'text-pink-300 font-bold',
 };
@@ -51,12 +51,27 @@ export function LogPanel({ state }: { state: GameState }) {
         <div className="hidden lg:flex sticky top-0 bg-slate-900/80 pb-2 font-bold text-white items-center gap-1.5">
           <Icons.LogIcon size={14} /> 战斗日志
         </div>
-        <div className="space-y-0.5">
-          {state.log.slice(-100).map((l, i) => (
-            <div key={i} className={KIND_COLOR[l.kind] ?? 'text-white/60'}>
-              <span className="text-white/30">T{l.turn}·{l.player}</span> {l.text}
-            </div>
-          ))}
+        <div className="space-y-1">
+          {state.log.slice(-100).map((l, i) => {
+            const isTurnStart = l.kind === 'turnStart';
+            return (
+              <div
+                key={i}
+                className={[
+                  'flex items-start gap-2 rounded-md px-2 py-1 leading-snug border text-[12px]',
+                  isTurnStart
+                    ? 'bg-white/[0.08] border-white/15 mt-1'
+                    : 'bg-white/[0.03] border-white/[0.06]',
+                  KIND_COLOR[l.kind] ?? 'text-white/70',
+                ].join(' ')}
+              >
+                <span className="shrink-0 text-[10px] text-white/40 font-mono leading-snug tabular-nums">
+                  T{l.turn}·{l.player}
+                </span>
+                <span className="flex-1">{l.text}</span>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

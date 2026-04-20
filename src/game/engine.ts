@@ -33,10 +33,11 @@ import {
   updatePlayer,
 } from './engine-utils';
 import { runEffect } from './effects';
+import { triggerSynergiesOnEntry } from './synergyRuntime';
 
 // ============ 卡牌数据库（由外部注入 / cards.ts 填充） ============
 
-const CARD_DB = new Map<string, CardDef>();
+export const CARD_DB = new Map<string, CardDef>();
 
 export function registerCard(def: CardDef): void {
   CARD_DB.set(def.id, def);
@@ -199,8 +200,9 @@ function startTurn(state: GameState): GameState {
   });
   // 抽 1 张
   s = drawCards(s, active, 1);
-  // TODO: 触发 turnStart hook（人物/事件被动）
-  return s;
+  // 触发己方场上所有单位/事件的 turnStart hook
+  s = runPhaseHooks(s, active, 'turnStart');
+  return reapMinions(s);
 }
 
 function endTurn(state: GameState): GameState {
@@ -211,6 +213,9 @@ function endTurn(state: GameState): GameState {
     kind: 'turnEnd',
     text: `${active} 回合结束`,
   });
+  // 触发己方场上所有单位/事件的 turnEnd hook
+  s = runPhaseHooks(s, active, 'turnEnd');
+  s = reapMinions(s);
   // 事件槽倒计时 -1（仅己方场地型）
   s = tickEvents(s, active);
   // 交给对方
@@ -230,6 +235,68 @@ function endTurn(state: GameState): GameState {
     return s;
   }
   return startTurn(s);
+}
+
+/**
+ * 统一触发 owner 场上所有人物/事件的 phase hook（turnStart / turnEnd）。
+ * - 人物：被沉默跳过
+ * - 事件：奥秘/场地均可挂钩（secret 同时命中 secretTrigger 则另走 triggerSecrets 分支）
+ */
+function runPhaseHooks(
+  state: GameState,
+  owner: PlayerId,
+  trigger: 'turnStart' | 'turnEnd',
+): GameState {
+  let s = state;
+  const label = trigger === 'turnStart' ? '回合开始' : '回合结束';
+
+  // 场上人物（可能在迭代中死亡，但 runEffect 不会 mutate 数组；下一轮 reapMinions 清理）
+  const minionsSnapshot = s.players[owner].minions.map((m) => ({
+    instanceId: m.instanceId,
+    defId: m.defId,
+    silenced: m.silenced,
+  }));
+  for (const m of minionsSnapshot) {
+    if (m.silenced) continue;
+    const def = CARD_DB.get(m.defId);
+    const hooks = (def?.effects ?? []).filter((e) => e.trigger === trigger);
+    for (const h of hooks) {
+      s = addLog(s, {
+        turn: s.turn,
+        player: owner,
+        kind: trigger,
+        text: `${def?.name ?? m.defId} ${label}: ${h.effectId}`,
+      });
+      s = runEffect(s, h.effectId, {
+        source: { kind: 'minion', id: m.instanceId, owner },
+        params: h.params,
+      });
+    }
+  }
+
+  // 事件槽（场地/奥秘，按 DB 定义挂 turnStart/turnEnd 即可）
+  const eventsSnapshot = s.players[owner].events.map((e) => ({
+    instanceId: e.instanceId,
+    defId: e.defId,
+  }));
+  for (const ev of eventsSnapshot) {
+    const def = CARD_DB.get(ev.defId);
+    const hooks = (def?.effects ?? []).filter((e) => e.trigger === trigger);
+    for (const h of hooks) {
+      s = addLog(s, {
+        turn: s.turn,
+        player: owner,
+        kind: trigger,
+        text: `${def?.name ?? ev.defId} ${label}: ${h.effectId}`,
+      });
+      s = runEffect(s, h.effectId, {
+        source: { kind: 'event', id: ev.instanceId, owner },
+        params: h.params,
+      });
+    }
+  }
+
+  return s;
 }
 
 function tickEvents(state: GameState, owner: PlayerId): GameState {
@@ -501,10 +568,10 @@ function summonMinion(
     rebornAvailable: keywords.has('reborn'),
   };
   let s = updatePlayer(state, owner, (p) => ({ ...p, minions: [...p.minions, minion] }));
-  // 战吼
+  // 登场（旧称「战吼」）
   const battlecries = (def.effects ?? []).filter((e) => e.trigger === 'battlecry');
   for (const h of battlecries) {
-    s = addLog(s, { turn: s.turn, player: owner, kind: 'battlecry', text: `${def.name} 战吼: ${h.effectId}` });
+    s = addLog(s, { turn: s.turn, player: owner, kind: 'battlecry', text: `${def.name} 登场: ${h.effectId}` });
     s = runEffect(s, h.effectId, {
       source: { kind: 'minion', id: minion.instanceId, owner },
       target,
@@ -516,6 +583,12 @@ function summonMinion(
   if (minion.attack >= 5) {
     s = triggerSecrets(s, owner, 'enemyPlaysMinionAtkGte5', minion.instanceId);
   }
+  // 卡牌联动（both_in_play）：新人物登场，双向扫描场上是否有伙伴
+  s = triggerSynergiesOnEntry(s, owner, {
+    kind: 'minion',
+    defId: def.id,
+    instanceId: minion.instanceId,
+  });
   return s;
 }
 
@@ -545,6 +618,12 @@ function equipItem(state: GameState, owner: PlayerId, card: CardInstance, def: C
       params: h.params,
     });
   }
+  // 卡牌联动（partner_equipped / both_in_play）：新装备登场
+  s = triggerSynergiesOnEntry(s, owner, {
+    kind: 'equipment',
+    defId: def.id,
+    instanceId: card.instanceId,
+  });
   return s;
 }
 
@@ -577,9 +656,9 @@ function playEventCard(state: GameState, owner: PlayerId, card: CardInstance, de
     return addLog(state, { turn: state.turn, player: owner, kind: 'invalid', text: '事件槽已满' });
   }
   const kind: EventCard['kind'] = def.secretTrigger ? 'secret' : 'location';
-  // 同 ID 奥秘不可重复
+  // 同 ID 暗箱不可重复（旧称「奥秘」）
   if (kind === 'secret' && state.players[owner].events.some((e) => e.defId === def.id)) {
-    return addLog(state, { turn: state.turn, player: owner, kind: 'invalid', text: '同奥秘不可重复' });
+    return addLog(state, { turn: state.turn, player: owner, kind: 'invalid', text: '同暗箱不可重复' });
   }
   const ev: EventCard = {
     instanceId: card.instanceId,
@@ -618,7 +697,7 @@ export function triggerSecrets(
       turn: s.turn,
       player: defender,
       kind: 'secret',
-      text: `奥秘触发: ${sec.defId}`,
+      text: `暗箱触发: ${sec.defId}`,
     });
     const def = CARD_DB.get(sec.defId);
     const hooks = (def?.effects ?? []).filter((e) => e.trigger === 'onSecretTrigger');
@@ -679,15 +758,15 @@ function handleAttack(
     return addLog(state, { turn: state.turn, player: owner, kind: 'invalid', text: 'rush 当回合不能打脸' });
   }
 
-  // 目标隐身：不可被指定
+  // 目标潜水（旧称「隐身」）：不可被指定
   if (target.kind === 'minion') {
     const tm = findMinion(state, target.player, target.instanceId);
     if (tm && tm.keywords.has('stealth') && !tm.silenced) {
-      return addLog(state, { turn: state.turn, player: owner, kind: 'invalid', text: '目标处于隐身通告，不可指定' });
+      return addLog(state, { turn: state.turn, player: owner, kind: 'invalid', text: '目标处于潜水状态，不可指定' });
     }
   }
 
-  // 嘲讽校验：敌方有嘲讽时必须打嘲讽
+  // 挡枪校验（旧称「嘲讽」）：敌方有挡枪时必须打挡枪
   if (hasTauntMinion(state, enemy)) {
     const ok =
       target.kind === 'minion' &&
@@ -697,7 +776,7 @@ function handleAttack(
         return tm ? tm.keywords.has('taunt') && !tm.silenced : false;
       })();
     if (!ok) {
-      return addLog(state, { turn: state.turn, player: owner, kind: 'invalid', text: '必须优先攻击嘲讽单位' });
+      return addLog(state, { turn: state.turn, player: owner, kind: 'invalid', text: '必须优先攻击挡枪单位' });
     }
   }
 
@@ -785,7 +864,7 @@ function handleHeroWeaponAttack(
   if (p.heroAttacksLeftThisTurn <= 0) {
     return addLog(state, { turn: state.turn, player: owner, kind: 'invalid', text: '本回合已攻击' });
   }
-  // 嘲讽校验
+  // 挡枪校验（旧称「嘲讽」）
   const enemy = enemyOf(owner);
   if (hasTauntMinion(state, enemy)) {
     const ok =
@@ -796,7 +875,7 @@ function handleHeroWeaponAttack(
         return tm ? tm.keywords.has('taunt') && !tm.silenced : false;
       })();
     if (!ok) {
-      return addLog(state, { turn: state.turn, player: owner, kind: 'invalid', text: '必须优先攻击嘲讽单位' });
+      return addLog(state, { turn: state.turn, player: owner, kind: 'invalid', text: '必须优先攻击挡枪单位' });
     }
   }
   let s = addLog(state, {

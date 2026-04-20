@@ -41,7 +41,7 @@ export default function AdminLoginPage() {
     <div className="min-h-screen bg-bg-page flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="text-[40px] font-bold text-primary mb-2" style={{ fontFamily: "'Blazed', sans-serif" }}>
+          <div className="font-waterbrush text-[40px] text-primary mb-2">
             1103
           </div>
           <h1 className="text-heading text-text-title">管理后台</h1>

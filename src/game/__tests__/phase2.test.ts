@@ -1,4 +1,4 @@
-// Phase 2 引擎深化功能测试：道具攻击、奥秘触发、关键字（隐身/不朽/rush 限制）、事件/装备摧毁
+// Phase 2 引擎深化功能测试：道具攻击、暗箱触发、关键字（潜水/复出/rush 限制）、事件/装备摧毁
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import { initGame, applyAction, getCardDef, HERO_ATTACKER_ID } from '../engine';
@@ -13,8 +13,8 @@ beforeAll(() => {
 
 function buildDeck(cardIds: string[]): Deck {
   const padded = [...cardIds];
-  while (padded.length < 25) padded.push('C02');
-  return { heroName: 't', heroPowerId: 'hp', cards: padded.slice(0, 25) };
+  while (padded.length < 35) padded.push('C02');
+  return { heroName: 't', heroPowerId: 'hp', cards: padded.slice(0, 35) };
 }
 
 function findCardInHand(s: GameState, p: PlayerId, defId: string): string | undefined {
@@ -93,7 +93,7 @@ describe('道具 / 武器', () => {
 
   it('攻击人物时武器反击伤害经纪人', () => {
     let s = initGame({ seed: 102, firstPlayer: 'P2', p1Deck: buildDeck([]), p2Deck: buildDeck([]) });
-    // P2 出 C03 嘲讽 (2/4)
+    // P2 出 C03 挡枪 (2/4)
     s = forceIntoHand(s, 'P2', 'C03');
     s = setMana(s, 'P2', 3);
     s = applyAction(s, { type: 'PLAY_CARD', player: 'P2', instanceId: findCardInHand(s, 'P2', 'C03')! });
@@ -143,7 +143,7 @@ describe('摧毁类效果', () => {
     expect(s.players.P2.graveyard.some((c) => c.defId === 'I04')).toBe(true);
   });
 
-  it('C10 李哥战吼摧毁对方随机事件', () => {
+  it('C10 李哥登场摧毁对方随机事件', () => {
     let s = initGame({ seed: 111, firstPlayer: 'P2', p1Deck: buildDeck([]), p2Deck: buildDeck([]) });
     // P2 放 V01（场地）
     s = forceIntoHand(s, 'P2', 'V01');
@@ -173,9 +173,9 @@ describe('摧毁类效果', () => {
   });
 });
 
-// ============ 奥秘机制 ============
+// ============ 暗箱机制（旧称「奥秘」） ============
 
-describe('奥秘触发', () => {
+describe('暗箱触发', () => {
   it('V02 路透流出：对方召唤人物时使其本回合不能攻击', () => {
     let s = initGame({ seed: 120, firstPlayer: 'P1', p1Deck: buildDeck([]), p2Deck: buildDeck([]) });
     s = forceIntoHand(s, 'P1', 'V02');
@@ -184,12 +184,12 @@ describe('奥秘触发', () => {
     expect(s.players.P1.events.length).toBe(1);
     s = applyAction(s, { type: 'END_TURN', player: 'P1' });
 
-    // P2 召唤冲锋单位 C05 4哥，应被冻结
+    // P2 召唤紧急通告单位 C05 4哥，应被冻结
     s = forceIntoHand(s, 'P2', 'C05');
     s = setMana(s, 'P2', 3);
     s = applyAction(s, { type: 'PLAY_CARD', player: 'P2', instanceId: findCardInHand(s, 'P2', 'C05')! });
     const mid = findMinionByDef(s, 'P2', 'C05')!;
-    // 奥秘应已消耗
+    // 暗箱应已消耗
     expect(s.players.P1.events.length).toBe(0);
     const before = s.players.P1.hp;
     s = applyAction(s, {
@@ -233,13 +233,13 @@ describe('奥秘触发', () => {
       instanceId: findCardInHand(s, 'P2', 'E10')!,
       target: { kind: 'hero', player: 'P1' },
     });
-    // 先触发奥秘 heal 5（上限 40 → 仍 40），再结算减伤后的 1 伤 → 39
+    // 先触发暗箱 heal 5（上限 40 → 仍 40），再结算减伤后的 1 伤 → 39
     expect(s.players.P1.hp).toBe(Math.min(40, hpBefore + 5) - 1);
     expect(s.players.P1.hand.length).toBe(handBefore + 2);
     expect(s.players.P1.events.length).toBe(0);
   });
 
-  it('同奥秘不可重复', () => {
+  it('同暗箱不可重复', () => {
     let s = initGame({ seed: 123, firstPlayer: 'P1', p1Deck: buildDeck([]), p2Deck: buildDeck([]) });
     s = forceIntoHand(s, 'P1', 'V02');
     s = forceIntoHand(s, 'P1', 'V02');
@@ -247,14 +247,14 @@ describe('奥秘触发', () => {
     s = applyAction(s, { type: 'PLAY_CARD', player: 'P1', instanceId: findCardInHand(s, 'P1', 'V02')! });
     s = applyAction(s, { type: 'PLAY_CARD', player: 'P1', instanceId: findCardInHand(s, 'P1', 'V02')! });
     expect(s.players.P1.events.length).toBe(1);
-    expect(s.log.some((l) => l.kind === 'invalid' && l.text.includes('奥秘不可重复'))).toBe(true);
+    expect(s.log.some((l) => l.kind === 'invalid' && l.text.includes('暗箱不可重复'))).toBe(true);
   });
 });
 
 // ============ 关键字补齐 ============
 
 describe('关键字完整性', () => {
-  it('C11 荣一鸣 rush + 剧毒：当回合可打人物但不能打脸', () => {
+  it('C11 荣一鸣 rush + 封杀：当回合可打人物但不能打脸', () => {
     let s = initGame({ seed: 130, firstPlayer: 'P2', p1Deck: buildDeck([]), p2Deck: buildDeck([]) });
     // P2 放一个 C02 (2/3) 垫上
     s = forceIntoHand(s, 'P2', 'C02');
@@ -273,7 +273,7 @@ describe('关键字完整性', () => {
     s = applyAction(s, { type: 'ATTACK', player: 'P1', attackerId: rong, target: { kind: 'hero', player: 'P2' } });
     expect(s.players.P2.hp).toBe(hpBefore);
 
-    // 打人物应成功，且剧毒必杀
+    // 打人物应成功，且封杀必杀
     const c02Id = findMinionByDef(s, 'P2', 'C02')!;
     s = applyAction(s, { type: 'ATTACK', player: 'P1', attackerId: rong, target: { kind: 'minion', player: 'P2', instanceId: c02Id } });
     expect(s.players.P2.minions.find((m) => m.defId === 'C02')).toBeUndefined();
@@ -303,7 +303,7 @@ describe('关键字完整性', () => {
 
   it('吸粉：给 C02 临时加 lifesteal，攻击回血', () => {
     let s = initGame({ seed: 132, firstPlayer: 'P1', p1Deck: buildDeck([]), p2Deck: buildDeck([]) });
-    // 打出 C05 4哥（冲锋）直接打脸测吸粉（需要手动给 keywords 加 lifesteal）
+    // 打出 C05 4哥（紧急通告）直接打脸测吸粉（需要手动给 keywords 加 lifesteal）
     s = forceIntoHand(s, 'P1', 'C05');
     s = setMana(s, 'P1', 2);
     s = applyAction(s, { type: 'PLAY_CARD', player: 'P1', instanceId: findCardInHand(s, 'P1', 'C05')! });

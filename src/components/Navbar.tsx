@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import localFont from 'next/font/local';
 import { useRouter, usePathname } from 'next/navigation';
 import { Menu, X, Search, LogIn, LogOut, User as UserIcon, Bell, MessageCircle, Heart, Pin, Info, ChevronDown } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
@@ -13,6 +14,12 @@ interface UserInfo {
   avatar?: string | null;
   role: string;
 }
+
+const brandHandwriting = localFont({
+  src: '../../public/fonts/brand/Pinzelan-Regular.ttf',
+  display: 'swap',
+  weight: '400',
+});
 
 export default function Navbar({ profileName }: { profileName: string }) {
   const router = useRouter();
@@ -29,7 +36,6 @@ export default function Navbar({ profileName }: { profileName: string }) {
     { href: '/gallery', label: '相册' },
     { href: '/memes', label: '梗百科' },
     { href: '/fan-works', label: '二创作品' },
-    { href: '/weibo', label: '微博动态' },
     { href: '/events', label: '活动' },
   ];
   const allLinks = [...navLinks, ...moreLinks];
@@ -223,7 +229,7 @@ export default function Navbar({ profileName }: { profileName: string }) {
           </div>
 
           {/* Center: logo — absolute positioned for true centering */}
-          <Link href="/" className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 ${txtLogo} text-[22px] leading-none font-bold tracking-normal font-logo`}>
+          <Link href="/" className={`${brandHandwriting.className} absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 ${txtLogo} text-[23px] leading-none tracking-[0.02em]`}>
             1103 - Chenze
           </Link>
 
@@ -362,7 +368,7 @@ export default function Navbar({ profileName }: { profileName: string }) {
               : 'h-11 rounded-full bg-white/90 border border-gray-200 shadow-sm backdrop-blur-md px-4'
             : 'h-14 px-1'
         }`}>
-          <Link href="/" className={`${txtLogo} text-[18px] leading-none font-bold font-logo`}>
+          <Link href="/" className={`${brandHandwriting.className} ${txtLogo} text-[19px] leading-none tracking-[0.02em]`}>
             1103 - Chenze
           </Link>
           <div className="flex items-center gap-1">

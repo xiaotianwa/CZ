@@ -1,0 +1,8 @@
+﻿api/tcg/public/cards             200
+api/tcg/public/deck-presets      200
+game/gallery                     200
+game/deck                        200
+game/preview                     200
+game/play                        200
+tcg-admin                        200
+tcg-admin/login                  200

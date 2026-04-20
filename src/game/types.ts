@@ -2,6 +2,9 @@
 // 参考《对战规则.md》v1
 // 所有字段保持不可变/纯函数风格，便于服务端权威判定与战报回放
 
+// 联动类型：仅做 type-only 引用，避免把 zod runtime 拉进 engine bundle
+import type { CardSynergy } from '@/lib/tcg/synergy';
+
 // ============ 基础枚举 ============
 
 export type CardType = 'character' | 'item' | 'equipment' | 'effect' | 'event';
@@ -16,7 +19,7 @@ export type CardSubtype = 'instant' | 'delayed' | 'weapon' | 'armor';
 
 /** 关键字 —— 命名全部 MCN 化，去「炉石传说」同名词
  *  内部 id 保持不变（不破坏引擎、effects、测试）
- *  中文显示名参见 @/app/game/play/page.tsx KEYWORD_DICT
+ *  中文显示名参见 @/app/game/_components/Battle.tsx KEYWORD_DICT
  */
 export type Keyword =
   | 'taunt'          // 挡枪 (原嘲讽)
@@ -53,10 +56,12 @@ export interface CardDef {
   keywords?: Keyword[];
   /** 事件 - 场地倒计时（⏳N） */
   countdown?: number;
-  /** 事件 - 奥秘触发条件 key */
+  /** 事件 - 暗箱触发条件 key（旧称「奥秘」） */
   secretTrigger?: SecretTriggerKey;
   /** 效果钩子 id 列表，引擎按 id 从 effects registry 查函数 */
   effects?: EffectHook[];
+  /** 卡牌联动（运营后台配置；引擎在 summon/equip 时双向检查命中） */
+  synergies?: CardSynergy[];
   /** 描述/flavor 仅 UI，不影响逻辑 */
   description?: string;
   flavor?: string;
@@ -73,17 +78,17 @@ export interface EffectHook {
 }
 
 export type EffectTrigger =
-  | 'battlecry'       // 战吼（打出时立即）
-  | 'deathrattle'     // 亡语（死亡时）
+  | 'battlecry'       // 登场（旧称「战吼」，打出时立即）
+  | 'deathrattle'     // 退场（旧称「亡语」，死亡时）
   | 'onEquip'         // 道具装备时
   | 'onAttack'        // 己方本卡攻击后
   | 'turnStart'       // 回合开始（拥有者）
   | 'turnEnd'         // 回合结束（拥有者）
   | 'onCountdown0'    // 场地倒计时归零
-  | 'onSecretTrigger' // 奥秘条件满足
-  | 'aura';           // 光环（在场时持续生效，每次 recomputeAuras 调用）
+  | 'onSecretTrigger' // 暗箱条件满足（旧称「奥秘」）
+  | 'aura';           // 粉圈光环（在场时持续生效，每次 recomputeAuras 调用）
 
-/** 奥秘触发条件 key（引擎在关键点 emit，命中时调 effect） */
+/** 暗箱触发条件 key（旧称「奥秘」；引擎在关键点 emit，命中时调 effect） */
 export type SecretTriggerKey =
   | 'enemyPlaysMinion'
   | 'enemyPlaysMinionAtkGte5'
@@ -116,7 +121,7 @@ export interface Minion {
   attack: number;
   maxHealth: number;
   health: number;
-  /** 本回合还能攻击的次数（普通=1 风怒=2；开局受召唤疲劳影响） */
+  /** 本回合还能攻击的次数（普通=1 双开=2；开局受召唤疲劳影响） */
   attacksLeftThisTurn: number;
   /** 召唤疲劳（本回合不能攻击，除非 charge/rush） */
   summoningSickness: boolean;
@@ -124,13 +129,13 @@ export interface Minion {
   keywords: Set<Keyword>;
   /** 是否被沉默（清除所有技能与光环） */
   silenced: boolean;
-  /** 亡语效果列表（在死亡时调用，silenced 后失效） */
+  /** 退场效果列表（旧称「亡语」；在死亡时调用，silenced 后失效） */
   deathrattles: EffectHook[];
   /** 粉丝盾剩余（0/1） */
   divineShieldActive: boolean;
   /** 本回合刚召唤（rush 首回合不能打脸） */
   justSummoned?: boolean;
-  /** 不朽：首次死亡后以 1 血复活；复活后该标记清除 */
+  /** 复出（旧称「不朽」）：首次死亡后以 1 血复活；复活后该标记清除 */
   rebornAvailable?: boolean;
 }
 
@@ -146,18 +151,18 @@ export interface EquippedItem {
   onAttackEffects?: EffectHook[];
 }
 
-/** 己方事件槽：场地（倒计时）或奥秘（隐藏） */
+/** 己方事件槽：场地（倒计时）或暗箱（隐藏，旧称「奥秘」） */
 export interface EventCard {
   instanceId: string;
   defId: string;
   owner: PlayerId;
-  /** 'location' 带倒计时， 'secret' 带隐藏标志 */
+  /** 'location' 带倒计时， 'secret' 带隐藏标志（暗箱） */
   kind: 'location' | 'secret';
-  /** 场地：剩余回合；奥秘：undefined */
+  /** 场地：剩余回合；暗箱：undefined */
   countdownRemaining?: number;
-  /** 奥秘触发条件 */
+  /** 暗箱触发条件 */
   secretTrigger?: SecretTriggerKey;
-  /** 奥秘是否已触发（用于动画，触发即离场） */
+  /** 暗箱是否已触发（用于动画，触发即离场） */
   triggered?: boolean;
 }
 
@@ -180,7 +185,7 @@ export interface PlayerState {
   minions: Minion[];
   /** 装备（单件） */
   equipped: EquippedItem | null;
-  /** 事件槽（场地+奥秘混合，≤3） */
+  /** 事件槽（场地+暗箱混合，≤3） */
   events: EventCard[];
   /** 疲劳计数（牌库空时每次抽牌伤害递增） */
   fatigue: number;
@@ -282,5 +287,5 @@ export interface EffectContext {
 export interface Deck {
   heroName: string;
   heroPowerId: string;     // 经纪人技能 id（如 'hp_draw1'）
-  cards: string[];         // CardDef.id 列表（25 张）
+  cards: string[];         // CardDef.id 列表（35 张）
 }

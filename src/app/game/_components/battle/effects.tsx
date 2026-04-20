@@ -13,6 +13,22 @@ import { sfx } from '@/game/sound';
 import type { GameState, PlayerId } from '@/game/types';
 import type { Point } from './shared';
 
+/**
+ * Battle 同时渲染 mobile + desktop 两套布局（其中一套由 CSS `hidden`/`lg:hidden` 用 display:none 隐藏）。
+ * 使用 querySelector 会返回文档里**第一个**匹配元素，这通常是被隐藏的 mobile DOM（rect 0/0），
+ * 导致动画 / 飘字坐标全部错乱。本工具遍历所有匹配元素，挑出 getBoundingClientRect 非零（实际可见）的那一个。
+ */
+function pickVisible(selector: string): HTMLElement | null {
+  if (typeof document === 'undefined') return null;
+  const all = document.querySelectorAll(selector);
+  for (let i = 0; i < all.length; i++) {
+    const el = all[i] as HTMLElement;
+    const r = el.getBoundingClientRect();
+    if (r.width > 0 && r.height > 0) return el;
+  }
+  return null;
+}
+
 // ============ 伤害飘字 ============
 
 export type Floater = {
@@ -41,9 +57,7 @@ export function useDamageFloaters(state: GameState): Floater[] {
       const before = prev.players[p].hp;
       const after = state.players[p].hp;
       if (after !== before) {
-        const el = typeof document !== 'undefined'
-          ? document.querySelector(`[data-hero-id="${p}"]`)
-          : null;
+        const el = pickVisible(`[data-hero-id="${p}"]`);
         if (el) {
           const r = (el as HTMLElement).getBoundingClientRect();
           additions.push({
@@ -64,9 +78,7 @@ export function useDamageFloaters(state: GameState): Floater[] {
         const b = prevMap.get(m.instanceId);
         if (!b) continue;
         if (m.health === b.health && m.divineShieldActive === b.divineShieldActive) continue;
-        const el = typeof document !== 'undefined'
-          ? document.querySelector(`[data-minion-id="${m.instanceId}"]`)
-          : null;
+        const el = pickVisible(`[data-minion-id="${m.instanceId}"]`);
         if (!el) continue;
         const r = (el as HTMLElement).getBoundingClientRect();
         if (b.divineShieldActive && !m.divineShieldActive && m.health === b.health) {
@@ -162,7 +174,10 @@ export interface Strike {
 }
 
 /** 监听 state.log 中的 attack，驱动冲击线 + 攻击者冲刺 + 目标抖动 */
-export function useAttackFx(state: GameState): Strike[] {
+export function useAttackFx(
+  state: GameState,
+  fallbackMinionRectsRef?: React.RefObject<Map<string, DOMRect>>,
+): Strike[] {
   const [strikes, setStrikes] = useState<Strike[]>([]);
   const prevLogLenRef = useRef(state.log.length);
 
@@ -186,45 +201,71 @@ export function useAttackFx(state: GameState): Strike[] {
 
       const attackerEl =
         d.attackerKind === 'hero'
-          ? document.querySelector(`[data-hero-id="${d.attackerOwner}"]`)
+          ? pickVisible(`[data-hero-id="${d.attackerOwner}"]`)
           : d.attackerId
-            ? document.querySelector(`[data-minion-id="${d.attackerId}"]`)
+            ? pickVisible(`[data-minion-id="${d.attackerId}"]`)
             : null;
       const targetEl =
         d.targetKind === 'hero'
-          ? document.querySelector(`[data-hero-id="${d.targetPlayer}"]`)
+          ? pickVisible(`[data-hero-id="${d.targetPlayer}"]`)
           : d.targetKind === 'minion' && d.targetId
-            ? document.querySelector(`[data-minion-id="${d.targetId}"]`)
+            ? pickVisible(`[data-minion-id="${d.targetId}"]`)
             : null;
-      if (!attackerEl || !targetEl) continue;
+      // 一击致死：target DOM 已被 React 移除，但上一帧仍存在 rect 缓存；fallback 用它播动画
+      const fallbackRect: DOMRect | undefined =
+        !targetEl && d.targetKind === 'minion' && d.targetId
+          ? fallbackMinionRectsRef?.current?.get(d.targetId)
+          : undefined;
+      if (!attackerEl || (!targetEl && !fallbackRect)) continue;
 
       const aRect = (attackerEl as HTMLElement).getBoundingClientRect();
-      const tRect = (targetEl as HTMLElement).getBoundingClientRect();
+      const tRect = targetEl ? (targetEl as HTMLElement).getBoundingClientRect() : fallbackRect!;
       const from = { x: aRect.left + aRect.width / 2, y: aRect.top + aRect.height / 2 };
       const to   = { x: tRect.left + tRect.width / 2, y: tRect.top + tRect.height / 2 };
 
       adds.push({ id: `strike_${now}_${idx++}`, from, to });
 
-      // 攻击者：冲刺到目标方向 0.4s
+      // 攻击者：用 inline style 直接触发动画，React rerender 时不会覆盖 style 属性
       const dx = to.x - from.x;
       const dy = to.y - from.y;
       const aEl = attackerEl as HTMLElement;
       aEl.style.setProperty('--strike-dx', `${dx}px`);
       aEl.style.setProperty('--strike-dy', `${dy}px`);
-      aEl.classList.remove('is-striking');
-      // 强制重排以让动画重新开始
+      // 先清空再重排再赋值，强制动画从头播放
+      aEl.style.animation = 'none';
       void aEl.offsetWidth;
-      aEl.classList.add('is-striking');
-      window.setTimeout(() => aEl.classList.remove('is-striking'), 460);
-
-      // 目标：等攻击者冲到位时再抖动
-      const tEl = targetEl as HTMLElement;
+      aEl.style.animation = 'game-strike-dash 0.55s cubic-bezier(0.3, 0.6, 0.4, 1) both';
+      aEl.style.transition = 'none';
+      aEl.style.willChange = 'transform, filter';
+      aEl.style.position = 'relative';
+      aEl.style.zIndex = '500';
       window.setTimeout(() => {
-        tEl.classList.remove('is-hit');
-        void tEl.offsetWidth;
-        tEl.classList.add('is-hit');
-        window.setTimeout(() => tEl.classList.remove('is-hit'), 420);
-      }, 160);
+        aEl.style.animation = '';
+        aEl.style.transition = '';
+        aEl.style.willChange = '';
+        aEl.style.zIndex = '';
+        // position 保持，不还原（按钮本身有可能依赖布局）
+      }, 620);
+
+      // 目标：等攻击者冲到目标位置（撞击瞬间 ≈ 0.36*600ms = 216ms）再抖动 + 屏幕震动
+      // 一击致死场景下 targetEl 为 null，仍需触发屏幕震动
+      const tEl = targetEl as HTMLElement | null;
+      window.setTimeout(() => {
+        if (tEl) {
+          tEl.classList.remove('is-hit');
+          void tEl.offsetWidth;
+          tEl.classList.add('is-hit');
+          window.setTimeout(() => tEl.classList.remove('is-hit'), 560);
+        }
+        // 整个战场容器短暂震动
+        const arenaEl = document.querySelector('.game-theme') as HTMLElement | null;
+        if (arenaEl) {
+          arenaEl.classList.remove('is-arena-shake');
+          void arenaEl.offsetWidth;
+          arenaEl.classList.add('is-arena-shake');
+          window.setTimeout(() => arenaEl.classList.remove('is-arena-shake'), 360);
+        }
+      }, 210);
     }
 
     if (adds.length === 0) return;

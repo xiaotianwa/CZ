@@ -238,7 +238,7 @@ export default function MePage() {
       <section className="relative h-40 sm:h-48 bg-gray-900 overflow-hidden mt-14">
         <div className="absolute inset-0 bg-gradient-to-br from-[#1890ff]/80 via-[#096dd9]/60 to-gray-900" />
         <div className="absolute inset-0 flex items-center justify-center select-none pointer-events-none">
-          <span className="text-[80px] sm:text-[120px] leading-none font-bold text-white/[0.06]" style={{ fontFamily: "'Blazed', sans-serif" }}>
+          <span className="font-waterbrush text-[80px] sm:text-[120px] leading-none text-white/[0.06]">
             1103
           </span>
         </div>

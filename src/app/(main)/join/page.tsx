@@ -186,7 +186,7 @@ export default function JoinPage() {
               <CheckCircle className="w-8 h-8 text-success" />
             </div>
             <h1 className="text-heading text-text-title mt-5">
-              欢迎加入 <span style={{ fontFamily: "'Blazed', sans-serif" }}>1103</span>
+              欢迎加入 <span className="font-waterbrush">1103</span>
             </h1>
             <p className="text-body text-text-muted mt-2">
               {nickname}，你已成为社区的第 {formatNum(communityStats.totalFans + 1)} 位成员
@@ -210,7 +210,7 @@ export default function JoinPage() {
       <div className="container-main px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="max-w-2xl mx-auto text-center mb-5">
           <h1 className="text-[24px] sm:text-[28px] font-bold text-text-title">
-            加入 <span style={{ fontFamily: "'Blazed', sans-serif" }}>1103</span> 社区
+            加入 <span className="font-waterbrush">1103</span> 社区
           </h1>
           <p className="text-body text-text-muted mt-2">
             与 {formatNum(communityStats.totalFans)} 位老铁一起，看直播、聊游戏、整活儿
@@ -371,14 +371,14 @@ export default function JoinPage() {
             <div className="relative bg-gray-900 rounded-card overflow-hidden md:sticky md:top-20">
               {/* 1103 decorative background inside dark panel */}
               <div className="absolute inset-0 pointer-events-none select-none overflow-hidden" aria-hidden="true">
-                <span className="absolute -top-4 -left-4 text-[120px] font-bold text-white/[0.03] leading-none" style={{ fontFamily: "'Blazed', sans-serif" }}>1103</span>
-                <span className="absolute -bottom-6 -right-6 text-[100px] font-bold text-white/[0.04] leading-none rotate-12" style={{ fontFamily: "'Blazed', sans-serif" }}>1103</span>
+                <span className="font-waterbrush absolute -top-4 -left-4 text-[120px] text-white/[0.03] leading-none">1103</span>
+                <span className="font-waterbrush absolute -bottom-6 -right-6 text-[100px] text-white/[0.04] leading-none rotate-12">1103</span>
               </div>
 
               <div className="relative z-10 p-5 sm:p-6">
                 {/* Brand mark */}
                 <div className="text-center mb-4">
-                  <p className="text-[48px] leading-none text-primary/90" style={{ fontFamily: "'Blazed', sans-serif" }}>
+                  <p className="font-waterbrush text-[48px] leading-none text-primary/90">
                     1103
                   </p>
                   <div className="w-12 h-0.5 bg-primary/40 mx-auto mt-2" />

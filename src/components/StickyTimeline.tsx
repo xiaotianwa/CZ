@@ -72,7 +72,7 @@ export default function StickyTimeline({ events }: { events: TimelineEvent[] }) 
           {/* Title */}
           <div className="text-center mb-10">
             <h2 className="text-heading-lg text-text-title mb-1">成功之路步履蹒跚</h2>
-            <p className="text-heading-sm text-text-body">举起呐喊 <span className="font-blazed text-primary">1103</span></p>
+            <p className="text-heading-sm text-text-body">举起呐喊 <span className="font-waterbrush text-primary">1103</span></p>
           </div>
 
           <div className="flex items-start gap-8 md:gap-12">

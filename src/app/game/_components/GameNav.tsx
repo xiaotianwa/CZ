@@ -36,12 +36,12 @@ export default function GameNav() {
           className="group flex items-center gap-2 select-none cursor-pointer"
           aria-label="返回游戏大厅"
         >
-          <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-[#7C3AED] to-[#F43F5E] text-white text-sm font-black shadow-[0_0_16px_rgba(124,58,237,0.55)]">
+          <span className="font-waterbrush inline-flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-[#7C3AED] to-[#F43F5E] text-white text-sm shadow-[0_0_16px_rgba(124,58,237,0.55)]">
             1103
           </span>
           <span className="hidden sm:flex flex-col leading-none">
             <span className="font-display text-[15px] tracking-[0.18em] text-white">卡牌对战</span>
-            <span className="text-[10px] tracking-[0.3em] text-[#A78BFA]/80">CHENZE · TCG</span>
+            <span className="font-waterbrush text-[10px] tracking-[0.3em] text-[#A78BFA]/80">CHENZE · TCG</span>
           </span>
         </Link>
 

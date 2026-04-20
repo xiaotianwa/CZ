@@ -10,6 +10,8 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const ADMIN_PUBLIC_PATHS = ['/api/admin/auth/login', '/api/admin/auth/logout'];
 const AUTH_PUBLIC_PATHS = ['/api/auth/login', '/api/auth/logout', '/api/auth/me'];
+// TCG 独立运营后台 —— 独立 cookie（tcg_admin_token），与社区 /admin 互不干扰
+const TCG_ADMIN_PUBLIC_PATHS = ['/api/tcg/admin/auth/login', '/api/tcg/admin/auth/logout'];
 
 // ===================== 写入限流（内存级） =====================
 const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
@@ -114,6 +116,21 @@ export function middleware(req: NextRequest) {
     }
   }
 
+  // TCG 运营后台 API 路径保护（独立 cookie tcg_admin_token）
+  if (pathname.startsWith('/api/tcg/admin/')) {
+    if (TCG_ADMIN_PUBLIC_PATHS.some((p) => pathname === p)) {
+      return NextResponse.next();
+    }
+    const tcgToken = req.cookies.get('tcg_admin_token')?.value;
+    if (!tcgToken) {
+      logRequest(401);
+      return NextResponse.json(
+        { code: 401, message: 'TCG 运营账号未登录', data: null },
+        { status: 401 }
+      );
+    }
+  }
+
   // Auth API 路径保护（需要用户登录的接口）
   if (pathname.startsWith('/api/auth/') && !AUTH_PUBLIC_PATHS.some((p) => pathname === p)) {
     const userToken = req.cookies.get('token')?.value;
@@ -121,6 +138,18 @@ export function middleware(req: NextRequest) {
       logRequest(401);
       return NextResponse.json(
         { code: 401, message: '未登录', data: null },
+        { status: 401 }
+      );
+    }
+  }
+
+  // TCG 好友房 API 保护（需要社区用户登录）
+  if (pathname.startsWith('/api/tcg/room/')) {
+    const userToken = req.cookies.get('token')?.value;
+    if (!userToken) {
+      logRequest(401);
+      return NextResponse.json(
+        { code: 401, message: '请先登录后再进行好友对战', data: null },
         { status: 401 }
       );
     }

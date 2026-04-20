@@ -24,7 +24,7 @@ module.exports = {
       },
       fontFamily: {
         sans: ['var(--font-inter)', 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', 'Hiragino Sans GB', 'system-ui', '-apple-system', 'sans-serif'],
-        blazed: ['Blazed', 'sans-serif'],
+        blazed: ['Arial Black', 'Impact', 'PingFang SC', 'Microsoft YaHei', 'sans-serif'],
         logo: ['var(--font-caveat)', 'cursive'],
       },
       fontSize: {

@@ -1,0 +1,1 @@
+ALTER TABLE "Meme" ADD COLUMN "video" TEXT;

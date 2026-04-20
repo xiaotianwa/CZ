@@ -13,8 +13,8 @@ beforeAll(() => {
 
 function buildDeck(cardIds: string[]): Deck {
   const padded = [...cardIds];
-  while (padded.length < 25) padded.push('C02');
-  return { heroName: 't', heroPowerId: 'hp', cards: padded.slice(0, 25) };
+  while (padded.length < 35) padded.push('C02');
+  return { heroName: 't', heroPowerId: 'hp', cards: padded.slice(0, 35) };
 }
 
 function findCardInHand(s: GameState, p: PlayerId, defId: string): string | undefined {

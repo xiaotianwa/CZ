@@ -164,12 +164,12 @@ export default async function HomePage() {
       {/* CTA */}
       <section className="relative py-16 sm:py-20 overflow-hidden animate-fade-in-up bg-[#0a0a0a]">
         <div
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[300px] leading-none font-bold text-white/[0.04] select-none pointer-events-none font-blazed"
+          className="font-waterbrush absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[300px] leading-none text-white/[0.04] select-none pointer-events-none"
         >
           1103
         </div>
         <div className="container-main text-center max-w-lg mx-auto px-4 relative z-10">
-          <h2 className="text-heading text-white">加入<span className="font-blazed"> 1103 </span>老铁大家庭</h2>
+          <h2 className="text-heading text-white">加入<span className="font-waterbrush"> 1103 </span>老铁大家庭</h2>
           <p className="text-body text-gray-400 mt-2">
             与 {formatNum(communityStats.totalFans)} 位老铁一起，看直播、聊游戏、整活儿
           </p>

@@ -2,6 +2,8 @@
 // 制作器可通过下拉选择一键加载数据与图片
 
 import type { CardRarity, CardType, CardSubtype } from '@/components/game/CardFrame';
+import type { CardEffectHook } from '@/lib/tcg/effectHooks';
+import type { CardSynergy } from '@/lib/tcg/synergy';
 
 export interface CardPreset {
   id: string;               // 编号如 C14 / I08
@@ -22,6 +24,12 @@ export interface CardPreset {
    *    走腾讯云 COS 图片处理动态压缩，首屏体积 60MB → ~3MB
    */
   imagePath?: string;
+  /** live（来自 /api/tcg/public/cards）：效果钩子，对应 engine CardDef.effects */
+  effects?: CardEffectHook[];
+  /** live：关键字，对应 engine CardDef.keywords */
+  keywords?: string[];
+  /** live：卡牌联动（engine 可通过 cardLoader 转换为 aura effect 消费） */
+  synergies?: CardSynergy[];
 }
 
 const _PRESETS: CardPreset[] = [

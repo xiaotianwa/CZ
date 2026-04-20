@@ -7,7 +7,7 @@ import {
   LayoutDashboard, FileText, Image, Calendar, Gamepad2,
   Clock, SlidersHorizontal, FolderOpen, Users, Settings,
   LogOut, Menu, X, ChevronRight, MessageSquarePlus, HelpCircle, Megaphone, Music, Flag, ShieldBan,
-  BookOpen, Palette, Rss,
+  BookOpen, Palette,
 } from 'lucide-react';
 
 interface SidebarLink {
@@ -37,7 +37,6 @@ const sidebarGroups: SidebarGroup[] = [
       { href: '/admin/games', label: '游戏管理', icon: Gamepad2 },
       { href: '/admin/memes', label: '梗百科', icon: BookOpen },
       { href: '/admin/fan-works', label: '二创作品', icon: Palette },
-      { href: '/admin/weibo', label: '微博同步', icon: Rss },
       { href: '/admin/timeline', label: '时间线', icon: Clock },
     ],
   },
@@ -122,7 +121,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         }`}
       >
         <div className="flex items-center justify-between h-14 px-4 border-b border-divider">
-          <Link href="/admin" className="text-heading-sm text-primary" style={{ fontFamily: "'Blazed', sans-serif" }}>
+          <Link href="/admin" className="font-waterbrush text-heading-sm text-primary">
             1103
           </Link>
           <span className="tag-primary text-caption">管理端</span>

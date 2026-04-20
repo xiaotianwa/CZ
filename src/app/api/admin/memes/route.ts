@@ -4,6 +4,25 @@ import { prisma } from '@/lib/db';
 import { requireAdmin } from '@/lib/auth';
 import { ok, paginated, fail, handleError, getSearchParams } from '@/lib/api';
 
+const memeSelect = {
+  id: true,
+  title: true,
+  origin: true,
+  description: true,
+  example: true,
+  image: true,
+  tags: true,
+  popularity: true,
+  isActive: true,
+  sortOrder: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
+function toMemeResponse<T extends Record<string, unknown>>(meme: T) {
+  return { ...meme, video: null };
+}
+
 export async function GET(req: NextRequest) {
   try {
     await requireAdmin(req);
@@ -24,11 +43,12 @@ export async function GET(req: NextRequest) {
         orderBy: [{ sortOrder: 'asc' }, { popularity: 'desc' }],
         skip: (page - 1) * pageSize,
         take: pageSize,
+        select: memeSelect,
       }),
       prisma.meme.count({ where }),
     ]);
 
-    return paginated(list, total, page, pageSize);
+    return paginated(list.map(toMemeResponse), total, page, pageSize);
   } catch (err) {
     return handleError(err);
   }
@@ -56,8 +76,9 @@ export async function POST(req: NextRequest) {
     const { tags, ...data } = parsed.data;
     const meme = await prisma.meme.create({
       data: { ...data, tags: JSON.stringify(tags) },
+      select: memeSelect,
     });
-    return ok(meme, '创建成功');
+    return ok(toMemeResponse(meme), '创建成功');
   } catch (err) {
     return handleError(err);
   }
@@ -78,8 +99,8 @@ export async function PUT(req: NextRequest) {
       updateData.tags = JSON.stringify(parsed.data.tags);
     }
 
-    const meme = await prisma.meme.update({ where: { id }, data: updateData });
-    return ok(meme, '更新成功');
+    const meme = await prisma.meme.update({ where: { id }, data: updateData, select: memeSelect });
+    return ok(toMemeResponse(meme), '更新成功');
   } catch (err) {
     return handleError(err);
   }

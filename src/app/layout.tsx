@@ -1,7 +1,17 @@
-import type { Metadata } from 'next';
-import { Inter, Caveat } from 'next/font/google';
+import type { Metadata, Viewport } from 'next';
+import type { CSSProperties, ReactNode } from 'react';
 import './globals.css';
 import { getSiteConfig } from '@/lib/site-data';
+
+type FontVariables = CSSProperties & Record<'--font-inter' | '--font-caveat', string>;
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',
+};
 
 function resolveMetadataBase() {
   const raw = process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL;
@@ -13,18 +23,10 @@ function resolveMetadataBase() {
   }
 }
 
-const inter = Inter({
-  subsets: ['latin'],
-  display: 'swap',
-  variable: '--font-inter',
-});
-
-const caveat = Caveat({
-  subsets: ['latin'],
-  weight: ['700'],
-  display: 'swap',
-  variable: '--font-caveat',
-});
+const fontVariables: FontVariables = {
+  '--font-inter': 'PingFang SC',
+  '--font-caveat': 'KaiTi',
+};
 
 export async function generateMetadata(): Promise<Metadata> {
   const cfg = await getSiteConfig();
@@ -77,7 +79,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function RootLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   const cfg = await getSiteConfig();
   const siteName = cfg.site_name || '1103社区';
@@ -112,10 +114,8 @@ export default async function RootLayout({
   };
 
   return (
-    <html lang="zh-CN" className={`${inter.variable} ${caveat.variable}`}>
+    <html lang="zh-CN" style={fontVariables}>
       <head>
-        <link rel="preconnect" href="https://fonts.cdnfonts.com" />
-        <link rel="stylesheet" href="https://fonts.cdnfonts.com/css/blazed" />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       </head>
       <body className="min-h-screen bg-bg-page text-text-title antialiased">

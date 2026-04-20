@@ -12,21 +12,20 @@ describe('validateDeck', () => {
     }
   });
 
-  it('数量不等于 25 应报错', () => {
+  it('数量不等于 35 应报错', () => {
     const r = validateDeck(['C02', 'C02']);
     expect(r.ok).toBe(false);
     expect(r.errors.some((e) => e.code === 'size')).toBe(true);
   });
 
   it('单卡超过 2 应报错', () => {
-    const cards = Array(25).fill('C02'); // C02 是 N，全 25 张 C02
+    const cards = Array(35).fill('C02'); // C02 是 N，全 35 张 C02
     const r = validateDeck(cards);
     expect(r.ok).toBe(false);
     expect(r.errors.some((e) => e.code === 'duplicate' && (e as any).defId === 'C02')).toBe(true);
   });
 
   it('SSR 超过 1 应报错', () => {
-    // 10 张 C02 + 10 张 C03 + 5 张 SSR 陈泽（C14）→ SSR 5 超过 1
     const cards = [
       ...Array(2).fill('C02'),
       ...Array(2).fill('C03'),
@@ -36,9 +35,16 @@ describe('validateDeck', () => {
       ...Array(2).fill('E02'),
       ...Array(2).fill('V01'),
       ...Array(6).fill('C14'),  // SSR × 6 非法
-      ...Array(5).fill('C10'),  // 也会触发 duplicate
+      ...Array(2).fill('C10'),
+      ...Array(2).fill('C08'),
+      ...Array(2).fill('C09'),
+      ...Array(2).fill('C07'),
+      ...Array(2).fill('C01'),
+      ...Array(2).fill('E01'),
+      ...Array(2).fill('E03'),
+      ...Array(1).fill('C11'),
     ];
-    expect(cards.length).toBe(25);
+    expect(cards.length).toBe(35);
     const r = validateDeck(cards);
     expect(r.ok).toBe(false);
     expect(r.errors.some((e) => e.code === 'ssr_exceeded')).toBe(true);
@@ -60,8 +66,14 @@ describe('validateDeck', () => {
       ...Array(2).fill('C12'),
       ...Array(1).fill('C13'),
       ...Array(2).fill('C01'),
+      ...Array(1).fill('C14'),
+      ...Array(2).fill('C02'),  // 会触发 dup 但不关心
+      ...Array(2).fill('C03'),
+      ...Array(2).fill('C04'),
+      ...Array(2).fill('C05'),
+      ...Array(1).fill('C06'),
     ];
-    expect(cards.length).toBe(25);
+    expect(cards.length).toBe(35);
     const r = validateDeck(cards);
     expect(r.ok).toBe(false);
     const missing = r.errors.filter((e) => e.code === 'missing_type').map((e) => (e as any).type);

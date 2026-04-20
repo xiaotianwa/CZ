@@ -27,13 +27,11 @@ export function BoardRow({
   minions, owner, onClick, onHover, legalMinions, isSelecting, selectedId, attackableSet,
 }: BoardRowProps) {
   return (
-    <div className={`relative flex gap-1.5 sm:gap-3 h-full min-h-[92px] sm:min-h-[100px] [@media(max-height:520px)]:min-h-0 rounded-xl p-1.5 sm:p-3 [@media(max-height:520px)]:p-1 overflow-x-auto overflow-y-hidden transition-all ${
+    <div className={`relative flex gap-1.5 sm:gap-3 h-full min-h-[92px] sm:min-h-[100px] [@media(max-height:520px)]:min-h-0 rounded-xl p-1.5 sm:p-3 [@media(max-height:520px)]:p-1 transition-all ${
       minions.length === 0
         ? 'bg-gradient-to-b from-white/[0.02] via-white/[0.04] to-white/[0.02] border border-dashed border-white/10'
         : 'bg-gradient-to-b from-white/[0.04] via-white/[0.06] to-white/[0.04] border border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]'
     } ${isSelecting ? 'ring-1 ring-white/20' : ''}`}>
-      {/* 场地纹理线 */}
-      <div className="pointer-events-none absolute inset-0 rounded-xl opacity-[0.08] bg-[linear-gradient(90deg,transparent_0,transparent_calc(16.66%_-_1px),rgba(255,255,255,0.5)_calc(16.66%),transparent_calc(16.66%_+_1px))] bg-[length:16.66%_100%]" />
       {minions.length === 0 && (
         <div className="relative m-auto flex flex-col items-center gap-1.5 text-white/25">
           <div className="inline-flex items-center justify-center w-10 h-10 rounded-full border-2 border-dashed border-white/20 bg-white/[0.02]">
@@ -86,7 +84,7 @@ export function MinionCard({
             onMouseLeave={() => onHover(null)}
             data-minion-id={minion.instanceId}
             data-hover-anchor="1"
-            className={`relative w-[96px] h-[124px] sm:w-[116px] sm:h-[148px] [@media(max-height:520px)]:w-[70px] [@media(max-height:520px)]:h-[88px] rounded-lg overflow-hidden border-[3px] animate-summon-in ${RARITY_COLOR[rarity]} ${RARITY_GLOW[rarity]} transition-all ${
+            className={`relative w-[96px] h-[124px] sm:w-[116px] sm:h-[148px] lg:w-[140px] lg:h-[184px] [@media(max-height:720px)]:w-[116px] [@media(max-height:720px)]:h-[148px] [@media(max-height:520px)]:w-[70px] [@media(max-height:520px)]:h-[88px] rounded-lg overflow-hidden border-[3px] animate-summon-in ${RARITY_COLOR[rarity]} ${RARITY_GLOW[rarity]} transition-all ${
               selected ? 'ring-4 ring-amber-400 -translate-y-2 scale-105' : ''
             } ${targetable ? 'ring-4 ring-emerald-400 animate-pulse' : ''} ${
               dimmed ? 'opacity-30 grayscale' : 'hover:-translate-y-1'

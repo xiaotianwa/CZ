@@ -6,6 +6,7 @@ import {
   CharacterIcon, ItemIcon, EquipmentIcon, EffectIcon, EventIcon,
   ManaIcon, AttackIcon, HealthIcon,
 } from './GameIcons';
+import CardBack from './CardBack';
 
 // ============ 类型定义 ============
 
@@ -42,6 +43,8 @@ export interface CardFrameProps {
   onClick?: () => void;
   /** 是否选中态（高亮描边） */
   selected?: boolean;
+  faceDown?: boolean;
+  flipDurationMs?: number;
 }
 
 // ============ 常量配置 ============
@@ -115,6 +118,8 @@ export default function CardFrame({
   interactive = true,
   onClick,
   selected = false,
+  faceDown = false,
+  flipDurationMs = 600,
 }: CardFrameProps) {
   const typeMeta = TYPE_META[type];
   const subLabel = subtype ? SUBTYPE_LABEL[subtype] : null;
@@ -124,13 +129,40 @@ export default function CardFrame({
   return (
     <div
       onClick={onClick}
-      style={{ width, height }}
+      style={{ width, height, perspective: '1000px' }}
       className={[
         'relative select-none',
         interactive ? 'transition-transform duration-300 hover:-translate-y-2 hover:scale-[1.03]' : '',
         onClick ? 'cursor-pointer' : '',
       ].join(' ')}
     >
+      <div
+        className="relative w-full h-full"
+        style={{
+          transformStyle: 'preserve-3d',
+          transition: `transform ${flipDurationMs}ms cubic-bezier(0.4, 0, 0.2, 1)`,
+          transform: faceDown ? 'rotateY(180deg)' : 'rotateY(0deg)',
+        }}
+      >
+      <div
+        className="absolute inset-0"
+        style={{
+          backfaceVisibility: 'hidden',
+          WebkitBackfaceVisibility: 'hidden',
+          transform: 'rotateY(180deg)',
+        }}
+        aria-hidden={!faceDown}
+      >
+        <CardBack width={width} rarity={rarity} variant="default" interactive={false} />
+      </div>
+      <div
+        className="absolute inset-0"
+        style={{
+          backfaceVisibility: 'hidden',
+          WebkitBackfaceVisibility: 'hidden',
+        }}
+        aria-hidden={faceDown}
+      >
       {/* 外发光 + 渐变边框 */}
       <div
         className={[
@@ -273,7 +305,7 @@ export default function CardFrame({
             )}
 
             {/* 1103 Logo 水印（右下） */}
-            <div className="absolute bottom-1 right-10 text-[9px] font-black tracking-widest text-white/40 pointer-events-none">
+            <div className="font-waterbrush absolute bottom-1 right-10 text-[9px] tracking-widest text-white/40 pointer-events-none">
               1103
             </div>
           </div>
@@ -285,6 +317,8 @@ export default function CardFrame({
             </div>
           )}
         </div>
+      </div>
+      </div>
       </div>
 
       {/* 扫光动画 keyframes（局部注入，避免污染全局） */}

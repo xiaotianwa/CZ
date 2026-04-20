@@ -181,14 +181,12 @@ export default function FanWorksPage() {
         <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900" />
         <div className="absolute inset-0 flex items-center justify-center gap-4 sm:gap-6 select-none pointer-events-none">
           <span
-            className="text-[56px] sm:text-[80px] leading-none font-bold text-white/10"
-            style={{ fontFamily: "'Blazed', sans-serif" }}
+            className="font-waterbrush text-[56px] sm:text-[80px] leading-none text-white/10"
           >
             1103
           </span>
           <span
-            className="text-[28px] sm:text-[40px] leading-none text-primary/50 tracking-[0.15em]"
-            style={{ fontFamily: "'Blazed', sans-serif" }}
+            className="font-waterbrush text-[28px] sm:text-[40px] leading-none text-primary/50 tracking-[0.15em]"
           >
             ChenZe
           </span>
