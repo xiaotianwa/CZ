@@ -4,17 +4,11 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Users, FileText, MessageSquare, Calendar, Image, Gamepad2,
-  FolderOpen, TrendingUp, AlertCircle, Clock, Plus, Upload,
-  ArrowRight, UserPlus, MessageSquarePlus, Activity,
+  FolderOpen, TrendingUp, AlertCircle, Plus, Upload, Eye,
+  ArrowRight, UserPlus, MessageSquarePlus, ArrowUpRight, ArrowDownRight,
+  BarChart3, Activity,
 } from 'lucide-react';
 import { adminGet } from '@/lib/admin-fetch';
-
-interface RecentPost {
-  id: string;
-  content: string;
-  createdAt: string;
-  author: { name: string };
-}
 
 interface RecentFeedback {
   id: string;
@@ -23,6 +17,14 @@ interface RecentFeedback {
   status: string;
   createdAt: string;
   user: { name: string } | null;
+}
+
+interface TrendData {
+  dates: string[];
+  users: number[];
+  posts: number[];
+  comments: number[];
+  views: number[];
 }
 
 interface Stats {
@@ -39,7 +41,10 @@ interface Stats {
   todayPosts: number;
   todayUsers: number;
   todayComments: number;
-  recentPosts: RecentPost[];
+  todayViews: number;
+  totalViews30d: number;
+  activeUsers: number;
+  trend: TrendData;
   recentFeedbacks: RecentFeedback[];
 }
 
@@ -66,6 +71,41 @@ const feedbackStatusMap: Record<string, { label: string; cls: string }> = {
   resolved: { label: '已解决', cls: 'bg-green-50 text-success' },
 };
 
+/** 迷你柱状图（纯 CSS） */
+function MiniBarChart({ data, color }: { data: number[]; color: string }) {
+  const max = Math.max(...data, 1);
+  return (
+    <div className="flex items-end gap-[3px] h-10">
+      {data.map((v, i) => (
+        <div
+          key={i}
+          className={`w-[6px] rounded-sm ${color} transition-all duration-300`}
+          style={{ height: `${Math.max((v / max) * 100, 4)}%` }}
+          title={`${v}`}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** 增长指标 */
+function GrowthBadge({ current, previous }: { current: number; previous: number }) {
+  if (previous === 0 && current === 0) return <span className="text-caption text-text-muted">—</span>;
+  if (previous === 0) return (
+    <span className="inline-flex items-center gap-0.5 text-caption text-success">
+      <ArrowUpRight className="w-3 h-3" /> 新增
+    </span>
+  );
+  const pct = Math.round(((current - previous) / previous) * 100);
+  const isUp = pct >= 0;
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-caption ${isUp ? 'text-success' : 'text-danger'}`}>
+      {isUp ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+      {Math.abs(pct)}%
+    </span>
+  );
+}
+
 export default function AdminDashboard() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [error, setError] = useState('');
@@ -84,6 +124,12 @@ export default function AdminDashboard() {
     year: 'numeric', month: 'long', day: 'numeric', weekday: 'long',
   });
 
+  // 计算7天的总和与前半/后半比较
+  const trend = stats?.trend;
+  const sum = (arr: number[] | undefined) => arr?.reduce((a, b) => a + b, 0) ?? 0;
+  const recent3 = (arr: number[] | undefined) => arr?.slice(-3).reduce((a, b) => a + b, 0) ?? 0;
+  const prev3 = (arr: number[] | undefined) => arr?.slice(0, 3).reduce((a, b) => a + b, 0) ?? 0;
+
   return (
     <div className="space-y-6">
       {/* ====== 今日概览横幅 ====== */}
@@ -99,6 +145,7 @@ export default function AdminDashboard() {
                 { icon: UserPlus, label: '新用户', value: stats?.todayUsers },
                 { icon: TrendingUp, label: '新帖子', value: stats?.todayPosts },
                 { icon: MessageSquare, label: '新评论', value: stats?.todayComments },
+                { icon: Eye, label: '今日访问', value: stats?.todayViews },
               ].map((item) => (
                 <div key={item.label} className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-full bg-primary-bg flex items-center justify-center">
@@ -151,14 +198,45 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      {/* ====== 内容数据 ====== */}
-      <div className="grid grid-cols-3 lg:grid-cols-5 gap-3">
+      {/* ====== 增长趋势（7天） ====== */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        {[
+          { label: '用户增长', trendKey: 'users' as const, icon: UserPlus, barColor: 'bg-primary', total: sum(trend?.users), todayVal: stats?.todayUsers ?? 0 },
+          { label: '帖子增长', trendKey: 'posts' as const, icon: FileText, barColor: 'bg-success', total: sum(trend?.posts), todayVal: stats?.todayPosts ?? 0 },
+          { label: '评论增长', trendKey: 'comments' as const, icon: MessageSquare, barColor: 'bg-warning', total: sum(trend?.comments), todayVal: stats?.todayComments ?? 0 },
+          { label: '网站访问', trendKey: 'views' as const, icon: Eye, barColor: 'bg-purple-500', total: sum(trend?.views), todayVal: stats?.todayViews ?? 0 },
+        ].map((item) => {
+          const data = trend?.[item.trendKey] ?? [];
+          return (
+            <div key={item.trendKey} className="card">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-1.5">
+                  <item.icon className="w-4 h-4 text-text-muted" />
+                  <span className="text-caption text-text-muted">{item.label}</span>
+                </div>
+                <GrowthBadge current={recent3(trend?.[item.trendKey])} previous={prev3(trend?.[item.trendKey])} />
+              </div>
+              <div className="flex items-end justify-between gap-3">
+                <div>
+                  <p className="text-heading-sm text-text-title">{item.total}</p>
+                  <p className="text-caption text-text-muted">近7天</p>
+                </div>
+                <MiniBarChart data={data} color={item.barColor} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ====== 内容数据 + 活跃数据 ====== */}
+      <div className="grid grid-cols-3 lg:grid-cols-6 gap-3">
         {[
           { key: 'events', label: '活动', icon: Calendar, color: 'text-primary' },
           { key: 'albums', label: '相册', icon: Image, color: 'text-success' },
           { key: 'photos', label: '照片', icon: Image, color: 'text-warning' },
           { key: 'games', label: '游戏', icon: Gamepad2, color: 'text-danger' },
           { key: 'media', label: '媒体', icon: FolderOpen, color: 'text-primary' },
+          { key: 'activeUsers', label: '活跃用户', icon: Activity, color: 'text-purple-500' },
         ].map((card) => (
           <div key={card.key} className="bg-white rounded-card px-4 py-3 border border-divider flex items-center gap-2.5">
             <card.icon className={`w-4 h-4 ${card.color} flex-shrink-0`} />
@@ -170,38 +248,45 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      {/* ====== 最近内容 + 快速操作 ====== */}
+      {/* ====== 访问量统计 + 快速操作 ====== */}
       <div className="grid lg:grid-cols-3 gap-4">
-        {/* 最近帖子 */}
+        {/* 访问量详情 */}
         <div className="lg:col-span-2 card">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-4">
             <h3 className="text-body font-semibold text-text-title flex items-center gap-1.5">
-              <Activity className="w-4 h-4 text-primary" />
-              最近帖子
+              <BarChart3 className="w-4 h-4 text-primary" />
+              7日访问趋势
             </h3>
-            <Link href="/admin/posts" className="text-caption text-primary hover:text-primary-hover transition-colors">
-              查看全部 →
-            </Link>
+            <div className="flex items-center gap-3 text-caption text-text-muted">
+              <span>30天总访问: <strong className="text-text-title">{stats?.totalViews30d?.toLocaleString() ?? '—'}</strong></span>
+            </div>
           </div>
           {!stats ? (
             <div className="py-8 text-center text-text-muted text-caption">加载中...</div>
-          ) : stats.recentPosts.length === 0 ? (
-            <div className="py-8 text-center text-text-muted text-caption">暂无帖子</div>
           ) : (
-            <div className="space-y-0 divide-y divide-divider">
-              {stats.recentPosts.map((post) => (
-                <div key={post.id} className="py-2.5 first:pt-0 last:pb-0 flex items-start gap-3">
-                  <div className="w-7 h-7 rounded-full bg-primary-bg flex items-center justify-center text-primary text-caption font-bold flex-shrink-0 mt-0.5">
-                    {post.author.name[0]}
+            <div className="space-y-1">
+              {trend?.dates.map((date, i) => {
+                const views = trend.views[i];
+                const maxView = Math.max(...trend.views, 1);
+                const pct = (views / maxView) * 100;
+                const weekday = new Date(date).toLocaleDateString('zh-CN', { weekday: 'short' });
+                return (
+                  <div key={date} className="flex items-center gap-3 py-1.5">
+                    <span className="text-caption text-text-muted w-20 flex-shrink-0">
+                      {date.slice(5)} {weekday}
+                    </span>
+                    <div className="flex-1 bg-gray-100 rounded-full h-5 overflow-hidden">
+                      <div
+                        className="bg-primary/70 h-full rounded-full transition-all duration-500 flex items-center justify-end pr-2"
+                        style={{ width: `${Math.max(pct, 2)}%` }}
+                      >
+                        {pct > 15 && <span className="text-[10px] text-white font-medium">{views}</span>}
+                      </div>
+                    </div>
+                    {pct <= 15 && <span className="text-caption text-text-muted w-8">{views}</span>}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-body text-text-body truncate">{post.content}</p>
-                    <p className="text-caption text-text-muted mt-0.5">
-                      {post.author.name} · {timeAgo(post.createdAt)}
-                    </p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -233,65 +318,39 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* ====== 最近反馈 + 系统信息 ====== */}
-      <div className="grid lg:grid-cols-2 gap-4">
-        {/* 最近反馈 */}
-        <div className="card">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-body font-semibold text-text-title flex items-center gap-1.5">
-              <MessageSquarePlus className="w-4 h-4 text-warning" />
-              最近反馈
-            </h3>
-            <Link href="/admin/feedback" className="text-caption text-primary hover:text-primary-hover transition-colors">
-              查看全部 →
-            </Link>
-          </div>
-          {!stats ? (
-            <div className="py-6 text-center text-text-muted text-caption">加载中...</div>
-          ) : stats.recentFeedbacks.length === 0 ? (
-            <div className="py-6 text-center text-text-muted text-caption">暂无反馈</div>
-          ) : (
-            <div className="space-y-0 divide-y divide-divider">
-              {stats.recentFeedbacks.map((fb) => {
-                const st = feedbackStatusMap[fb.status] || feedbackStatusMap.pending;
-                return (
-                  <div key={fb.id} className="py-2.5 first:pt-0 last:pb-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className={`tag text-caption !h-5 ${st.cls}`}>{st.label}</span>
-                      <span className="tag-muted text-caption !h-5">{feedbackTypeMap[fb.type] || fb.type}</span>
-                      <span className="text-caption text-text-muted ml-auto">{timeAgo(fb.createdAt)}</span>
-                    </div>
-                    <p className="text-body text-text-body truncate">{fb.content}</p>
-                    {fb.user && <p className="text-caption text-text-muted mt-0.5">{fb.user.name}</p>}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* 系统信息 */}
-        <div className="card">
-          <h3 className="text-body font-semibold text-text-title mb-3 flex items-center gap-1.5">
-            <Clock className="w-4 h-4 text-text-muted" />
-            系统信息
+      {/* ====== 最近反馈 ====== */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-body font-semibold text-text-title flex items-center gap-1.5">
+            <MessageSquarePlus className="w-4 h-4 text-warning" />
+            最近反馈
           </h3>
-          <div className="space-y-2.5 text-body">
-            {[
-              { label: '框架', value: 'Next.js 14 + Prisma' },
-              { label: '数据库', value: 'SQLite (可迁移)' },
-              { label: '存储', value: '腾讯云 COS' },
-              { label: '今日新用户', value: stats?.todayUsers ?? '—' },
-              { label: '今日新评论', value: stats?.todayComments ?? '—' },
-              { label: '待处理反馈', value: stats?.pendingFeedbacks ?? '—' },
-            ].map((row) => (
-              <div key={row.label} className="flex justify-between items-center">
-                <span className="text-text-muted">{row.label}</span>
-                <span className="text-text-body font-medium">{row.value}</span>
-              </div>
-            ))}
-          </div>
+          <Link href="/admin/feedback" className="text-caption text-primary hover:text-primary-hover transition-colors">
+            查看全部 →
+          </Link>
         </div>
+        {!stats ? (
+          <div className="py-6 text-center text-text-muted text-caption">加载中...</div>
+        ) : stats.recentFeedbacks.length === 0 ? (
+          <div className="py-6 text-center text-text-muted text-caption">暂无反馈</div>
+        ) : (
+          <div className="space-y-0 divide-y divide-divider">
+            {stats.recentFeedbacks.map((fb) => {
+              const st = feedbackStatusMap[fb.status] || feedbackStatusMap.pending;
+              return (
+                <div key={fb.id} className="py-2.5 first:pt-0 last:pb-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className={`tag text-caption !h-5 ${st.cls}`}>{st.label}</span>
+                    <span className="tag-muted text-caption !h-5">{feedbackTypeMap[fb.type] || fb.type}</span>
+                    <span className="text-caption text-text-muted ml-auto">{timeAgo(fb.createdAt)}</span>
+                  </div>
+                  <p className="text-body text-text-body truncate">{fb.content}</p>
+                  {fb.user && <p className="text-caption text-text-muted mt-0.5">{fb.user.name}</p>}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

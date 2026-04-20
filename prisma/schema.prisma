@@ -492,6 +492,21 @@ model Feedback {
   @@index([createdAt])
 }
 
+// ==================== 页面访问统计 ====================
+
+model PageView {
+  id        String   @id @default(cuid())
+  path      String   // 访问路径
+  ip        String?
+  ua        String?  // User-Agent
+  referrer  String?
+  date      String   // YYYY-MM-DD 用于按天聚合
+  createdAt DateTime @default(now())
+
+  @@index([date])
+  @@index([path, date])
+}
+
 // ==================== 收藏系统 ====================
 
 model Bookmark {

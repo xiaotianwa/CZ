@@ -5,6 +5,7 @@ import MusicPlayer from '@/components/MusicPlayer';
 import SplashScreen from '@/components/SplashScreen';
 import MobileUXEnhancer from '@/components/MobileUXEnhancer';
 import ToastProvider from '@/components/ToastProvider';
+import PageViewTracker from '@/components/PageViewTracker';
 import { getSiteConfig } from '@/lib/site-data';
 
 export const dynamic = 'force-dynamic';
@@ -58,6 +59,7 @@ export default async function MainLayout({
       <AnnouncementPopup />
       <MusicPlayer />
       <SplashScreen />
+      <PageViewTracker />
     </ToastProvider>
   );
 }
