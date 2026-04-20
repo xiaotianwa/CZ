@@ -3,8 +3,8 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { hashPassword } from '@/lib/auth';
 import { ok, fail, handleError } from '@/lib/api';
-import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
-import { getCache, invalidateCache } from '@/lib/cache';
+import { checkRateLimit } from '@/lib/rate-limit';
+import { consumeVerificationCode, getRequestMeta, recordSecurityEvent } from '@/lib/registration-security';
 
 const schema = z.object({
   email: z.string().email('邮箱格式不正确'),
@@ -14,7 +14,7 @@ const schema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = getClientIp(req);
+    const { ip, uaHash } = getRequestMeta(req);
     const wait = checkRateLimit(ip, { namespace: 'reset-pwd', windowMs: 60_000, max: 5 });
     if (wait !== null) {
       return fail(`操作过于频繁，请 ${wait} 秒后再试`, 429);
@@ -27,14 +27,22 @@ export async function POST(req: NextRequest) {
     }
 
     const { email, code, password } = parsed.data;
-
-    // 验证验证码（使用类型隔离的 key）
-    const cacheKey = `verify-code:reset:${email}`;
-    const savedCode = getCache<string>(cacheKey);
-    if (!savedCode || savedCode !== code) {
-      return fail('验证码错误或已过期');
+    const codeResult = await consumeVerificationCode(prisma as any, {
+      email,
+      scene: 'reset',
+      code,
+    });
+    if (!codeResult.ok) {
+      await recordSecurityEvent(prisma as any, {
+        eventType: 'reset_password',
+        result: 'reject',
+        reason: 'invalid_code',
+        email,
+        ip,
+        uaHash,
+      }).catch(() => {});
+      return fail(codeResult.reason);
     }
-    invalidateCache(cacheKey);
 
     // 检查用户是否存在
     const user = await prisma.user.findUnique({ where: { email } });
@@ -48,6 +56,15 @@ export async function POST(req: NextRequest) {
       where: { email },
       data: { password: hashed },
     });
+
+    await recordSecurityEvent(prisma as any, {
+      eventType: 'reset_password',
+      result: 'success',
+      email,
+      userId: user.id,
+      ip,
+      uaHash,
+    }).catch(() => {});
 
     return ok(null, '密码重置成功，请重新登录');
   } catch (err) {

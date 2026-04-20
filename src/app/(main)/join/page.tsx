@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { UserPlus, CheckCircle, ArrowRight, XCircle, HelpCircle, Mail, Lock, Eye, EyeOff, Send } from 'lucide-react';
+import { UserPlus, CheckCircle, ArrowRight, XCircle, HelpCircle, Mail, Lock, Eye, EyeOff, Send, Loader2 } from 'lucide-react';
 
 function formatNum(num: number): string {
   if (num >= 10000) return (num / 10000).toFixed(1) + '万';
@@ -14,7 +14,6 @@ interface QuizQuestion {
   id: string;
   question: string;
   options: string[];
-  answer: number;
 }
 
 type Step = 'quiz' | 'register' | 'done';
@@ -36,9 +35,11 @@ export default function JoinPage() {
   const [quizLoading, setQuizLoading] = useState(true);
   const [currentQ, setCurrentQ] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
-  const [correct, setCorrect] = useState(0);
-  const [showResult, setShowResult] = useState(false);
+  const [quizAnswers, setQuizAnswers] = useState<{ questionId: string; answer: number }[]>([]);
+  const [verifyingQuiz, setVerifyingQuiz] = useState(false);
+  const [quizToken, setQuizToken] = useState('');
   const [quizFailed, setQuizFailed] = useState(false);
+  const [quizError, setQuizError] = useState('');
 
   const fetchQuiz = () => {
     setQuizLoading(true);
@@ -70,25 +71,43 @@ export default function JoinPage() {
   const totalQ = questions.length;
 
   const handleSelect = (idx: number) => {
-    if (showResult) return;
     setSelected(idx);
-    setShowResult(true);
-    if (idx === q.answer) {
-      setCorrect((c) => c + 1);
-    } else {
-      // Wrong answer = instant fail
-      setTimeout(() => setQuizFailed(true), 800);
-    }
+    setQuizError('');
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
+    if (selected === null || !q || verifyingQuiz) return;
+    const nextAnswers = [
+      ...quizAnswers.filter((item) => item.questionId !== q.id),
+      { questionId: q.id, answer: selected },
+    ];
+    setQuizAnswers(nextAnswers);
+
     if (currentQ < totalQ - 1) {
       setCurrentQ((c) => c + 1);
       setSelected(null);
-      setShowResult(false);
     } else {
-      // All answered correctly
-      setStep('register');
+      setVerifyingQuiz(true);
+      setQuizError('');
+      try {
+        const res = await fetch('/api/public/quiz/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ answers: nextAnswers }),
+        });
+        const json = await res.json();
+        if (json.code !== 0 || !json.data?.token) {
+          setQuizFailed(true);
+          setQuizError(json.message || '答题未通过，请重新答题');
+          return;
+        }
+        setQuizToken(json.data.token);
+        setStep('register');
+      } catch {
+        setQuizError('验证失败，请稍后重试');
+      } finally {
+        setVerifyingQuiz(false);
+      }
     }
   };
 
@@ -96,9 +115,11 @@ export default function JoinPage() {
     fetchQuiz();
     setCurrentQ(0);
     setSelected(null);
-    setShowResult(false);
-    setCorrect(0);
+    setQuizAnswers([]);
+    setQuizToken('');
     setQuizFailed(false);
+    setQuizError('');
+    setVerifyingQuiz(false);
   };
 
   const getPasswordStrength = (pwd: string): { level: number; label: string; color: string } => {
@@ -117,7 +138,7 @@ export default function JoinPage() {
 
   const pwdStrength = getPasswordStrength(password);
   const pwdMatch = confirmPwd && password === confirmPwd;
-  const canSubmit = nickname.trim() && email.trim() && verifyCode.trim() && password.length >= 6 && password === confirmPwd;
+  const canSubmit = nickname.trim() && email.trim() && verifyCode.trim() && password.length >= 6 && password === confirmPwd && quizToken;
 
   const handleSendCode = async () => {
     if (!email.trim() || countdown > 0) return;
@@ -126,7 +147,7 @@ export default function JoinPage() {
       const res = await fetch('/api/public/send-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), type: 'register' }),
+        body: JSON.stringify({ email: email.trim(), type: 'register', quizToken }),
       });
       const json = await res.json();
       if (json.code !== 0) {
@@ -159,6 +180,7 @@ export default function JoinPage() {
           email: email.trim(),
           password,
           code: verifyCode.trim(),
+          quizToken,
         }),
       });
       const json = await res.json();
@@ -274,7 +296,7 @@ export default function JoinPage() {
               <div className="w-full h-1.5 bg-gray-100 dark:bg-[#28282c] rounded-full mb-6">
                 <div
                   className="h-full bg-primary rounded-full transition-all duration-300"
-                  style={{ width: `${((currentQ + (showResult ? 1 : 0)) / totalQ) * 100}%` }}
+                  style={{ width: `${(((currentQ + 1) / Math.max(totalQ, 1)) * 100)}%` }}
                 />
               </div>
 
@@ -283,17 +305,7 @@ export default function JoinPage() {
               <div className="space-y-2.5">
                 {q.options.map((opt, idx) => {
                   let optClass = 'bg-white dark:bg-[#1e1e22] border border-divider text-text-body hover:border-primary hover:text-primary';
-                  if (showResult) {
-                    if (selected === q.answer && idx === q.answer) {
-                      // 答对时：高亮正确选项
-                      optClass = 'bg-green-50 dark:bg-green-900/20 border-2 border-success text-success';
-                    } else if (idx === selected && selected !== q.answer) {
-                      // 答错时：只标红用户选的错误选项，不显示正确答案
-                      optClass = 'bg-red-50 dark:bg-red-900/20 border-2 border-danger text-danger';
-                    } else {
-                      optClass = 'bg-white dark:bg-[#1e1e22] border border-divider text-text-muted opacity-50';
-                    }
-                  } else if (idx === selected) {
+                  if (idx === selected) {
                     optClass = 'bg-primary/10 border-2 border-primary text-primary';
                   }
 
@@ -301,7 +313,7 @@ export default function JoinPage() {
                     <button
                       key={idx}
                       onClick={() => handleSelect(idx)}
-                      disabled={showResult}
+                      disabled={verifyingQuiz}
                       className={`w-full text-left px-4 py-3 rounded-card text-body font-medium transition-all duration-150 cursor-pointer disabled:cursor-default ${optClass}`}
                     >
                       <span className="inline-flex items-center gap-3">
@@ -315,25 +327,24 @@ export default function JoinPage() {
                 })}
               </div>
 
-              {showResult && selected === q.answer && (
-                <div className="mt-6 flex items-center justify-between">
-                  <span className="text-caption font-medium text-success">回答正确</span>
-                  <button onClick={handleNext} className="btn-primary h-9 px-5 text-sm">
-                    {currentQ < totalQ - 1 ? '下一题' : '完成验证'}
-                  </button>
-                </div>
-              )}
+              <div className="mt-6 flex items-center justify-between gap-3">
+                <span className="text-caption text-text-muted">
+                  选择答案后继续，最终由系统统一验证
+                </span>
+                <button onClick={handleNext} disabled={selected === null || verifyingQuiz} className="btn-primary h-9 px-5 text-sm disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-1.5">
+                  {verifyingQuiz ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                  {currentQ < totalQ - 1 ? '下一题' : verifyingQuiz ? '验证中...' : '完成验证'}
+                </button>
+              </div>
 
-              {showResult && selected !== q.answer && !quizFailed && (
-                <div className="mt-6">
-                  <span className="text-caption font-medium text-danger">回答错误，即将重新开始...</span>
-                </div>
+              {quizError && !quizFailed && (
+                <div className="mt-3 text-caption text-danger">{quizError}</div>
               )}
 
               <div className="mt-6 pt-4 border-t border-divider">
                 <p className="text-caption text-text-muted text-center">
                   必须全部答对才能通过验证
-                  <span className="ml-2">当前: {correct}/{currentQ + (showResult ? 1 : 0)}</span>
+                  <span className="ml-2">当前: {Math.min(quizAnswers.length + (selected !== null ? 1 : 0), totalQ)}/{totalQ}</span>
                 </p>
               </div>
             </div>
@@ -348,10 +359,10 @@ export default function JoinPage() {
               </div>
               <h2 className="text-heading text-text-title mt-5">你根本就不是泽小将</h2>
               <p className="text-body text-text-muted mt-2">
-                你答对了 {correct}/{totalQ} 题，需要全部正确才能通过
+                本轮答题未通过，需要全部正确才能通过
               </p>
               <p className="text-caption text-text-muted mt-1">
-                先去了解一下泽哥再来吧
+                {quizError || '先去了解一下泽哥再来吧'}
               </p>
               <div className="flex flex-col gap-3 mt-8">
                 <button onClick={handleRetry} className="btn-primary h-11 text-base">

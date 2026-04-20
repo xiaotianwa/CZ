@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
 
     const all = await prisma.quizQuestion.findMany({
       where: { isActive: true },
-      select: { id: true, question: true, options: true, answer: true },
+      select: { id: true, question: true, options: true },
     });
 
     // 随机打乱后取 count 个
@@ -19,7 +19,6 @@ export async function GET(req: NextRequest) {
       id: q.id,
       question: q.question,
       options: JSON.parse(q.options),
-      answer: q.answer,
     }));
 
     return ok(questions);
