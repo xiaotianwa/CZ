@@ -392,20 +392,21 @@ export default function PostDetailPage() {
           {videoUrls.length === 0 && imageUrls.length > 0 && (
             <div className={`mt-4 grid gap-2 ${imageUrls.length === 1 ? 'grid-cols-1' : imageUrls.length <= 4 ? 'grid-cols-2' : 'grid-cols-3'}`}>
               {imageUrls.map((url, i) => (
-                <div
+                <button
+                  type="button"
                   key={i}
                   className="relative aspect-square rounded-btn overflow-hidden bg-gray-100 dark:bg-[#28282c] cursor-pointer"
-                  onClick={() => setLightbox(i)}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setLightbox(i); }}
                 >
                   <SafeImage
                     src={url}
                     alt={`帖子图片 ${i + 1}`}
                     fill
-                    className="object-cover"
+                    className="object-cover pointer-events-none"
                     loading="lazy"
                     sizes="(max-width: 768px) 50vw, 33vw"
                   />
-                </div>
+                </button>
               ))}
             </div>
           )}

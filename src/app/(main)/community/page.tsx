@@ -1082,6 +1082,8 @@ export default function CommunityPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(true);
   const [loginModal, setLoginModal] = useState(false);
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const [lightboxImages, setLightboxImages] = useState<string[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
   const PAGE_SIZE = 20;
 
   const showToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
@@ -1234,6 +1236,73 @@ export default function CommunityPage() {
 
   return (
     <>
+      {/* 图片查看器 */}
+      {lightboxImages.length > 0 && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/45 backdrop-blur-sm flex items-center justify-center p-6"
+          onClick={() => setLightboxImages([])}
+        >
+          <div
+            className="relative bg-white dark:bg-[#1e1e22] rounded-2xl shadow-2xl overflow-hidden max-w-2xl w-full animate-fade-in-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* 关闭按钮 */}
+            <button
+              onClick={() => setLightboxImages([])}
+              className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/30 hover:bg-black/50 text-white flex items-center justify-center transition-colors cursor-pointer z-10"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            {/* 左右切换 */}
+            {lightboxImages.length > 1 && lightboxIndex > 0 && (
+              <button
+                onClick={() => setLightboxIndex((i) => i - 1)}
+                className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/30 hover:bg-black/50 text-white flex items-center justify-center transition-colors cursor-pointer z-10"
+              >
+                <span className="text-lg leading-none">‹</span>
+              </button>
+            )}
+            {lightboxImages.length > 1 && lightboxIndex < lightboxImages.length - 1 && (
+              <button
+                onClick={() => setLightboxIndex((i) => i + 1)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/30 hover:bg-black/50 text-white flex items-center justify-center transition-colors cursor-pointer z-10"
+              >
+                <span className="text-lg leading-none">›</span>
+              </button>
+            )}
+
+            {/* 图片 */}
+            <div className="flex items-center justify-center bg-gray-50 dark:bg-[#28282c]">
+              <Image
+                src={lightboxImages[lightboxIndex]}
+                alt=""
+                width={800}
+                height={600}
+                className="object-contain max-h-[70vh] w-auto"
+                quality={90}
+              />
+            </div>
+
+            {/* 底部指示器 */}
+            {lightboxImages.length > 1 && (
+              <div className="flex items-center justify-center gap-1.5 py-3">
+                {lightboxImages.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setLightboxIndex(i)}
+                    className={`w-1.5 h-1.5 rounded-full transition-all cursor-pointer ${
+                      i === lightboxIndex ? 'bg-primary w-4' : 'bg-gray-300 dark:bg-gray-600 hover:bg-gray-400'
+                    }`}
+                  />
+                ))}
+                <span className="ml-2 text-caption text-text-muted">{lightboxIndex + 1}/{lightboxImages.length}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <Toast open={toast.open} message={toast.message} type={toast.type} onClose={() => setToast((t) => ({ ...t, open: false }))} />
       <LoginRequiredModal open={loginModal} redirectTo="/community" onCancel={() => setLoginModal(false)} />
 
@@ -1472,9 +1541,14 @@ export default function CommunityPage() {
                       {images.length > 0 && (
                         <div className={`mt-4 grid gap-2 ${images.length === 1 ? 'grid-cols-1 max-w-2xl' : 'grid-cols-2'}`}>
                           {images.map((img, idx) => (
-                            <div key={idx} className="relative rounded-xl overflow-hidden aspect-video bg-gray-100 cursor-pointer">
-                              <Image src={img} alt="" fill className="object-cover transition-transform duration-200 group-hover:scale-[1.01]" />
-                            </div>
+                            <button
+                              type="button"
+                              key={idx}
+                              className="relative rounded-xl overflow-hidden aspect-video bg-gray-100 cursor-pointer hover:ring-2 hover:ring-primary/30 transition-all"
+                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setLightboxImages(images); setLightboxIndex(idx); }}
+                            >
+                              <Image src={img} alt="" fill className="object-cover pointer-events-none transition-transform duration-200 group-hover:scale-105" />
+                            </button>
                           ))}
                         </div>
                       )}

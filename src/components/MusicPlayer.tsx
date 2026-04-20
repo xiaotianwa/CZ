@@ -12,6 +12,17 @@ interface Track {
   duration?: number | null;
 }
 
+/** 将 COS 直链转为服务端代理 URL，绕过浏览器 CORS/PNA 限制 */
+function proxyUrl(src: string): string {
+  try {
+    const u = new URL(src);
+    if (u.hostname.endsWith('.myqcloud.com')) {
+      return `/api/media-proxy?url=${encodeURIComponent(src)}`;
+    }
+  } catch {}
+  return src;
+}
+
 export default function MusicPlayer() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [playlist, setPlaylist] = useState<Track[]>([]);
@@ -58,7 +69,7 @@ export default function MusicPlayer() {
       setAutoPlayPending(false);
       setCurrentIndex(0);
       setIsPlaying(true);
-      audioRef.current.src = playlist[0].src;
+      audioRef.current.src = proxyUrl(playlist[0].src);
       audioRef.current.play()
         .then(() => {
           // Notify SplashScreen that music is now playing
@@ -142,7 +153,7 @@ export default function MusicPlayer() {
 
   return (
     <>
-      <audio ref={audioRef} src={track?.src} muted={muted} preload="metadata" />
+      <audio ref={audioRef} src={track ? proxyUrl(track.src) : undefined} muted={muted} preload="metadata" />
 
       <div className="fixed left-3 sm:left-4 md:left-6 bottom-[calc(68px+env(safe-area-inset-bottom))] md:bottom-6 z-50 select-none">
         {/* Expanded Panel */}
