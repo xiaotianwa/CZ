@@ -17,6 +17,7 @@ interface EventItem {
   location: string;
   status: string;
   participants: number;
+  isActive: boolean;
 }
 
 interface PaginatedResponse {
@@ -24,7 +25,7 @@ interface PaginatedResponse {
   pagination: { total: number; page: number; pageSize: number; totalPages: number };
 }
 
-const defaultForm = { title: '', description: '', cover: '', startTime: '', endTime: '', location: '', status: 'upcoming' as string, participants: 0 };
+const defaultForm = { title: '', description: '', cover: '', startTime: '', endTime: '', location: '', status: 'upcoming' as string, participants: 0, isActive: true };
 
 export default function AdminEventsPage() {
   const [data, setData] = useState<PaginatedResponse | null>(null);
@@ -62,6 +63,7 @@ export default function AdminEventsPage() {
       location: item.location,
       status: item.status,
       participants: item.participants,
+      isActive: item.isActive,
     });
     setEditing(item);
     setShowForm(true);
@@ -158,6 +160,17 @@ export default function AdminEventsPage() {
                       <option value="ongoing">进行中</option>
                       <option value="ended">已结束</option>
                     </select>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.isActive}
+                        onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
+                        className="rounded"
+                      />
+                      <span className="text-caption text-text-body">显示</span>
+                    </label>
                   </div>
                 </div>
               </div>

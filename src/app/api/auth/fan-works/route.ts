@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { ok, fail, handleError } from '@/lib/api';
+import { moderateText, saveModerationLog } from '@/lib/content-moderation';
 
 const submitFanWorkSchema = z.object({
   title: z.string().min(1, '标题不能为空').max(100, '标题最多100字'),
@@ -32,6 +33,17 @@ export async function POST(req: NextRequest) {
     });
     if (!user || !user.isActive) return fail('用户不存在或已被禁用', 401);
 
+    // 文本审核（标题 + 描述）
+    const textToCheck = [data.title, data.description].filter(Boolean).join(' ');
+    const textMod = await moderateText(textToCheck);
+
+    // 确认违规 → 直接拒绝
+    if (!textMod.pass && !textMod.needsReview) {
+      return fail(`内容审核未通过：${textMod.detail || '内容违规'}，请修改后重新投稿`);
+    }
+
+    // 机审通过 → 直接上线；审核异常/待复核 → pending 待人工
+    const autoApproved = textMod.pass;
     const fanWork = await prisma.fanWork.create({
       data: {
         ...data,
@@ -39,12 +51,24 @@ export async function POST(req: NextRequest) {
         authorName: user.name,
         authorAvatar: user.avatar,
         userId: user.id,
-        status: 'pending',
-        isActive: false, // 待审核，不显示
+        status: autoApproved ? 'approved' : 'pending',
+        isActive: autoApproved,
       },
     });
 
-    return ok(fanWork, '投稿成功，等待管理员审核');
+    // 审核结果落库
+    saveModerationLog({
+      targetType: 'fan_work',
+      targetId: fanWork.id,
+      action: 'text_moderation',
+      result: textMod.pass ? 'pass' : (textMod.needsReview ? 'review' : 'block'),
+      label: textMod.label,
+      score: textMod.score,
+      detail: textMod.detail,
+    }).catch(() => {});
+
+    const message = autoApproved ? '投稿成功，作品已发布' : '投稿成功，内容待审核后将公开展示';
+    return ok(fanWork, message);
   } catch (err) {
     return handleError(err);
   }

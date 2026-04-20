@@ -6,6 +6,7 @@ import { adminGet, adminPost, adminPut, adminDelete } from '@/lib/admin-fetch';
 import ConfirmDialog from '@/components/admin/ConfirmDialog';
 import Toast from '@/components/admin/Toast';
 import ImageUpload from '@/components/admin/ImageUpload';
+import VideoUpload from '@/components/admin/VideoUpload';
 
 interface MemeItem {
   id: string;
@@ -14,6 +15,7 @@ interface MemeItem {
   description: string;
   example: string | null;
   image: string | null;
+  video: string | null;
   tags: string;
   popularity: number;
   isActive: boolean;
@@ -27,7 +29,7 @@ interface PaginatedResponse {
 
 const defaultForm = {
   title: '', origin: '', description: '', example: '',
-  image: '', tags: [] as string[], popularity: 0,
+  image: '', video: '', tags: [] as string[], popularity: 0,
   isActive: true, sortOrder: 0,
 };
 
@@ -60,6 +62,7 @@ export default function AdminMemesPage() {
       description: item.description,
       example: item.example || '',
       image: item.image || '',
+      video: item.video || '',
       tags,
       popularity: item.popularity,
       isActive: item.isActive,
@@ -229,6 +232,11 @@ export default function AdminMemesPage() {
                     className="w-full p-3 rounded-lg border border-border bg-gray-50/50 text-body resize-none focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 focus:bg-white transition-colors"
                   />
                 </div>
+                <VideoUpload
+                  value={form.video}
+                  onChange={(url) => setForm({ ...form, video: url })}
+                  category="memes"
+                />
               </div>
 
               <div className="border-t border-border/40" />

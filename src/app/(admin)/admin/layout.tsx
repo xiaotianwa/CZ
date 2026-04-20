@@ -7,7 +7,7 @@ import {
   LayoutDashboard, FileText, Image, Calendar, Gamepad2,
   Clock, SlidersHorizontal, FolderOpen, Users, Settings,
   LogOut, Menu, X, ChevronRight, MessageSquarePlus, HelpCircle, Megaphone, Music, Flag, ShieldBan,
-  BookOpen, Palette,
+  BookOpen, Palette, Vote,
 } from 'lucide-react';
 
 interface SidebarLink {
@@ -37,6 +37,7 @@ const sidebarGroups: SidebarGroup[] = [
       { href: '/admin/games', label: '游戏管理', icon: Gamepad2 },
       { href: '/admin/memes', label: '梗百科', icon: BookOpen },
       { href: '/admin/fan-works', label: '二创作品', icon: Palette },
+      { href: '/admin/fan-work-votes', label: '二创投票', icon: Vote },
       { href: '/admin/timeline', label: '时间线', icon: Clock },
     ],
   },

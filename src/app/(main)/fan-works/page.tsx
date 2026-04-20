@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { Palette, Play, Image as ImageIcon, Star, ExternalLink, User, Plus, Upload, X, Clock, CheckCircle2, XCircle, Loader2, Link2 } from 'lucide-react';
+import { Palette, Play, Image as ImageIcon, Star, ExternalLink, User, Plus, Upload, X, Clock, CheckCircle2, XCircle, Loader2, Link2, Trophy, Vote, ChevronDown, ChevronUp } from 'lucide-react';
 import SafeImage from '@/components/SafeImage';
 
 interface FanWorkItem {
@@ -14,6 +14,7 @@ interface FanWorkItem {
   images: string;
   authorName: string;
   authorAvatar: string | null;
+  userId: string | null;
   source: string | null;
   sourceUrl: string | null;
   likes: number;
@@ -48,12 +49,48 @@ const STATUS_MAP: Record<string, { label: string; cls: string }> = {
   rejected: { label: '未通过', cls: 'text-danger bg-red-50 dark:bg-red-900/20' },
 };
 
+interface VotePeriod {
+  id: string;
+  title: string;
+  startAt: string;
+  endAt: string;
+}
+
+interface RankingItem {
+  fanWorkId: string;
+  title: string;
+  cover: string;
+  authorName: string;
+  type: string;
+  totalVotes: number;
+  score: number;
+  avgScore: number;
+  ratings: Record<string, number>;
+}
+
+const RATING_OPTIONS = [
+  { key: 'awesome', label: '夯爆了', emoji: '🔥', score: 5, color: 'bg-red-500 hover:bg-red-600' },
+  { key: 'good', label: '夯', emoji: '👍', score: 4, color: 'bg-orange-500 hover:bg-orange-600' },
+  { key: 'normal', label: '一般', emoji: '😐', score: 3, color: 'bg-gray-400 hover:bg-gray-500' },
+  { key: 'bad', label: '拉', emoji: '👎', score: 2, color: 'bg-blue-400 hover:bg-blue-500' },
+  { key: 'terrible', label: '拉爆了', emoji: '💩', score: 1, color: 'bg-purple-500 hover:bg-purple-600' },
+] as const;
+
+const RATING_LABEL: Record<string, string> = {
+  awesome: '🔥 夯爆了',
+  good: '👍 夯',
+  normal: '😐 一般',
+  bad: '👎 拉',
+  terrible: '💩 拉爆了',
+};
+
 export default function FanWorksPage() {
   const [works, setWorks] = useState<FanWorkItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeType, setActiveType] = useState('all');
   const [lightbox, setLightbox] = useState<{ workId: string; imageIndex: number } | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [showSubmit, setShowSubmit] = useState(false);
   const [showMyWorks, setShowMyWorks] = useState(false);
   const [myWorks, setMyWorks] = useState<MyWork[]>([]);
@@ -66,16 +103,78 @@ export default function FanWorksPage() {
   const videoInputRef = useRef<HTMLInputElement>(null);
   const [toast, setToast] = useState<{ open: boolean; message: string; type: 'success' | 'error' }>({ open: false, message: '', type: 'success' });
 
+  // 投票相关状态
+  const [votePeriod, setVotePeriod] = useState<VotePeriod | null>(null);
+  const [votedToday, setVotedToday] = useState(false);
+  const [ranking, setRanking] = useState<RankingItem[]>([]);
+  const [showRanking, setShowRanking] = useState(false);
+  const [votingWorkId, setVotingWorkId] = useState<string | null>(null);
+  const [votingLoading, setVotingLoading] = useState(false);
+
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
     setToast({ open: true, message, type });
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast((t) => ({ ...t, open: false })), 3000);
   }, []);
+
+  // 获取投票状态
+  const fetchVoteStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/auth/fan-work-votes', { credentials: 'same-origin' });
+      const json = await res.json();
+      if (json.code === 0 && json.data) {
+        setVotePeriod(json.data.period);
+        setVotedToday(json.data.votedToday);
+      }
+    } catch { /* ignore */ }
+  }, []);
+
+  // 获取排名
+  const fetchRanking = useCallback(async () => {
+    try {
+      const res = await fetch('/api/public/fan-work-votes');
+      const json = await res.json();
+      if (json.code === 0 && json.data) {
+        if (json.data.period) setVotePeriod(json.data.period);
+        setRanking(json.data.ranking || []);
+      }
+    } catch { /* ignore */ }
+  }, []);
+
+  // 投票
+  const handleVote = useCallback(async (fanWorkId: string, rating: string) => {
+    setVotingLoading(true);
+    try {
+      const res = await fetch('/api/auth/fan-work-votes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ fanWorkId, rating }),
+      });
+      const json = await res.json();
+      if (json.code === 0) {
+        showToast('投票成功！');
+        setVotedToday(true);
+        setVotingWorkId(null);
+        fetchRanking();
+      } else {
+        showToast(json.message || '投票失败', 'error');
+      }
+    } catch {
+      showToast('网络错误', 'error');
+    }
+    setVotingLoading(false);
+  }, [showToast, fetchRanking]);
 
   useEffect(() => {
     fetch('/api/auth/me', { credentials: 'same-origin' })
       .then((r) => r.json())
-      .then((json) => { if (json.code === 0) setIsLoggedIn(true); })
+      .then((json) => { if (json.code === 0) { setIsLoggedIn(true); setCurrentUserId(json.data?.id || null); } })
       .catch(() => {});
-  }, []);
+    fetchVoteStatus();
+    fetchRanking();
+  }, [fetchVoteStatus, fetchRanking]);
 
   useEffect(() => {
     fetch('/api/public/fan-works')
@@ -112,9 +211,11 @@ export default function FanWorksPage() {
       });
       const json = await res.json();
       if (json.code === 0) {
-        showToast('投稿成功，等待管理员审核');
+        showToast(json.message || '投稿成功');
         setShowSubmit(false);
         setSubmitForm({ title: '', description: '', type: 'image', cover: '', contentUrl: '', images: [] });
+        // 刷新作品列表，让新发布的作品立即可见
+        fetch('/api/public/fan-works').then((r) => r.json()).then((r) => { if (r.data) setWorks(r.data); }).catch(() => {});
       } else {
         showToast(json.message || '投稿失败', 'error');
       }
@@ -257,6 +358,208 @@ export default function FanWorksPage() {
         </div>
       </section>
 
+      {/* 投票排名区域 */}
+      {votePeriod && (
+        <section className="section-block pb-0 animate-fade-in-up">
+          <div className="container-main">
+            <div className="rounded-2xl overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.3)]">
+              {/* 渐变头部 */}
+              <div className="relative bg-gradient-to-r from-primary via-blue-500 to-indigo-500 px-5 sm:px-6 py-5">
+                <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxIiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMDgpIi8+PC9zdmc+')] opacity-60" />
+                <div className="relative flex items-center justify-between flex-wrap gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                      <Trophy className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <h2 className="text-body font-bold text-white">{votePeriod.title}</h2>
+                      <p className="text-caption text-white/75">
+                        {new Date(votePeriod.startAt).toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })}
+                        {' ~ '}
+                        {new Date(votePeriod.endAt).toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })}
+                        {votedToday && <span className="ml-1.5 px-2 py-0.5 rounded-full bg-white/20 text-[11px]">今日已投 ✓</span>}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowRanking(!showRanking)}
+                    className="inline-flex items-center gap-1.5 h-8 px-4 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm text-caption font-medium text-white transition-colors cursor-pointer"
+                  >
+                    <Trophy className="w-3.5 h-3.5" />
+                    {showRanking ? '收起' : '排行榜'}
+                    {showRanking ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* 排名榜单 */}
+              {showRanking && (
+                <div className="bg-white/70 dark:bg-[#1e1e22]/90 backdrop-blur-md px-5 sm:px-6 py-5">
+                  {ranking.length === 0 ? (
+                    <div className="text-center py-10">
+                      <div className="w-16 h-16 rounded-full bg-gray-50 dark:bg-[#28282c] mx-auto mb-3 flex items-center justify-center">
+                        <Vote className="w-7 h-7 text-text-disabled" />
+                      </div>
+                      <p className="text-body font-medium text-text-muted">暂无投票数据</p>
+                      <p className="text-caption text-text-disabled mt-1">快去给喜欢的作品投票吧</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {ranking.map((item, idx) => {
+                        const medalBg = ['bg-gradient-to-r from-yellow-50 to-amber-50/50 dark:from-yellow-900/20 dark:to-amber-900/10 border-yellow-200/60 dark:border-yellow-800/30', 'bg-gradient-to-r from-gray-50 to-slate-50/50 dark:from-gray-800/30 dark:to-slate-800/20 border-gray-200/60 dark:border-gray-700/30', 'bg-gradient-to-r from-orange-50 to-amber-50/50 dark:from-orange-900/15 dark:to-amber-900/10 border-orange-200/60 dark:border-orange-800/30'];
+                        const medalEmoji = ['🥇', '🥈', '🥉'];
+                        const maxScore = ranking[0]?.score || 1;
+                        const barWidth = Math.max(8, (item.score / maxScore) * 100);
+                        return (
+                          <div
+                            key={item.fanWorkId}
+                            className={`flex items-center gap-3 p-3 sm:p-3.5 rounded-xl border transition-all hover:shadow-sm ${
+                              idx < 3 ? medalBg[idx] : 'bg-gray-50/50 dark:bg-[#28282c]/40 border-transparent'
+                            }`}
+                          >
+                            {/* 排名 */}
+                            <div className="w-8 text-center flex-shrink-0">
+                              {idx < 3 ? (
+                                <span className="text-xl leading-none">{medalEmoji[idx]}</span>
+                              ) : (
+                                <span className="text-body font-bold text-text-muted/60">{idx + 1}</span>
+                              )}
+                            </div>
+
+                            {/* 封面 */}
+                            <div className="w-11 h-11 rounded-lg overflow-hidden bg-gray-100 dark:bg-[#28282c] flex-shrink-0 ring-1 ring-black/5 dark:ring-white/10">
+                              <SafeImage src={item.cover} alt={item.title} width={44} height={44} className="object-cover w-full h-full" />
+                            </div>
+
+                            {/* 信息 + 分数条 */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="text-body font-semibold text-text-title truncate">{item.title}</p>
+                              </div>
+                              <div className="flex items-center gap-2 mt-1">
+                                <div className="flex-1 h-1.5 rounded-full bg-gray-100 dark:bg-[#333] overflow-hidden">
+                                  <div className="h-full rounded-full bg-gradient-to-r from-primary to-blue-400 transition-all duration-500" style={{ width: `${barWidth}%` }} />
+                                </div>
+                                <span className="text-[11px] font-semibold text-primary tabular-nums flex-shrink-0">{item.score}分</span>
+                              </div>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-[11px] text-text-muted">{item.authorName}</span>
+                                <span className="text-[11px] text-text-disabled">·</span>
+                                <span className="text-[11px] text-text-muted">{item.totalVotes}票</span>
+                                <span className="text-[11px] text-text-disabled">·</span>
+                                <span className="text-[11px] text-text-muted">均分 {item.avgScore}</span>
+                              </div>
+                            </div>
+
+                            {/* 评分分布 */}
+                            <div className="hidden sm:flex items-center gap-0.5 flex-shrink-0">
+                              {RATING_OPTIONS.map((opt) => {
+                                const count = item.ratings[opt.key] || 0;
+                                if (count === 0) return null;
+                                return (
+                                  <span key={opt.key} className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-white dark:bg-[#28282c] shadow-[0_1px_2px_rgba(0,0,0,0.05)] text-[10px] text-text-muted" title={opt.label}>
+                                    {opt.emoji}<span className="font-medium">{count}</span>
+                                  </span>
+                                );
+                              })}
+                            </div>
+
+                            {/* 投票按钮（排除自己的作品） */}
+                            {isLoggedIn && !votedToday && (() => {
+                              const matchWork = works.find((w) => w.id === item.fanWorkId);
+                              if (matchWork?.userId === currentUserId) return null;
+                              return (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setVotingWorkId(votingWorkId === item.fanWorkId ? null : item.fanWorkId); }}
+                                  className="h-8 px-3.5 rounded-full bg-primary/10 text-primary text-caption font-medium hover:bg-primary hover:text-white transition-all cursor-pointer flex-shrink-0 inline-flex items-center gap-1"
+                                >
+                                  <Vote className="w-3.5 h-3.5" />
+                                  投票
+                                </button>
+                              );
+                            })()}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* 投票选项弹窗 */}
+      {votingWorkId && (() => {
+        const votingWork = works.find((w) => w.id === votingWorkId);
+        return (
+          <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setVotingWorkId(null)} />
+            <div className="relative w-full max-w-[360px] overflow-hidden animate-fade-in-up">
+              {/* 卡片主体 */}
+              <div className="rounded-3xl bg-white dark:bg-[#1e1e22] shadow-[0_25px_60px_rgba(0,0,0,0.3)] overflow-hidden">
+                {/* 作品封面区域 */}
+                {votingWork && (
+                  <div className="relative h-44 overflow-hidden">
+                    <SafeImage
+                      src={votingWork.cover}
+                      alt={votingWork.title}
+                      fill
+                      className="object-cover"
+                      sizes="360px"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                    <div className="absolute bottom-0 left-0 right-0 p-4">
+                      <h3 className="text-body font-bold text-white truncate">{votingWork.title}</h3>
+                      <p className="text-caption text-white/70 mt-0.5">{votingWork.authorName}</p>
+                    </div>
+                    <button
+                      onClick={() => setVotingWorkId(null)}
+                      className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center transition-colors cursor-pointer backdrop-blur-sm"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+                {!votingWork && (
+                  <div className="flex items-center justify-between px-5 pt-5">
+                    <h3 className="text-body font-semibold text-text-title">投票评价</h3>
+                    <button onClick={() => setVotingWorkId(null)} className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-[#28282c] transition-colors cursor-pointer">
+                      <X className="w-4 h-4 text-text-muted" />
+                    </button>
+                  </div>
+                )}
+
+                {/* 投票选项 */}
+                <div className="p-5">
+                  <p className="text-caption text-text-muted text-center mb-4">为这个作品打分吧 · 每天限投一票</p>
+                  <div className="grid grid-cols-5 gap-2">
+                    {RATING_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.key}
+                        onClick={() => handleVote(votingWorkId, opt.key)}
+                        disabled={votingLoading}
+                        className="group flex flex-col items-center gap-1.5 p-3 rounded-2xl border-2 border-transparent hover:border-primary/30 bg-gray-50 dark:bg-[#28282c] hover:bg-white dark:hover:bg-[#333] transition-all duration-200 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+                      >
+                        <span className="text-2xl group-hover:scale-125 transition-transform duration-200">{opt.emoji}</span>
+                        <span className="text-[11px] font-medium text-text-body group-hover:text-primary transition-colors whitespace-nowrap">{opt.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {votingLoading && (
+                    <div className="flex items-center justify-center gap-2 mt-4">
+                      <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                      <span className="text-caption text-text-muted">提交中...</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* 精选作品 */}
       {!loading && featured.length > 0 && (
         <section className="section-block pb-0 animate-fade-in-up">
@@ -273,6 +576,8 @@ export default function FanWorksPage() {
                   featured
                   onImageClick={(idx) => setLightbox({ workId: work.id, imageIndex: idx })}
                   formatDate={formatDate}
+                  canVote={!!votePeriod && isLoggedIn && !votedToday && work.userId !== currentUserId}
+                  onVote={(id) => setVotingWorkId(id)}
                 />
               ))}
             </div>
@@ -313,6 +618,8 @@ export default function FanWorksPage() {
                     work={work}
                     onImageClick={(idx) => setLightbox({ workId: work.id, imageIndex: idx })}
                     formatDate={formatDate}
+                    canVote={!!votePeriod && isLoggedIn && !votedToday && work.userId !== currentUserId}
+                    onVote={(id) => setVotingWorkId(id)}
                   />
                 ))}
               </div>
@@ -774,11 +1081,15 @@ function WorkCard({
   featured,
   onImageClick,
   formatDate,
+  canVote,
+  onVote,
 }: {
   work: FanWorkItem;
   featured?: boolean;
   onImageClick: (index: number) => void;
   formatDate: (d: string) => string;
+  canVote?: boolean;
+  onVote?: (workId: string) => void;
 }) {
   const typeConfig = TYPE_CONFIG[work.type] || TYPE_CONFIG.image;
   const TypeIcon = typeConfig.icon;
@@ -868,6 +1179,16 @@ function WorkCard({
         </div>
 
         <p className="text-caption text-text-disabled mt-1.5">{formatDate(work.createdAt)}</p>
+
+        {canVote && onVote && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onVote(work.id); }}
+            className="mt-2.5 w-full h-8 rounded-lg bg-primary/10 text-primary text-caption font-medium hover:bg-primary/20 transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+          >
+            <Vote className="w-3.5 h-3.5" />
+            投票
+          </button>
+        )}
       </div>
     </div>
   );

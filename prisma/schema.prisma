@@ -37,6 +37,7 @@ model User {
   bookmarks     Bookmark[]
   postLikes     PostLike[]
   fanWorks      FanWork[]
+  fanWorkVotes  FanWorkVote[]
 
   @@index([role])
   @@index([isActive])
@@ -581,7 +582,8 @@ model FanWork {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  user User? @relation(fields: [userId], references: [id])
+  user  User?          @relation(fields: [userId], references: [id])
+  votes FanWorkVote[]
 
   @@index([type])
   @@index([status])
@@ -589,6 +591,42 @@ model FanWork {
   @@index([isFeatured])
   @@index([sortOrder])
   @@index([userId])
+}
+
+// ==================== 二创投票系统 ====================
+
+model FanWorkVotePeriod {
+  id        String   @id @default(cuid())
+  title     String   // 周期标题，如"2024年7月投票"
+  startAt   DateTime // 周期开始时间
+  endAt     DateTime // 周期结束时间
+  isActive  Boolean  @default(true) // 是否启用
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  votes FanWorkVote[]
+
+  @@index([isActive])
+  @@index([startAt, endAt])
+}
+
+model FanWorkVote {
+  id         String   @id @default(cuid())
+  periodId   String   // 投票周期
+  fanWorkId  String   // 被投票的作品
+  userId     String   // 投票用户
+  rating     String   // 评级: awesome | good | normal | bad | terrible
+  createdAt  DateTime @default(now())
+
+  period  FanWorkVotePeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  fanWork FanWork           @relation(fields: [fanWorkId], references: [id], onDelete: Cascade)
+  user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([periodId, fanWorkId])
+  @@index([userId, periodId])
+  @@index([userId, createdAt])
+  @@index([fanWorkId])
+  @@index([createdAt])
 }
 
 // ==================== 举报系统 ====================

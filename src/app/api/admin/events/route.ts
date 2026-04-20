@@ -38,6 +38,7 @@ const eventSchema = z.object({
   location: z.string().min(1, '地点不能为空'),
   status: z.enum(['upcoming', 'ongoing', 'ended']).default('upcoming'),
   participants: z.number().default(0),
+  isActive: z.boolean().default(true),
 });
 
 export async function POST(req: NextRequest) {

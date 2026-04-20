@@ -19,6 +19,7 @@ interface GameItem {
   comment: string;
   description: string;
   downloadLinks: string;
+  lastPlayed: string;
   sortOrder: number;
 }
 
@@ -55,7 +56,7 @@ export default function AdminGamesPage() {
   const openEdit = (item: GameItem) => {
     let links: { label: string; url: string }[] = [];
     try { links = JSON.parse(item.downloadLinks || '[]'); } catch { /* */ }
-    setForm({ ...item, downloadLinks: links, lastPlayed: '' });
+    setForm({ ...item, downloadLinks: links, lastPlayed: item.lastPlayed || '' });
     setEditing(item);
     setShowForm(true);
   };
@@ -186,6 +187,16 @@ export default function AdminGamesPage() {
                     <div>
                       <label className="text-caption font-medium text-text-muted mb-1 block">评分</label>
                       <input type="number" min={1} max={5} value={form.rating} onChange={(e) => setForm({ ...form, rating: Number(e.target.value) })} className="w-full h-9 px-3 rounded-lg border border-border bg-gray-50/50 text-body focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 focus:bg-white transition-colors" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-caption font-medium text-text-muted mb-1 block">游戏时长（小时）</label>
+                      <input type="number" min={0} value={form.hours} onChange={(e) => setForm({ ...form, hours: Number(e.target.value) })} className="w-full h-9 px-3 rounded-lg border border-border bg-gray-50/50 text-body focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 focus:bg-white transition-colors" />
+                    </div>
+                    <div>
+                      <label className="text-caption font-medium text-text-muted mb-1 block">最近游玩</label>
+                      <input value={form.lastPlayed} onChange={(e) => setForm({ ...form, lastPlayed: e.target.value })} placeholder="如 2024年7月" className="w-full h-9 px-3 rounded-lg border border-border bg-gray-50/50 text-body focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 focus:bg-white transition-colors" />
                     </div>
                   </div>
                 </div>

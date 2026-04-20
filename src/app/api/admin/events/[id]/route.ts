@@ -27,6 +27,7 @@ const updateSchema = z.object({
   location: z.string().optional(),
   status: z.enum(['upcoming', 'ongoing', 'ended']).optional(),
   participants: z.number().optional(),
+  isActive: z.boolean().optional(),
 });
 
 export async function PUT(req: NextRequest, { params }: RouteParams) {

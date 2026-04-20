@@ -73,6 +73,7 @@ export default function LoginPage() {
   const [modalType, setModalType] = useState<'terms' | 'privacy' | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [agreed, setAgreed] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -186,40 +187,32 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* 记住我 & 忘记密码 */}
-            <div className="flex items-center justify-between pt-1">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 rounded border-border text-primary focus:ring-primary/20 cursor-pointer accent-primary"
-                />
-                <span className="text-caption text-text-body">记住我</span>
-              </label>
-              <Link
-                href="/forgot-password"
-                className="text-caption text-primary hover:underline cursor-pointer"
-              >
-                忘记密码？
-              </Link>
-            </div>
+            {/* 协议勾选 */}
+            <label className="flex items-start gap-2 pt-1 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={agreed}
+                onChange={(e) => setAgreed(e.target.checked)}
+                className="w-4 h-4 mt-0.5 rounded border-border text-primary focus:ring-primary/20 cursor-pointer accent-primary flex-shrink-0"
+              />
+              <span className="text-caption text-text-muted leading-relaxed">
+                我已阅读并同意{' '}
+                <button type="button" onClick={(e) => { e.preventDefault(); setModalType('terms'); }} className="text-primary hover:underline cursor-pointer">用户协议</button>
+                {' '}和{' '}
+                <button type="button" onClick={(e) => { e.preventDefault(); setModalType('privacy'); }} className="text-primary hover:underline cursor-pointer">隐私政策</button>
+              </span>
+            </label>
 
             {/* 登录按钮 */}
             <button
               type="submit"
-              disabled={loading}
-              className="btn-primary w-full h-11 flex items-center justify-center gap-2 text-base mt-2 disabled:opacity-50"
+              disabled={loading || !agreed}
+              className="btn-primary w-full h-11 flex items-center justify-center gap-2 text-base mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? '登录中...' : '登录'}
               {!loading && <ArrowRight className="w-4 h-4" />}
             </button>
 
-            {/* 隐私协议 */}
-            <p className="text-caption text-text-muted text-center mt-3 leading-relaxed">
-              登录即表示你同意{' '}
-              <button type="button" onClick={() => setModalType('terms')} className="text-primary hover:underline cursor-pointer">用户协议</button>
-              {' '}和{' '}
-              <button type="button" onClick={() => setModalType('privacy')} className="text-primary hover:underline cursor-pointer">隐私政策</button>
-            </p>
           </form>
 
           {/* 分割线 */}

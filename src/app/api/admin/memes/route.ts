@@ -16,11 +16,12 @@ const memeSelect = {
   isActive: true,
   sortOrder: true,
   createdAt: true,
+  video: true,
   updatedAt: true,
 } as const;
 
 function toMemeResponse<T extends Record<string, unknown>>(meme: T) {
-  return { ...meme, video: null };
+  return meme;
 }
 
 export async function GET(req: NextRequest) {
@@ -60,6 +61,7 @@ const memeSchema = z.object({
   description: z.string().min(1, '释义不能为空'),
   example: z.string().optional().nullable(),
   image: z.string().optional().nullable(),
+  video: z.string().optional().nullable(),
   tags: z.array(z.string()).default([]),
   popularity: z.number().default(0),
   isActive: z.boolean().default(true),

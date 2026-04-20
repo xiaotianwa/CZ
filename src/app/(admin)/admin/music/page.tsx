@@ -5,6 +5,7 @@ import { Plus, Trash2, GripVertical, Play, Pause, Music, Upload, Loader2, Pencil
 import { adminGet, adminPost, adminPut, adminDelete, adminUpload } from '@/lib/admin-fetch';
 import ConfirmDialog from '@/components/admin/ConfirmDialog';
 import Toast from '@/components/admin/Toast';
+import ImageUpload from '@/components/admin/ImageUpload';
 
 interface Track {
   id: string;
@@ -30,7 +31,7 @@ export default function AdminMusicPage() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ title: '', artist: '' });
+  const [editForm, setEditForm] = useState({ title: '', artist: '', cover: '' });
   const [playingId, setPlayingId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -114,7 +115,7 @@ export default function AdminMusicPage() {
 
   const startEdit = (track: Track) => {
     setEditingId(track.id);
-    setEditForm({ title: track.title, artist: track.artist });
+    setEditForm({ title: track.title, artist: track.artist, cover: track.cover || '' });
   };
 
   const saveEdit = async () => {
@@ -245,25 +246,36 @@ export default function AdminMusicPage() {
               {/* Track Info */}
               <div className="flex-1 min-w-0">
                 {editingId === track.id ? (
-                  <div className="flex items-center gap-2">
-                    <input
-                      value={editForm.title}
-                      onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                      className="h-8 px-2 border border-border rounded-btn text-body flex-1 min-w-0"
-                      placeholder="歌曲名称"
-                    />
-                    <input
-                      value={editForm.artist}
-                      onChange={(e) => setEditForm({ ...editForm, artist: e.target.value })}
-                      className="h-8 px-2 border border-border rounded-btn text-body w-24"
-                      placeholder="艺术家"
-                    />
-                    <button onClick={saveEdit} className="p-1.5 text-success hover:bg-green-50 rounded-btn cursor-pointer">
-                      <Check className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => setEditingId(null)} className="p-1.5 text-text-muted hover:bg-gray-50 rounded-btn cursor-pointer">
-                      <X className="w-4 h-4" />
-                    </button>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <input
+                        value={editForm.title}
+                        onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                        className="h-8 px-2 border border-border rounded-btn text-body flex-1 min-w-0"
+                        placeholder="歌曲名称"
+                      />
+                      <input
+                        value={editForm.artist}
+                        onChange={(e) => setEditForm({ ...editForm, artist: e.target.value })}
+                        className="h-8 px-2 border border-border rounded-btn text-body w-24"
+                        placeholder="艺术家"
+                      />
+                      <button onClick={saveEdit} className="p-1.5 text-success hover:bg-green-50 rounded-btn cursor-pointer">
+                        <Check className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => setEditingId(null)} className="p-1.5 text-text-muted hover:bg-gray-50 rounded-btn cursor-pointer">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="w-20">
+                      <ImageUpload
+                        value={editForm.cover}
+                        onChange={(url) => setEditForm({ ...editForm, cover: url })}
+                        category="music"
+                        label="封面"
+                        aspect="aspect-square"
+                      />
+                    </div>
                   </div>
                 ) : (
                   <>

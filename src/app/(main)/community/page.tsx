@@ -364,6 +364,7 @@ function PostComposer({ topics, onPostCreated, onTopicCreated, isLoggedIn }: { t
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
+    if (!isLoggedIn) { setLoginModal(true); if (fileRef.current) fileRef.current.value = ''; return; }
 
     const remaining = MAX_FILES - mediaFiles.length;
     if (files.length > remaining) {
@@ -627,7 +628,7 @@ function PostComposer({ topics, onPostCreated, onTopicCreated, isLoggedIn }: { t
       <div className={`flex items-center justify-between gap-2 ${isExpanded ? 'pt-3 border-t border-divider mt-3' : 'mt-1'}`}>
         <div className="flex items-center gap-1 flex-shrink-0">
           <button
-            onClick={() => { setExpanded(true); fileRef.current?.click(); }}
+            onClick={() => { if (!isLoggedIn) { setLoginModal(true); return; } setExpanded(true); fileRef.current?.click(); }}
             disabled={mediaFiles.length >= MAX_FILES}
             className="p-1.5 rounded-btn text-text-muted hover:text-primary hover:bg-gray-50 transition-colors duration-150 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             aria-label="添加图片"
@@ -635,7 +636,7 @@ function PostComposer({ topics, onPostCreated, onTopicCreated, isLoggedIn }: { t
             <ImagePlus className="w-4 h-4" />
           </button>
           <button
-            onClick={() => { setExpanded(true); fileRef.current?.click(); }}
+            onClick={() => { if (!isLoggedIn) { setLoginModal(true); return; } setExpanded(true); fileRef.current?.click(); }}
             disabled={mediaFiles.length >= MAX_FILES}
             className="p-1.5 rounded-btn text-text-muted hover:text-primary hover:bg-gray-50 transition-colors duration-150 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             aria-label="添加视频"
@@ -1350,7 +1351,7 @@ export default function CommunityPage() {
 
 
             {/* Filters: dropdown + sort */}
-            <div className="sticky top-16 z-20 -mx-1 rounded-card bg-white/60 dark:bg-[#1e1e22]/90 backdrop-blur-md border border-white/70 dark:border-[#333] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5),0_4px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.3)] p-3 sm:mx-0 sm:p-4">
+            <div className="-mx-1 rounded-card bg-white/60 dark:bg-[#1e1e22]/90 backdrop-blur-md border border-white/70 dark:border-[#333] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5),0_4px_16px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_16px_rgba(0,0,0,0.3)] p-3 sm:mx-0 sm:p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-caption font-medium text-text-title">{activeTopicName}</p>
