@@ -265,8 +265,8 @@ export default function AdminDashboard() {
             <div className="py-8 text-center text-text-muted text-caption">加载中...</div>
           ) : (
             <div className="space-y-1">
-              {trend?.dates.map((date, i) => {
-                const views = trend.views[i];
+              {trend?.dates?.map((date, i) => {
+                const views = trend.views?.[i] ?? 0;
                 const maxView = Math.max(...trend.views, 1);
                 const pct = (views / maxView) * 100;
                 const weekday = new Date(date).toLocaleDateString('zh-CN', { weekday: 'short' });
@@ -331,11 +331,11 @@ export default function AdminDashboard() {
         </div>
         {!stats ? (
           <div className="py-6 text-center text-text-muted text-caption">加载中...</div>
-        ) : stats.recentFeedbacks.length === 0 ? (
+        ) : !stats.recentFeedbacks?.length ? (
           <div className="py-6 text-center text-text-muted text-caption">暂无反馈</div>
         ) : (
           <div className="space-y-0 divide-y divide-divider">
-            {stats.recentFeedbacks.map((fb) => {
+            {stats.recentFeedbacks?.map((fb) => {
               const st = feedbackStatusMap[fb.status] || feedbackStatusMap.pending;
               return (
                 <div key={fb.id} className="py-2.5 first:pt-0 last:pb-0">
