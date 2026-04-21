@@ -419,7 +419,7 @@ export default function FanMapPage() {
                 onClick={() => setMapResetToken((value) => value + 1)}
                 className="inline-flex h-9 items-center justify-center rounded-full border border-divider bg-white dark:bg-[#1e1e22] dark:border-[#37373c] px-4 text-caption text-text-body transition-colors hover:bg-[#fafafa] dark:hover:bg-[#2a2a2e]"
               >
-                重置全球视角
+                重置视角
               </button>
             </div>
 
@@ -542,28 +542,8 @@ export default function FanMapPage() {
                 />
               </div>
               <p className="mt-3 text-caption leading-6 text-text-muted">
-                {data?.unmappedCount ? `还有 ${data.unmappedCount} 位粉丝的位置待补充解析。` : '当前已填写的位置都能正常显示在地图中。'}
+                {data?.mappedCount ? `当前已有 ${data.mappedCount} 位粉丝显示在地图中。` : '当前还没有已显示在地图中的粉丝位置。'}
               </p>
-            </div>
-
-            <div className="rounded-card bg-white/40 backdrop-blur-md border border-white/70 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5),0_4px_24px_rgba(0,0,0,0.06)] p-5">
-              <div className="flex items-center justify-between gap-4">
-                <h3 className="text-body font-semibold text-text-title">待补充位置解析</h3>
-                <span className="text-caption text-text-muted">{loading ? '--' : `${unmappedPreview.length} 个位置`}</span>
-              </div>
-              {data && unmappedPreview.length > 0 ? (
-                <div className="mt-4 space-y-2">
-                  {unmappedPreview.map((item) => (
-                    <div key={item.city} className="flex items-center justify-between rounded-lg bg-[#fafafa] dark:bg-[#232326]/80 px-3 py-2 text-caption">
-                      <span className="truncate text-text-body">{item.city}</span>
-                      <span className="ml-3 flex-shrink-0 text-text-muted">{item.count} 人</span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="mt-4 text-caption text-text-muted">当前已填写的位置都能正常显示在地图中。</p>
-              )}
-              <p className="mt-4 text-caption leading-6 text-text-muted">这些地点还没有成功匹配到坐标，后续只需补充别名或坐标映射，就能进一步提高覆盖率。</p>
             </div>
           </div>
         </div>

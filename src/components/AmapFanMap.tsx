@@ -90,22 +90,121 @@ declare global {
   }
 }
 
-const DEFAULT_CENTER: [number, number] = [15, 25];
-const DEFAULT_ZOOM = 2.3;
+const DEFAULT_CENTER: [number, number] = [104.195397, 35.86166];
+const DEFAULT_ZOOM = 4.2;
 const MIN_ZOOM = 2;
 const MAX_ZOOM = 17;
 const PRIMARY_COLOR = '#1890ff';
+const SUCCESS_COLOR = '#52c41a';
+const WARNING_COLOR = '#faad14';
+const DANGER_COLOR = '#ff4d4f';
+const REGION_COLORS = ['#1890ff', '#52c41a', '#faad14', '#ff4d4f', '#36cfc9', '#1677ff', '#fa8c16', '#13c2c2'] as const;
 
-// 根据人数分级颜色
-const COLOR_LEVELS = [
-  { min: 0, max: 5, color: '#93c5fd', ring: 'rgba(147,197,253,0.22)', label: '1-5人' },
-  { min: 6, max: 15, color: PRIMARY_COLOR, ring: 'rgba(24,144,255,0.18)', label: '6-15人' },
-  { min: 16, max: 30, color: '#faad14', ring: 'rgba(250,173,20,0.18)', label: '16-30人' },
-  { min: 31, max: Infinity, color: '#ff4d4f', ring: 'rgba(255,77,79,0.2)', label: '31人+' },
-];
+interface RegionStyle {
+  color: string;
+  ring: string;
+  label: string;
+}
 
-function getColorLevel(count: number) {
-  return COLOR_LEVELS.find(l => count >= l.min && count <= l.max) || COLOR_LEVELS[0];
+function buildRingColor(color: string): string {
+  const colorMap: Record<string, string> = {
+    '#1890ff': 'rgba(24,144,255,0.18)',
+    '#52c41a': 'rgba(82,196,26,0.18)',
+    '#faad14': 'rgba(250,173,20,0.18)',
+    '#ff4d4f': 'rgba(255,77,79,0.2)',
+    '#36cfc9': 'rgba(54,207,201,0.18)',
+    '#1677ff': 'rgba(22,119,255,0.18)',
+    '#fa8c16': 'rgba(250,140,22,0.18)',
+    '#13c2c2': 'rgba(19,194,194,0.18)',
+  };
+
+  return colorMap[color] ?? 'rgba(24,144,255,0.18)';
+}
+
+function getChinaRegionLabel(coord: [number, number]): string {
+  const [lng, lat] = coord;
+
+  if (lng >= 120 && lat >= 40) {
+    return '东北';
+  }
+
+  if (lat >= 36 && lng >= 108) {
+    return '华北';
+  }
+
+  if (lng >= 116 && lat >= 24 && lat < 36) {
+    return '华东';
+  }
+
+  if (lng >= 110 && lng < 116 && lat >= 28 && lat < 36) {
+    return '华中';
+  }
+
+  if (lat < 28 && lng >= 108) {
+    return '华南';
+  }
+
+  if (lat < 32 && lng < 110) {
+    return '西南';
+  }
+
+  return '西北';
+}
+
+function getOverseasRegionLabel(coord: [number, number]): string {
+  const [lng, lat] = coord;
+
+  if (lng >= -20 && lng <= 60 && lat >= -35 && lat <= 72) {
+    return '欧洲';
+  }
+
+  if (lng >= -170 && lng <= -20 && lat >= 7) {
+    return '北美';
+  }
+
+  if (lng >= -90 && lng <= -30 && lat < 7) {
+    return '南美';
+  }
+
+  if (lng >= 110 && lng <= 180 && lat < -10) {
+    return '大洋洲';
+  }
+
+  if (lng >= -20 && lng <= 60 && lat < 35) {
+    return '非洲';
+  }
+
+  return '亚洲';
+}
+
+function getRegionStyle(location: LocationItem): RegionStyle {
+  const [lng, lat] = location.coord;
+  const isInChina = lng >= 73 && lng <= 135 && lat >= 18 && lat <= 54;
+  const label = isInChina ? getChinaRegionLabel(location.coord) : getOverseasRegionLabel(location.coord);
+
+  const regionColorMap: Record<string, string> = {
+    华北: REGION_COLORS[0],
+    东北: REGION_COLORS[1],
+    华东: REGION_COLORS[2],
+    华中: REGION_COLORS[3],
+    华南: REGION_COLORS[4],
+    西南: REGION_COLORS[5],
+    西北: REGION_COLORS[6],
+    亚洲: REGION_COLORS[0],
+    欧洲: REGION_COLORS[1],
+    北美: REGION_COLORS[2],
+    南美: REGION_COLORS[3],
+    大洋洲: REGION_COLORS[4],
+    非洲: REGION_COLORS[7],
+  };
+
+  const color = regionColorMap[label] ?? PRIMARY_COLOR;
+
+  return {
+    color,
+    ring: buildRingColor(color),
+    label,
+  };
 }
 
 const AMAP_KEY = process.env.NEXT_PUBLIC_AMAP_KEY ?? '';
@@ -165,25 +264,25 @@ function buildOverflowPreviewHtml(extraCount: number): string {
   </div>`;
 }
 
-function buildMarkerHtml(count: number, size: number, isHot: boolean = false): string {
-  const level = getColorLevel(count);
-  const coreSize = Math.max(size - 8, 14);
+function buildMarkerHtml(count: number, size: number, regionStyle: RegionStyle, isHot: boolean = false): string {
+  const coreSize = Math.max(size - 8, 18);
   const shouldShowCount = count >= 6;
   const pulseSize = size + 16;
   const highlightSize = size + 24;
+  const touchTargetSize = Math.max(highlightSize, 48);
 
   // 所有标记都有一个柔和的脉冲环
-  const pulseHtml = `<span style="position:absolute;left:50%;top:50%;width:${pulseSize}px;height:${pulseSize}px;transform:translate(-50%,-50%);border-radius:999px;background:${level.ring};animation:fanMapPulse 2.5s ease-in-out infinite;"></span>`;
+  const pulseHtml = `<span style="position:absolute;left:50%;top:50%;width:${pulseSize}px;height:${pulseSize}px;transform:translate(-50%,-50%);border-radius:999px;background:${regionStyle.ring};animation:fanMapPulse 2.5s ease-in-out infinite;"></span>`;
 
   // 热门标记额外增加一个更大的扩散波纹
   const rippleHtml = isHot
-    ? `<span style="position:absolute;left:50%;top:50%;width:${highlightSize}px;height:${highlightSize}px;transform:translate(-50%,-50%);border-radius:999px;border:1.5px solid ${level.color}40;animation:fanMapRipple 3s ease-out infinite;"></span>`
+    ? `<span style="position:absolute;left:50%;top:50%;width:${highlightSize}px;height:${highlightSize}px;transform:translate(-50%,-50%);border-radius:999px;border:1.5px solid ${regionStyle.color}40;animation:fanMapRipple 3s ease-out infinite;"></span>`
     : '';
 
-  return `<div style="position:relative;width:${highlightSize}px;height:${highlightSize}px;pointer-events:none;z-index:10;animation:fanMapBounceIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both;animation-delay:${Math.random() * 0.6}s;">
+  return `<div style="position:relative;width:${touchTargetSize}px;height:${touchTargetSize}px;z-index:10;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;animation:fanMapBounceIn 0.5s cubic-bezier(0.34,1.56,0.64,1) both;animation-delay:${Math.random() * 0.6}s;">
     ${rippleHtml}
     ${pulseHtml}
-    <span style="position:absolute;left:50%;top:50%;width:${coreSize}px;height:${coreSize}px;transform:translate(-50%,-50%);border-radius:999px;background:${level.color};border:2px solid #ffffff;box-shadow:0 4px 12px rgba(15,23,42,0.16);display:flex;align-items:center;justify-content:center;">
+    <span style="position:absolute;left:50%;top:50%;width:${coreSize}px;height:${coreSize}px;transform:translate(-50%,-50%);border-radius:999px;background:${regionStyle.color};border:2px solid #ffffff;box-shadow:0 4px 12px rgba(15,23,42,0.16);display:flex;align-items:center;justify-content:center;">
       ${shouldShowCount ? `<span style="font-size:${Math.min(11, coreSize / 2.1)}px;font-weight:700;color:#ffffff;line-height:1;">${count}</span>` : ''}
     </span>
   </div>`;
@@ -191,7 +290,7 @@ function buildMarkerHtml(count: number, size: number, isHot: boolean = false): s
 
 function buildInfoWindowHtml(location: LocationItem): string {
   const users = (location.users ?? []).slice(0, 6);
-  const level = getColorLevel(location.count);
+  const regionStyle = getRegionStyle(location);
   const cityName = escapeHtml(location.city);
   const userLine = users.length > 0
     ? `<div style="margin-top:12px;padding-top:12px;border-top:1px solid #f0f0f0;">
@@ -209,10 +308,10 @@ function buildInfoWindowHtml(location: LocationItem): string {
         <div style="font-size:16px;font-weight:700;color:#111827;line-height:1.35;">${cityName}</div>
         <div style="margin-top:4px;font-size:12px;color:#6b7280;">当前已记录的位置详情</div>
       </div>
-      <span style="padding:4px 10px;background:${level.ring};border-radius:999px;font-size:11px;font-weight:600;color:${level.color};">${level.label}</span>
+      <span style="padding:4px 10px;background:${regionStyle.ring};border-radius:999px;font-size:11px;font-weight:600;color:${regionStyle.color};">${regionStyle.label}</span>
     </div>
     <div style="margin-top:12px;display:flex;align-items:center;gap:10px;">
-      <span style="width:10px;height:10px;border-radius:50%;background:${level.color};"></span>
+      <span style="width:10px;height:10px;border-radius:50%;background:${regionStyle.color};"></span>
       <span style="font-size:15px;font-weight:700;color:#111827;">${location.count} 位泽小将</span>
     </div>
     <div style="margin-top:8px;font-size:12px;color:#6b7280;line-height:1.6;">
@@ -224,7 +323,7 @@ function buildInfoWindowHtml(location: LocationItem): string {
 
 function getMarkerSize(count: number, maxCount: number): number {
   const ratio = maxCount > 0 ? count / maxCount : 0;
-  return Math.round(18 + ratio * 18);
+  return Math.round(24 + ratio * 18);
 }
 
 function loadAmapSdk(): Promise<AMapNamespace> {
@@ -398,13 +497,14 @@ export default function AmapFanMap({ locations, resetToken }: { locations: Locat
 
     const nextMarkers = sortedLocations.map((location) => {
       const size = getMarkerSize(location.count, maxCount);
+      const regionStyle = getRegionStyle(location);
       const isHot = location.count >= 20; // 热门点位添加脉冲动画
       const marker = new AMap.Marker({
         position: location.coord,
         title: location.city,
         anchor: 'bottom-center',
         offset: new AMap.Pixel(0, -6),
-        content: buildMarkerHtml(location.count, size, isHot),
+        content: buildMarkerHtml(location.count, size, regionStyle, isHot),
       });
 
       marker.on('click', () => {
