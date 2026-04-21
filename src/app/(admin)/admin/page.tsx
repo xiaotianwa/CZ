@@ -267,7 +267,7 @@ export default function AdminDashboard() {
             <div className="space-y-1">
               {trend?.dates?.map((date, i) => {
                 const views = trend.views?.[i] ?? 0;
-                const maxView = Math.max(...trend.views, 1);
+                const maxView = Math.max(...(trend.views ?? []), 1);
                 const pct = (views / maxView) * 100;
                 const weekday = new Date(date).toLocaleDateString('zh-CN', { weekday: 'short' });
                 return (
