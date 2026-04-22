@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Search, User, ShieldBan, ShieldCheck, MoreHorizontal, Filter, Save, Gift, CheckCircle2, AlertCircle, Info } from 'lucide-react';
-import { adminGet, adminPatch, adminPost } from '@/lib/admin-fetch';
+import { Search, User, ShieldBan, ShieldCheck, MoreHorizontal, Filter, Save, Gift, CheckCircle2, AlertCircle, Info, Plus, Trash2 } from 'lucide-react';
+import { adminDelete, adminGet, adminPatch, adminPost } from '@/lib/admin-fetch';
 
 interface UserItem {
   id: string;
@@ -44,6 +44,8 @@ const statusOptions = [
   { value: 'active', label: '正常' },
   { value: 'disabled', label: '已禁用' },
 ];
+
+const creatableRoleOptions = roleOptions.filter((option) => option.value);
 
 /* ---- 确认弹窗 ---- */
 function ConfirmModal({
@@ -241,12 +243,13 @@ function GrantPointsModal({
 
 /* ---- 操作下拉 ---- */
 function ActionMenu({
-  user, onToggleActive, onChangeRole, onGrantPoints,
+  user, onToggleActive, onChangeRole, onGrantPoints, onDelete,
 }: {
   user: UserItem;
   onToggleActive: (u: UserItem) => void;
   onChangeRole: (u: UserItem, role: string) => void;
   onGrantPoints: (u: UserItem) => void;
+  onDelete: (u: UserItem) => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -257,7 +260,7 @@ function ActionMenu({
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const availableRoles = ['fan', 'assistant', 'star'].filter((r) => r !== user.role);
+  const availableRoles = ['fan', 'assistant', 'star', 'admin'].filter((r) => r !== user.role);
 
   return (
     <div ref={ref} className="relative inline-flex">
@@ -276,6 +279,14 @@ function ActionMenu({
           >
             <Gift className="w-3.5 h-3.5" />
             增加积分
+          </button>
+
+          <button
+            onClick={() => { setOpen(false); onDelete(user); }}
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-body text-left text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            删除用户
           </button>
 
           {/* 禁用/启用 */}
@@ -321,6 +332,9 @@ export default function AdminUsersPage() {
   const [keyword, setKeyword] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [creatingUser, setCreatingUser] = useState(false);
+  const [createForm, setCreateForm] = useState({ name: '', email: '', password: '', role: 'fan' });
   const [badgeDrafts, setBadgeDrafts] = useState<Record<string, string>>({});
   const [savingBadgeId, setSavingBadgeId] = useState<string | null>(null);
   const [grantModal, setGrantModal] = useState<{ open: boolean; mode: 'single' | 'batch'; user: UserItem | null }>({
@@ -442,6 +456,55 @@ export default function AdminUsersPage() {
     setGrantReason('运营活动奖励');
   };
 
+  const resetCreateForm = () => {
+    setCreateForm({ name: '', email: '', password: '', role: 'fan' });
+    setShowCreateForm(false);
+  };
+
+  const handleCreateUser = async () => {
+    const payload = {
+      name: createForm.name.trim(),
+      email: createForm.email.trim(),
+      password: createForm.password,
+      role: createForm.role,
+    };
+
+    if (!payload.name || !payload.email || !payload.password) {
+      openNotice('info', '请填写完整信息', '请先补全昵称、邮箱和密码。');
+      return;
+    }
+
+    if (payload.password.length < 6) {
+      openNotice('info', '密码长度不足', '密码至少需要 6 位。');
+      return;
+    }
+
+    setCreatingUser(true);
+    try {
+      await adminPost('/api/admin/users', payload);
+      resetCreateForm();
+      await fetchUsers();
+      openNotice('success', '创建成功', `用户「${payload.name}」已创建。`);
+    } catch (err) {
+      openNotice('error', '创建失败', err instanceof Error ? err.message : '请稍后重试');
+    } finally {
+      setCreatingUser(false);
+    }
+  };
+
+  const handleDeleteUser = (user: UserItem) => {
+    setModal({
+      open: true,
+      title: '删除用户',
+      message: `确定删除「${user.name}」及其账号内容吗？此操作会删除该账号的帖子、评论、二创等内容，且不可撤销。`,
+      confirmText: '确认删除',
+      danger: true,
+      action: async () => {
+        await adminDelete(`/api/admin/users/${user.id}`);
+      },
+    });
+  };
+
   const handleGrantPoints = async () => {
     const amount = Number(grantPoints);
     const trimmedReason = grantReason.trim();
@@ -534,6 +597,74 @@ export default function AdminUsersPage() {
           当前批量加积分会基于这里的筛选结果执行。
           当前条件：关键词 {keyword.trim() ? `「${keyword.trim()}」` : '未设置'}，角色 {roleOptions.find((o) => o.value === roleFilter)?.label ?? '全部角色'}，状态 {statusOptions.find((o) => o.value === statusFilter)?.label ?? '全部状态'}。
         </p>
+      </div>
+
+      <div className="card p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-body font-semibold text-text-title">新增用户</h3>
+            <p className="text-caption text-text-muted mt-1">后台可直接创建前台用户账号，无需验证码。</p>
+          </div>
+          <button
+            onClick={() => setShowCreateForm((prev) => !prev)}
+            className="inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-btn text-body font-medium text-white bg-primary hover:bg-primary-hover transition-colors cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            {showCreateForm ? '收起表单' : '新增用户'}
+          </button>
+        </div>
+
+        {showCreateForm && (
+          <>
+            <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <input
+                type="text"
+                value={createForm.name}
+                onChange={(e) => setCreateForm((prev) => ({ ...prev, name: e.target.value }))}
+                placeholder="昵称"
+                className="h-10 px-3 rounded-btn border border-border bg-white text-body focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              />
+              <input
+                type="email"
+                value={createForm.email}
+                onChange={(e) => setCreateForm((prev) => ({ ...prev, email: e.target.value }))}
+                placeholder="邮箱"
+                className="h-10 px-3 rounded-btn border border-border bg-white text-body focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              />
+              <input
+                type="password"
+                value={createForm.password}
+                onChange={(e) => setCreateForm((prev) => ({ ...prev, password: e.target.value }))}
+                placeholder="密码（至少 6 位）"
+                className="h-10 px-3 rounded-btn border border-border bg-white text-body focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              />
+              <select
+                value={createForm.role}
+                onChange={(e) => setCreateForm((prev) => ({ ...prev, role: e.target.value }))}
+                className="h-10 px-3 rounded-btn border border-border bg-white text-body focus:outline-none focus:border-primary cursor-pointer"
+              >
+                {creatableRoleOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                onClick={handleCreateUser}
+                disabled={creatingUser}
+                className="inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-btn text-body font-medium text-white bg-primary hover:bg-primary-hover transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <Plus className="w-4 h-4" />
+                {creatingUser ? '创建中...' : '确认创建'}
+              </button>
+              <button
+                onClick={resetCreateForm}
+                disabled={creatingUser}
+                className="inline-flex items-center justify-center h-9 px-4 rounded-btn text-body font-medium text-text-body bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                取消
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="card p-4">
@@ -636,7 +767,7 @@ export default function AdminUsersPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-center">
-                    <ActionMenu user={user} onToggleActive={handleToggleActive} onChangeRole={handleChangeRole} onGrantPoints={openSingleGrantModal} />
+                    <ActionMenu user={user} onToggleActive={handleToggleActive} onChangeRole={handleChangeRole} onGrantPoints={openSingleGrantModal} onDelete={handleDeleteUser} />
                   </td>
                 </tr>
               ))}

@@ -7,7 +7,7 @@ import {
   LayoutDashboard, FileText, Image, Calendar, Gamepad2,
   Clock, SlidersHorizontal, FolderOpen, Users, Settings,
   LogOut, Menu, X, ChevronDown, MessageSquarePlus, HelpCircle, Megaphone, Music, Flag, ShieldBan,
-  BookOpen, Palette, Vote, UserCog,
+  BookOpen, Palette, Vote, UserCog, BarChart3,
 } from 'lucide-react';
 
 interface SidebarLink {
@@ -72,6 +72,7 @@ const sidebarGroups: SidebarGroup[] = [
     links: [
       { href: '/admin/admins', label: '管理员管理', icon: UserCog },
       { href: '/admin/banned-words', label: '违禁词管理', icon: ShieldBan },
+      { href: '/admin/site-logs', label: '网站日志', icon: BarChart3 },
       { href: '/admin/settings', label: '站点设置', icon: Settings },
     ],
   },

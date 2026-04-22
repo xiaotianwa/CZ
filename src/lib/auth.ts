@@ -92,11 +92,21 @@ function cookieOptions(maxAgeSec: number = COOKIE_MAX_AGE) {
   };
 }
 
+export function applyPrivateNoStoreHeaders(res: NextResponse): NextResponse {
+  res.headers.set('Cache-Control', 'private, no-store, no-cache, must-revalidate');
+  res.headers.set('Pragma', 'no-cache');
+  res.headers.set('Expires', '0');
+  res.headers.set('Vary', 'Cookie, Authorization');
+  return res;
+}
+
 export function setTokenCookie(res: NextResponse, token: string, cookieName: string): void {
+  applyPrivateNoStoreHeaders(res);
   res.cookies.set(cookieName, token, cookieOptions());
 }
 
 export function clearTokenCookie(res: NextResponse, cookieName: string): void {
+  applyPrivateNoStoreHeaders(res);
   const isProd = process.env.NODE_ENV === 'production';
   res.cookies.set(cookieName, '', {
     httpOnly: true,

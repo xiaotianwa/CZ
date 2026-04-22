@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { Save, AlertCircle, CheckCircle, Upload, X, Globe, User, Share2 } from 'lucide-react';
+import { Save, AlertCircle, CheckCircle, Upload, X, Globe, User, Share2, BarChart3, RefreshCw } from 'lucide-react';
 import { adminGet, adminPut } from '@/lib/admin-fetch';
 
 interface Field {
@@ -19,6 +19,32 @@ interface SettingsGroup {
   icon: React.ComponentType<{ className?: string }>;
   fields: Field[];
 }
+
+ interface SiteLogItem {
+   id: string;
+   path: string;
+   ip: string | null;
+   ua: string | null;
+   referrer: string | null;
+   createdAt: string;
+ }
+
+ interface SiteLogResponse {
+   summary: {
+     totalViews: number;
+     todayViews: number;
+     uniquePaths: number;
+     rangeDays: number;
+     topPaths: Array<{ path: string; count: number }>;
+   };
+   list: SiteLogItem[];
+   pagination: {
+     total: number;
+     page: number;
+     pageSize: number;
+     totalPages: number;
+   };
+ }
 
 const settingsGroups: SettingsGroup[] = [
   {
@@ -192,12 +218,31 @@ export default function AdminSettingsPage() {
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [siteLogs, setSiteLogs] = useState<SiteLogResponse | null>(null);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logDays, setLogDays] = useState(7);
 
   useEffect(() => {
     adminGet<Record<string, string>>('/api/admin/settings')
       .then((res) => setSettings(res.data))
       .catch((err) => setMessage({ type: 'error', text: err.message }));
   }, []);
+
+  const fetchSiteLogs = async (days: number = logDays) => {
+    setLogsLoading(true);
+    try {
+      const res = await adminGet<SiteLogResponse>(`/api/admin/site-logs?days=${days}&page=1&pageSize=20`);
+      setSiteLogs(res.data);
+    } catch (err) {
+      setMessage({ type: 'error', text: err instanceof Error ? err.message : '网站日志加载失败' });
+    } finally {
+      setLogsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSiteLogs(logDays);
+  }, [logDays]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -275,6 +320,119 @@ export default function AdminSettingsPage() {
           </div>
         </div>
       ))}
+
+      <div className="card">
+        <div className="flex flex-col gap-3 pb-4 mb-4 border-b border-divider sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-btn bg-primary-bg flex items-center justify-center flex-shrink-0">
+              <BarChart3 className="w-4 h-4 text-primary" />
+            </div>
+            <div>
+              <h3 className="text-body font-semibold text-text-title">网站日志</h3>
+              <p className="text-caption text-text-muted">查看页面访问记录与热门路径统计</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <select
+              value={logDays}
+              onChange={(e) => setLogDays(Number(e.target.value))}
+              className="h-9 px-3 rounded-btn border border-border bg-white text-body focus:outline-none focus:border-primary"
+            >
+              <option value={1}>最近 1 天</option>
+              <option value={7}>最近 7 天</option>
+              <option value={30}>最近 30 天</option>
+            </select>
+            <button
+              type="button"
+              onClick={() => fetchSiteLogs(logDays)}
+              disabled={logsLoading}
+              className="inline-flex items-center gap-1.5 h-9 px-4 rounded-btn border border-border bg-white text-body text-text-body hover:border-primary hover:text-primary transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 ${logsLoading ? 'animate-spin' : ''}`} />
+              刷新
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          <div className="rounded-card border border-divider bg-gray-50/70 px-4 py-3">
+            <p className="text-caption text-text-muted">统计周期总访问</p>
+            <p className="mt-1 text-[22px] font-semibold text-text-title">{siteLogs?.summary.totalViews ?? 0}</p>
+          </div>
+          <div className="rounded-card border border-divider bg-gray-50/70 px-4 py-3">
+            <p className="text-caption text-text-muted">今日访问</p>
+            <p className="mt-1 text-[22px] font-semibold text-text-title">{siteLogs?.summary.todayViews ?? 0}</p>
+          </div>
+          <div className="rounded-card border border-divider bg-gray-50/70 px-4 py-3">
+            <p className="text-caption text-text-muted">访问路径数</p>
+            <p className="mt-1 text-[22px] font-semibold text-text-title">{siteLogs?.summary.uniquePaths ?? 0}</p>
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
+          <div className="rounded-card border border-divider bg-white">
+            <div className="border-b border-divider px-4 py-3">
+              <h4 className="text-body font-medium text-text-title">热门路径</h4>
+            </div>
+            <div className="px-4 py-3 space-y-3">
+              {(siteLogs?.summary.topPaths ?? []).length > 0 ? (
+                siteLogs?.summary.topPaths.map((item) => (
+                  <div key={item.path} className="flex items-center justify-between gap-3 text-body">
+                    <span className="truncate text-text-body">{item.path}</span>
+                    <span className="text-caption font-medium text-text-muted">{item.count}</span>
+                  </div>
+                ))
+              ) : (
+                <p className="text-caption text-text-muted">暂无统计数据</p>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-card border border-divider bg-white overflow-hidden">
+            <div className="border-b border-divider px-4 py-3 flex items-center justify-between gap-3">
+              <h4 className="text-body font-medium text-text-title">最近访问记录</h4>
+              <span className="text-caption text-text-muted">近 {siteLogs?.summary.rangeDays ?? logDays} 天</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-body">
+                <thead>
+                  <tr className="bg-gray-50/60 border-b border-divider">
+                    <th className="px-4 py-3 text-left font-medium text-text-muted">路径</th>
+                    <th className="px-4 py-3 text-left font-medium text-text-muted">IP</th>
+                    <th className="px-4 py-3 text-left font-medium text-text-muted">来源</th>
+                    <th className="px-4 py-3 text-left font-medium text-text-muted">时间</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {logsLoading && (
+                    <tr>
+                      <td colSpan={4} className="px-4 py-8 text-center text-text-muted">加载中...</td>
+                    </tr>
+                  )}
+                  {!logsLoading && (siteLogs?.list ?? []).map((item) => (
+                    <tr key={item.id} className="border-b border-divider last:border-0 align-top">
+                      <td className="px-4 py-3 text-text-title">
+                        <div className="max-w-[260px] truncate" title={item.path}>{item.path}</div>
+                        {item.ua ? <div className="mt-1 max-w-[260px] truncate text-[11px] text-text-muted" title={item.ua}>{item.ua}</div> : null}
+                      </td>
+                      <td className="px-4 py-3 text-text-muted whitespace-nowrap">{item.ip || '未知'}</td>
+                      <td className="px-4 py-3 text-text-muted">
+                        <div className="max-w-[220px] truncate" title={item.referrer || ''}>{item.referrer || '直接访问'}</div>
+                      </td>
+                      <td className="px-4 py-3 text-text-muted whitespace-nowrap">{new Date(item.createdAt).toLocaleString('zh-CN')}</td>
+                    </tr>
+                  ))}
+                  {!logsLoading && (siteLogs?.list ?? []).length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="px-4 py-8 text-center text-text-muted">暂无日志记录</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div className="sticky bottom-0 -mx-4 lg:-mx-6 px-4 lg:px-6 py-3 bg-white border-t border-divider flex items-center justify-between">
         <p className="text-caption text-text-muted">修改后请点击保存</p>

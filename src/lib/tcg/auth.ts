@@ -6,7 +6,7 @@
 
 import jwt from 'jsonwebtoken';
 import { NextRequest, NextResponse } from 'next/server';
-import { AuthError } from '@/lib/auth';
+import { applyPrivateNoStoreHeaders, AuthError } from '@/lib/auth';
 import { isTokenRevoked } from '@/lib/token-blacklist';
 
 function getTcgSecret(): string {
@@ -66,10 +66,12 @@ function cookieOptions() {
 }
 
 export function setTcgCookie(res: NextResponse, token: string): void {
+  applyPrivateNoStoreHeaders(res);
   res.cookies.set(TCG_COOKIE_NAME, token, cookieOptions());
 }
 
 export function clearTcgCookie(res: NextResponse): void {
+  applyPrivateNoStoreHeaders(res);
   res.cookies.set(TCG_COOKIE_NAME, '', { ...cookieOptions(), maxAge: 0 });
 }
 

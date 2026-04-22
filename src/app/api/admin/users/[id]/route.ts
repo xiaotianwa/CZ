@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db';
 import { requireAdmin } from '@/lib/auth';
 import { ok, fail, handleError } from '@/lib/api';
 import { revokeUserTokens } from '@/lib/token-blacklist';
+import { deleteUserWithContent } from '@/lib/admin-users';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -27,9 +28,27 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
   }
 }
 
+export async function DELETE(req: NextRequest, { params }: RouteParams) {
+  try {
+    await requireAdmin(req);
+    const { id } = await params;
+
+    const existing = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+    if (!existing) return fail('用户不存在', 404);
+
+    const summary = await deleteUserWithContent(id);
+    return ok(summary, '删除成功');
+  } catch (err) {
+    return handleError(err);
+  }
+}
+
 const patchSchema = z.object({
   isActive: z.boolean().optional(),
-  role: z.enum(['fan', 'star', 'assistant']).optional(),
+  role: z.enum(['fan', 'star', 'assistant', 'admin']).optional(),
   customBadge: z.union([z.string().trim().max(12, '标签最多 12 个字'), z.null()]).optional(),
 });
 

@@ -71,6 +71,7 @@ function addNoCacheHeaders(res: NextResponse): NextResponse {
   res.headers.set('Cache-Control', 'private, no-store, no-cache, must-revalidate');
   res.headers.set('Pragma', 'no-cache');
   res.headers.set('Expires', '0');
+  res.headers.set('Vary', 'Cookie, Authorization');
   return res;
 }
 
