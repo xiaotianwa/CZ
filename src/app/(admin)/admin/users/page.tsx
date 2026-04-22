@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Search, User, ShieldBan, ShieldCheck, MoreHorizontal, Filter, Save } from 'lucide-react';
-import { adminGet, adminPatch } from '@/lib/admin-fetch';
+import { Search, User, ShieldBan, ShieldCheck, MoreHorizontal, Filter, Save, Gift, CheckCircle2, AlertCircle, Info } from 'lucide-react';
+import { adminGet, adminPatch, adminPost } from '@/lib/admin-fetch';
 
 interface UserItem {
   id: string;
@@ -81,13 +81,172 @@ function ConfirmModal({
   );
 }
 
+function NoticeModal({
+  open,
+  tone,
+  title,
+  message,
+  onClose,
+}: {
+  open: boolean;
+  tone: 'success' | 'error' | 'info';
+  title: string;
+  message: string;
+  onClose: () => void;
+}) {
+  if (!open) return null;
+
+  const config = {
+    success: {
+      icon: CheckCircle2,
+      iconClassName: 'text-success',
+      badgeClassName: 'bg-green-50 border border-green-100',
+      buttonClassName: 'bg-primary hover:bg-primary-hover text-white',
+    },
+    error: {
+      icon: AlertCircle,
+      iconClassName: 'text-danger',
+      badgeClassName: 'bg-red-50 border border-red-100',
+      buttonClassName: 'bg-red-500 hover:bg-red-600 text-white',
+    },
+    info: {
+      icon: Info,
+      iconClassName: 'text-primary',
+      badgeClassName: 'bg-blue-50 border border-blue-100',
+      buttonClassName: 'bg-primary hover:bg-primary-hover text-white',
+    },
+  }[tone];
+
+  const Icon = config.icon;
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/25 backdrop-blur-[2px] px-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-[24px] border border-divider bg-white shadow-[0_24px_80px_rgba(15,23,42,0.16)]" onClick={(e) => e.stopPropagation()}>
+        <div className="px-6 pt-6 pb-5">
+          <div className="flex items-start gap-4">
+            <div className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl ${config.badgeClassName}`}>
+              <Icon className={`h-6 w-6 ${config.iconClassName}`} />
+            </div>
+            <div className="min-w-0 flex-1 pt-0.5">
+              <h3 className="text-[22px] font-semibold leading-7 text-text-title">{title}</h3>
+              <p className="mt-2 text-[15px] leading-7 text-text-body">{message}</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex justify-end px-6 pb-6">
+          <button
+            onClick={onClose}
+            className={`inline-flex h-11 items-center justify-center rounded-2xl px-6 text-body font-medium transition-colors cursor-pointer ${config.buttonClassName}`}
+          >
+            我知道了
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GrantPointsModal({
+  open,
+  mode,
+  targetName,
+  targetCount,
+  points,
+  reason,
+  loading,
+  onPointsChange,
+  onReasonChange,
+  onConfirm,
+  onCancel,
+}: {
+  open: boolean;
+  mode: 'single' | 'batch';
+  targetName?: string;
+  targetCount?: number;
+  points: string;
+  reason: string;
+  loading: boolean;
+  onPointsChange: (value: string) => void;
+  onReasonChange: (value: string) => void;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+      <div className="bg-white rounded-card shadow-xl w-full max-w-md mx-4 p-5">
+        <div className="flex items-start gap-3 mb-4">
+          <div className="w-10 h-10 rounded-full bg-primary-bg flex items-center justify-center flex-shrink-0">
+            <Gift className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h3 className="text-heading-sm text-text-title">
+              {mode === 'single' ? `为 ${targetName} 增加积分` : '批量增加积分'}
+            </h3>
+            <p className="text-body text-text-muted mt-1">
+              {mode === 'single' ? '本次会同步写入积分记录并发送系统通知。' : `本次会为当前筛选命中的 ${targetCount ?? 0} 位用户同步写入积分记录并发送系统通知。`}
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-body font-medium text-text-title mb-1.5">增加积分</label>
+            <input
+              type="number"
+              min={1}
+              max={10000}
+              value={points}
+              onChange={(e) => onPointsChange(e.target.value)}
+              className="w-full h-10 px-3 rounded-btn border border-border bg-white text-body focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              placeholder="请输入积分数"
+            />
+          </div>
+
+          <div>
+            <label className="block text-body font-medium text-text-title mb-1.5">加分原因</label>
+            <textarea
+              value={reason}
+              onChange={(e) => onReasonChange(e.target.value.slice(0, 100))}
+              rows={4}
+              placeholder="例如：活动奖励、补偿发放、运营激励"
+              className="w-full rounded-card border border-border bg-white px-3 py-2.5 text-body text-text-title resize-none focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+            />
+            <p className="mt-1 text-[11px] text-text-muted">用户会在通知中心与积分明细中看到该原因。</p>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 mt-5">
+          <button
+            onClick={onCancel}
+            disabled={loading}
+            className="h-8 px-4 rounded-btn text-body font-medium text-text-body bg-gray-100 hover:bg-gray-200 transition-colors cursor-pointer disabled:opacity-50"
+          >
+            取消
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={loading}
+            className="inline-flex items-center gap-1.5 h-8 px-4 rounded-btn text-body font-medium text-white bg-primary hover:bg-primary-hover transition-colors cursor-pointer disabled:opacity-50"
+          >
+            <Gift className="w-3.5 h-3.5" />
+            {loading ? '发放中...' : '确认发放'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ---- 操作下拉 ---- */
 function ActionMenu({
-  user, onToggleActive, onChangeRole,
+  user, onToggleActive, onChangeRole, onGrantPoints,
 }: {
   user: UserItem;
   onToggleActive: (u: UserItem) => void;
   onChangeRole: (u: UserItem, role: string) => void;
+  onGrantPoints: (u: UserItem) => void;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -110,7 +269,15 @@ function ActionMenu({
       </button>
 
       {open && (
-        <div className="absolute right-0 top-8 z-30 w-36 bg-white rounded-card shadow-lg border border-divider py-1">
+        <div className="absolute right-0 top-8 z-30 w-40 bg-white rounded-card shadow-lg border border-divider py-1">
+          <button
+            onClick={() => { setOpen(false); onGrantPoints(user); }}
+            className="w-full flex items-center gap-2 px-3 py-1.5 text-body text-left text-primary hover:bg-primary-bg transition-colors cursor-pointer"
+          >
+            <Gift className="w-3.5 h-3.5" />
+            增加积分
+          </button>
+
           {/* 禁用/启用 */}
           {user.role !== 'star' && (
             <button
@@ -156,6 +323,14 @@ export default function AdminUsersPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [badgeDrafts, setBadgeDrafts] = useState<Record<string, string>>({});
   const [savingBadgeId, setSavingBadgeId] = useState<string | null>(null);
+  const [grantModal, setGrantModal] = useState<{ open: boolean; mode: 'single' | 'batch'; user: UserItem | null }>({
+    open: false,
+    mode: 'single',
+    user: null,
+  });
+  const [grantPoints, setGrantPoints] = useState('50');
+  const [grantReason, setGrantReason] = useState('');
+  const [grantLoading, setGrantLoading] = useState(false);
   const userList = data?.list ?? [];
   const totalPages = data?.pagination?.totalPages ?? 0;
   const totalCount = data?.pagination?.total ?? 0;
@@ -166,6 +341,16 @@ export default function AdminUsersPage() {
     danger: boolean; action: () => Promise<void>;
   }>({ open: false, title: '', message: '', confirmText: '', danger: false, action: async () => {} });
   const [modalLoading, setModalLoading] = useState(false);
+  const [notice, setNotice] = useState<{
+    open: boolean;
+    tone: 'success' | 'error' | 'info';
+    title: string;
+    message: string;
+  }>({ open: false, tone: 'info', title: '', message: '' });
+
+  const openNotice = (tone: 'success' | 'error' | 'info', title: string, message: string) => {
+    setNotice({ open: true, tone, title, message });
+  };
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -221,7 +406,7 @@ export default function AdminUsersPage() {
       setModal((m) => ({ ...m, open: false }));
       fetchUsers();
     } catch (err) {
-      alert(err instanceof Error ? err.message : '操作失败');
+      openNotice('error', '操作失败', err instanceof Error ? err.message : '请稍后重试');
     } finally {
       setModalLoading(false);
     }
@@ -234,42 +419,139 @@ export default function AdminUsersPage() {
       await adminPatch(`/api/admin/users/${user.id}`, { customBadge });
       await fetchUsers();
     } catch (err) {
-      alert(err instanceof Error ? err.message : '标签保存失败');
+      openNotice('error', '标签保存失败', err instanceof Error ? err.message : '请稍后重试');
     } finally {
       setSavingBadgeId(null);
     }
   };
 
+  const openSingleGrantModal = (user: UserItem) => {
+    setGrantModal({ open: true, mode: 'single', user });
+    setGrantPoints('50');
+    setGrantReason('管理员奖励');
+  };
+
+  const openBatchGrantModal = () => {
+    if (totalCount <= 0) {
+      openNotice('info', '暂无可操作用户', '当前筛选结果下没有可加分的用户，请调整筛选条件后再试。');
+      return;
+    }
+
+    setGrantModal({ open: true, mode: 'batch', user: null });
+    setGrantPoints('50');
+    setGrantReason('运营活动奖励');
+  };
+
+  const handleGrantPoints = async () => {
+    const amount = Number(grantPoints);
+    const trimmedReason = grantReason.trim();
+
+    if (!Number.isInteger(amount) || amount < 1 || amount > 10000) {
+      openNotice('info', '积分填写有误', '积分必须是 1 到 10000 之间的整数。');
+      return;
+    }
+
+    if (trimmedReason.length < 2) {
+      openNotice('info', '请补充加分原因', '请填写至少 2 个字的加分原因。');
+      return;
+    }
+
+    setGrantLoading(true);
+    try {
+      const payload = grantModal.mode === 'single' && grantModal.user
+        ? {
+            mode: 'single' as const,
+            userId: grantModal.user.id,
+            points: amount,
+            reason: trimmedReason,
+          }
+        : {
+            mode: 'batch' as const,
+            points: amount,
+            reason: trimmedReason,
+            filters: {
+              keyword,
+              role: roleFilter,
+              status: statusFilter,
+            },
+          };
+
+      const res = await adminPost<{ count: number; totalGranted: number }>(`/api/admin/users/points`, payload);
+      setGrantModal({ open: false, mode: 'single', user: null });
+      setGrantReason('');
+      await fetchUsers();
+      openNotice('success', '积分发放成功', res.message || '积分已经成功发放。');
+    } catch (err) {
+      openNotice('error', '积分发放失败', err instanceof Error ? err.message : '请稍后重试');
+    } finally {
+      setGrantLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
-      {/* 筛选栏 */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
-          <input
-            type="text"
-            placeholder="搜索用户名或邮箱..."
-            value={keyword}
-            onChange={(e) => { setKeyword(e.target.value); setPage(1); }}
-            className="w-full h-9 pl-9 pr-3 rounded-btn border border-border bg-white text-body focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-          />
+      <div className="card p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <Filter className="w-4 h-4 text-primary" />
+          <h3 className="text-body font-semibold text-text-title">筛选条件</h3>
         </div>
-        <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-text-muted" />
-          <select
-            value={roleFilter}
-            onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}
-            className="h-9 px-3 rounded-btn border border-border bg-white text-body focus:outline-none focus:border-primary cursor-pointer"
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1.4fr)_180px_180px]">
+          <div>
+            <label className="block text-caption font-medium text-text-muted mb-1.5">搜索用户</label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted" />
+              <input
+                type="text"
+                placeholder="搜索用户名或邮箱..."
+                value={keyword}
+                onChange={(e) => { setKeyword(e.target.value); setPage(1); }}
+                className="w-full h-9 pl-9 pr-3 rounded-btn border border-border bg-white text-body focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-caption font-medium text-text-muted mb-1.5">角色筛选</label>
+            <select
+              value={roleFilter}
+              onChange={(e) => { setRoleFilter(e.target.value); setPage(1); }}
+              className="w-full h-9 px-3 rounded-btn border border-border bg-white text-body focus:outline-none focus:border-primary cursor-pointer"
+            >
+              {roleOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-caption font-medium text-text-muted mb-1.5">状态筛选</label>
+            <select
+              value={statusFilter}
+              onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+              className="w-full h-9 px-3 rounded-btn border border-border bg-white text-body focus:outline-none focus:border-primary cursor-pointer"
+            >
+              {statusOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+        </div>
+        <p className="text-caption text-text-muted mt-3">
+          当前批量加积分会基于这里的筛选结果执行。
+          当前条件：关键词 {keyword.trim() ? `「${keyword.trim()}」` : '未设置'}，角色 {roleOptions.find((o) => o.value === roleFilter)?.label ?? '全部角色'}，状态 {statusOptions.find((o) => o.value === statusFilter)?.label ?? '全部状态'}。
+        </p>
+      </div>
+
+      <div className="card p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-body font-semibold text-text-title">批量增加积分</h3>
+            <p className="text-caption text-text-muted mt-1">
+              按当前筛选结果批量发放积分，并同步写入通知与积分记录。当前命中 {totalCount} 位用户。
+            </p>
+          </div>
+          <button
+            onClick={openBatchGrantModal}
+            disabled={totalCount <= 0}
+            className="inline-flex items-center justify-center gap-1.5 h-9 px-4 rounded-btn text-body font-medium text-white bg-primary hover:bg-primary-hover transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {roleOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
-          <select
-            value={statusFilter}
-            onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-            className="h-9 px-3 rounded-btn border border-border bg-white text-body focus:outline-none focus:border-primary cursor-pointer"
-          >
-            {statusOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-          </select>
+            <Gift className="w-4 h-4" />
+            按当前筛选批量加积分
+          </button>
         </div>
       </div>
 
@@ -354,7 +636,7 @@ export default function AdminUsersPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-center">
-                    <ActionMenu user={user} onToggleActive={handleToggleActive} onChangeRole={handleChangeRole} />
+                    <ActionMenu user={user} onToggleActive={handleToggleActive} onChangeRole={handleChangeRole} onGrantPoints={openSingleGrantModal} />
                   </td>
                 </tr>
               ))}
@@ -389,6 +671,28 @@ export default function AdminUsersPage() {
         loading={modalLoading}
         onConfirm={confirmAction}
         onCancel={() => setModal((m) => ({ ...m, open: false }))}
+      />
+
+      <GrantPointsModal
+        open={grantModal.open}
+        mode={grantModal.mode}
+        targetName={grantModal.user?.name}
+        targetCount={totalCount}
+        points={grantPoints}
+        reason={grantReason}
+        loading={grantLoading}
+        onPointsChange={setGrantPoints}
+        onReasonChange={setGrantReason}
+        onConfirm={handleGrantPoints}
+        onCancel={() => setGrantModal({ open: false, mode: 'single', user: null })}
+      />
+
+      <NoticeModal
+        open={notice.open}
+        tone={notice.tone}
+        title={notice.title}
+        message={notice.message}
+        onClose={() => setNotice((prev) => ({ ...prev, open: false }))}
       />
     </div>
   );

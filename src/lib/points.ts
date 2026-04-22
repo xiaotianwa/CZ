@@ -81,3 +81,112 @@ export async function grantDailyLogin(userId: string): Promise<ReturnType<typeof
 
   return grantPoints(userId, 'daily_login', '每日登录奖励');
 }
+
+export interface AdminPointGrantActor {
+  id: string;
+  name: string;
+  avatar?: string | null;
+}
+
+export interface AdminPointGrantResult {
+  id: string;
+  name: string;
+  totalPoints: number;
+  level: number;
+  levelUp: boolean;
+}
+
+export async function grantAdminPointsToUsers(params: {
+  userIds: string[];
+  points: number;
+  reason: string;
+  actor: AdminPointGrantActor;
+}): Promise<AdminPointGrantResult[]> {
+  const uniqueUserIds = Array.from(new Set(params.userIds.filter(Boolean)));
+
+  if (uniqueUserIds.length === 0) {
+    return [];
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const users = await tx.user.findMany({
+      where: { id: { in: uniqueUserIds } },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
+    if (users.length !== uniqueUserIds.length) {
+      throw new Error('部分用户不存在');
+    }
+
+    const userMap = new Map(users.map((user) => [user.id, user]));
+    const results: AdminPointGrantResult[] = [];
+
+    for (const userId of uniqueUserIds) {
+      const user = userMap.get(userId);
+
+      if (!user) {
+        throw new Error('部分用户不存在');
+      }
+
+      await tx.pointLog.create({
+        data: {
+          userId,
+          action: 'admin_grant',
+          points: params.points,
+          detail: `管理员加分：${params.reason}`,
+        },
+      });
+
+      const updatedUser = await tx.user.update({
+        where: { id: userId },
+        data: {
+          points: { increment: params.points },
+        },
+        select: {
+          points: true,
+          level: true,
+          badge: true,
+        },
+      });
+
+      const nextLevel = calcLevelFromPoints(updatedUser.points);
+      const nextBadge = getBadgeByLevel(nextLevel);
+      const levelUp = nextLevel > updatedUser.level;
+
+      if (nextLevel !== updatedUser.level || nextBadge !== updatedUser.badge) {
+        await tx.user.update({
+          where: { id: userId },
+          data: {
+            level: nextLevel,
+            badge: nextBadge,
+          },
+        });
+      }
+
+      await tx.notification.create({
+        data: {
+          userId,
+          type: 'system',
+          title: '积分到账通知',
+          content: `管理员为你增加了 ${params.points} 积分。原因：${params.reason}`,
+          fromId: params.actor.id,
+          fromName: params.actor.name,
+          fromAvatar: params.actor.avatar ?? undefined,
+        },
+      });
+
+      results.push({
+        id: userId,
+        name: user.name,
+        totalPoints: updatedUser.points,
+        level: nextLevel,
+        levelUp,
+      });
+    }
+
+    return results;
+  });
+}
