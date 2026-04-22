@@ -1,4 +1,7 @@
 import type { Metadata } from 'next';
+import { redirect } from 'next/navigation';
+import { Prisma } from '@prisma/client';
+import { prisma } from '@/lib/db';
 import './game-theme.css';
 import GameNav from './_components/GameNav';
 
@@ -12,7 +15,23 @@ export const metadata: Metadata = {
 //   primary #7C3AED, secondary #A78BFA, cta #F43F5E, bg #0F0F23, text #E2E8F0
 // 字体：Russo One（标题） + Chakra Petch（正文）
 
-export default function GameLayout({ children }: { children: React.ReactNode }) {
+export const dynamic = 'force-dynamic';
+
+async function isTcgEnabled(): Promise<boolean> {
+  try {
+    const rows = await prisma.$queryRaw<Array<{ isEnabled: boolean | number }>>(
+      Prisma.sql`SELECT "isEnabled" FROM "GameCenterEntry" WHERE "entryKey" = 'tcg' LIMIT 1`
+    );
+    if (rows.length === 0) return true; // 未配置入口时默认开放
+    return Boolean(rows[0].isEnabled);
+  } catch {
+    return true; // 表不存在等异常默认放行
+  }
+}
+
+export default async function GameLayout({ children }: { children: React.ReactNode }) {
+  const enabled = await isTcgEnabled();
+  if (!enabled) redirect('/play');
   return (
     <div className="game-theme min-h-screen text-[#E2E8F0] antialiased">
       {/* 背景层：径向霓虹 + 扫描线纹理 */}
