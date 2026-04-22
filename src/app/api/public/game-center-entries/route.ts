@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import { Prisma } from '@/generated/prisma/client';
 import { prisma } from '@/lib/db';
 import { ok, handleError } from '@/lib/api';
 import { mergeGameCenterEntries, type GameCenterEntryRecord } from '@/lib/game-center';

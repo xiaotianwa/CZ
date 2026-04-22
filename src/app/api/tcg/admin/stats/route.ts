@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { Prisma } from '@prisma/client';
+import { Prisma } from '@/generated/prisma/client';
 import { prisma } from '@/lib/db';
 import { requireTcgAdmin } from '@/lib/tcg/auth';
 import { ok, handleError } from '@/lib/api';
