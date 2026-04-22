@@ -273,7 +273,25 @@ export default function Navbar({ profileName }: { profileName: string }) {
                             <Link
                               key={n.id}
                               href={n.link || '/me'}
-                              onClick={() => setNotifOpen(false)}
+                              onClick={() => {
+                                setNotifOpen(false);
+                                if (!n.isRead) {
+                                  fetch('/api/auth/notifications', {
+                                    method: 'PATCH',
+                                    credentials: 'same-origin',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ ids: [n.id] }),
+                                  })
+                                    .then((r) => r.json())
+                                    .then((json) => {
+                                      if (json.code === 0) {
+                                        setNotifications((prev) => prev.map((item) => item.id === n.id ? { ...item, isRead: true } : item));
+                                        setUnreadCount(json.data?.unreadCount ?? Math.max(0, unreadCount - 1));
+                                      }
+                                    })
+                                    .catch(() => {});
+                                }
+                              }}
                               className={`flex gap-3 px-4 py-3 hover:bg-gray-50 transition-colors border-b border-divider last:border-0 ${!n.isRead ? 'bg-primary/[0.03]' : ''}`}
                             >
                               <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-primary-bg">

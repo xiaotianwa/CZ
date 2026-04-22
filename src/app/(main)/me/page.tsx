@@ -768,6 +768,7 @@ function LevelTab({ user }: { user: UserProfile }) {
     comment: { label: '发表评论', icon: '💬' },
     be_liked: { label: '被点赞', icon: '❤️' },
     event: { label: '参与活动', icon: '🎉' },
+    admin_grant: { label: '管理员赠送', icon: '🎁' },
   };
 
   const milestones = [
@@ -1423,6 +1424,23 @@ function NotificationsTab() {
             <a
               key={n.id}
               href={n.link || '#'}
+              onClick={() => {
+                if (!n.isRead) {
+                  fetch('/api/auth/notifications', {
+                    method: 'PATCH',
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ids: [n.id] }),
+                  })
+                    .then((r) => r.json())
+                    .then((json) => {
+                      if (json.code === 0) {
+                        setNotifs((prev) => prev.map((item) => item.id === n.id ? { ...item, isRead: true } : item));
+                      }
+                    })
+                    .catch(() => {});
+                }
+              }}
               className={`card flex items-start gap-3 hover:shadow-card-hover transition-shadow ${!n.isRead ? 'border-primary/20 bg-primary/[0.02]' : ''}`}
             >
               <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 bg-primary-bg">
