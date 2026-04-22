@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
       },
       include: {
         author: {
-          select: { id: true, name: true, avatar: true, role: true, level: true, badge: true },
+          select: { id: true, name: true, avatar: true, role: true, level: true, badge: true, customBadge: true },
         },
         postTags: { include: { tag: { select: { id: true, name: true } } } },
         _count: { select: { comments: true } },

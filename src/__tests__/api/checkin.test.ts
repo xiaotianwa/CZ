@@ -55,7 +55,7 @@ describe('GET /api/auth/checkin', () => {
     mockGetCurrentUser.mockResolvedValue(fakePayload);
     mockFindFirst.mockResolvedValue(null);
     mockFindMany.mockResolvedValue([]);
-    mockUserFindUnique.mockResolvedValue({ points: 50, level: 1 } as never);
+    mockUserFindUnique.mockResolvedValue({ points: 50, level: 1, isActive: true } as never);
     const res = await GET(makeReq());
     const json = await res.json();
     expect(res.status).toBe(200);
@@ -67,7 +67,7 @@ describe('GET /api/auth/checkin', () => {
     mockGetCurrentUser.mockResolvedValue(fakePayload);
     mockFindFirst.mockResolvedValue({ id: 'log1', createdAt: new Date() } as never);
     mockFindMany.mockResolvedValue([{ createdAt: new Date() }] as never[]);
-    mockUserFindUnique.mockResolvedValue({ points: 55, level: 1 } as never);
+    mockUserFindUnique.mockResolvedValue({ points: 100, level: 2, isActive: true } as never);
     const res = await GET(makeReq());
     const json = await res.json();
     expect(res.status).toBe(200);
@@ -87,6 +87,7 @@ describe('POST /api/auth/checkin', () => {
 
   it('test_postCheckin_alreadyCheckedIn_returns400', async () => {
     mockGetCurrentUser.mockResolvedValue(fakePayload);
+    mockUserFindUnique.mockResolvedValue({ id: 'user1', isActive: true } as never);
     mockGrantDailyLogin.mockResolvedValue(null);
     const res = await POST(makeReq());
     const json = await res.json();
@@ -96,12 +97,13 @@ describe('POST /api/auth/checkin', () => {
 
   it('test_postCheckin_firstCheckin_returns200WithPoints', async () => {
     mockGetCurrentUser.mockResolvedValue(fakePayload);
-    mockGrantDailyLogin.mockResolvedValue({ points: 5, totalPoints: 55, level: 1, levelUp: false });
+    mockUserFindUnique.mockResolvedValue({ id: 'user1', isActive: true } as never);
+    mockGrantDailyLogin.mockResolvedValue({ points: 50, totalPoints: 100, level: 2, levelUp: true });
     const res = await POST(makeReq());
     const json = await res.json();
     expect(res.status).toBe(200);
     expect(json.code).toBe(0);
-    expect(json.data.points).toBe(5);
-    expect(json.message).toBe('签到成功！获得 5 积分');
+    expect(json.data.points).toBe(50);
+    expect(json.message).toBe('签到成功！获得 50 积分');
   });
 });

@@ -6,7 +6,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import {
   ArrowLeft, Heart, MessageCircle, Share2, Pin, Loader2,
-  Send, ChevronDown, ChevronUp, Flag, X, Bookmark, ChevronLeft, ChevronRight,
+  Send, ChevronDown, ChevronUp, Flag, X, Bookmark, ChevronLeft, ChevronRight, Star,
 } from 'lucide-react';
 import LoginRequiredModal from '@/components/LoginRequiredModal';
 import SafeImage from '@/components/SafeImage';
@@ -18,6 +18,7 @@ interface Author {
   role: string;
   level: number;
   badge: string | null;
+  customBadge: string | null;
 }
 
 interface CommentItem {
@@ -48,6 +49,47 @@ const roleLabel: Record<string, { text: string; cls: string }> = {
   star: { text: '★ 董事长', cls: 'bg-gradient-to-r from-amber-400 to-orange-400 text-white' },
   assistant: { text: '传媒成员', cls: 'bg-primary-bg text-primary' },
 };
+
+function UserLevelBadge({ level }: { level: number }) {
+  return <span className="inline-flex items-center h-5 px-2 rounded-full bg-slate-100 text-slate-600 text-[11px] font-semibold">Lv.{level}</span>;
+}
+
+function SystemUserTagBadge({ label }: { label: string | null | undefined }) {
+  if (!label) return null;
+  if (label === '1103') {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-white/40 bg-gradient-to-r from-[#1d4ed8] via-[#3b82f6] to-[#7c3aed] px-2.5 py-1 text-white shadow-[0_8px_20px_rgba(59,130,246,0.22)] ring-1 ring-white/15">
+        <Star className="w-3 h-3 text-[#ffe7a3] fill-[#ffe7a3]" />
+        <span className="font-waterbrush text-[15px] leading-none text-white drop-shadow-[0_1px_4px_rgba(255,255,255,0.25)]">1103</span>
+      </span>
+    );
+  }
+
+  return <span className="inline-flex items-center h-5 px-2 rounded-full bg-primary/10 text-primary text-[11px] font-medium">{label}</span>;
+}
+
+function CustomUserTagBadge({ label }: { label: string | null | undefined }) {
+  if (!label) return null;
+
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border border-primary/15 bg-gradient-to-r from-white to-primary-bg px-2.5 py-1 text-[11px] font-semibold text-primary shadow-sm">
+      <span className="h-1.5 w-1.5 rounded-full bg-primary/70" />
+      <span>{label}</span>
+    </span>
+  );
+}
+
+function UserBadgeGroup({ customBadge, badge }: { customBadge: string | null | undefined; badge: string | null | undefined }) {
+  const normalizedCustomBadge = customBadge?.trim();
+  const normalizedBadge = badge?.trim();
+
+  return (
+    <>
+      <CustomUserTagBadge label={normalizedCustomBadge} />
+      <SystemUserTagBadge label={normalizedBadge && normalizedBadge !== normalizedCustomBadge ? normalizedBadge : null} />
+    </>
+  );
+}
 
 function timeAgo(date: string): string {
   const diff = Date.now() - new Date(date).getTime();
@@ -358,12 +400,11 @@ export default function PostDetailPage() {
                     {roleLabel[post.author.role].text}
                   </span>
                 )}
-                {post.author.badge && <span className="tag bg-primary-bg text-primary">{post.author.badge}</span>}
+                <UserLevelBadge level={post.author.level} />
+                <UserBadgeGroup customBadge={post.author.customBadge} badge={post.author.badge} />
                 {post.isPinned && <span className="tag bg-red-50 text-danger inline-flex items-center gap-0.5"><Pin className="w-3 h-3" /> 置顶</span>}
               </div>
               <div className="flex items-center gap-2 text-caption text-text-muted mt-0.5">
-                <span>Lv.{post.author.level}</span>
-                <span>·</span>
                 <span>{timeAgo(post.createdAt)}</span>
               </div>
             </div>
@@ -506,7 +547,8 @@ export default function PostDetailPage() {
                             {roleLabel[comment.author.role].text}
                           </span>
                         )}
-                        {comment.author.badge && <span className="text-[10px] text-primary">{comment.author.badge}</span>}
+                        <UserLevelBadge level={comment.author.level} />
+                        <UserBadgeGroup customBadge={comment.author.customBadge} badge={comment.author.badge} />
                       </div>
                       <p className="text-body text-text-body mt-1">{comment.content}</p>
                       <div className="flex items-center gap-3 mt-1.5 text-caption text-text-muted">
@@ -545,6 +587,8 @@ export default function PostDetailPage() {
                                       {roleLabel[reply.author.role].text}
                                     </span>
                                   )}
+                                  <UserLevelBadge level={reply.author.level} />
+                                  <UserBadgeGroup customBadge={reply.author.customBadge} badge={reply.author.badge} />
                                   {reply.replyToName && (
                                     <span className="text-caption text-text-muted">
                                       回复 <span className="text-primary">{reply.replyToName}</span>

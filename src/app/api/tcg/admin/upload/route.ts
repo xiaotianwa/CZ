@@ -22,6 +22,7 @@ import { ok, fail, handleError } from '@/lib/api';
 
 const MAX_SIZE = 8 * 1024 * 1024; // 8MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const ALLOWED_CATEGORIES = new Set(['cards', 'game']);
 
 export async function POST(req: NextRequest) {
   try {
@@ -29,6 +30,8 @@ export async function POST(req: NextRequest) {
 
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
+    const rawCategory = formData.get('category');
+    const category = typeof rawCategory === 'string' && ALLOWED_CATEGORIES.has(rawCategory) ? rawCategory : 'cards';
 
     if (!file) return fail('请选择文件');
 
@@ -47,7 +50,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 上传到 COS 的 cards/yyyy/mm/dd/ 目录（与 scripts/upload-cards.js 保持同目录前缀）
-    const result = await uploadBuffer(buffer, file.name, file.type, 'cards');
+    const result = await uploadBuffer(buffer, file.name, file.type, category);
 
     // 内容安全审核（开关由 CONTENT_MODERATION_ENABLED 控制；未开通时直接放行）
     const modResult = await moderateImage(result.url).catch(() => ({ pass: true, detail: '' }));
@@ -61,10 +64,10 @@ export async function POST(req: NextRequest) {
     // 审计（只记元数据，不记图片二进制）
     await auditLog({
       operatorId: admin.id,
-      action: 'card.upload_image',
-      targetType: 'card_image',
+      action: category === 'cards' ? 'card.upload_image' : 'game.upload_cover',
+      targetType: category === 'cards' ? 'card_image' : 'game_cover',
       targetId: result.cosKey,
-      after: { url: result.url, size: result.size, filename: file.name, mimeType: file.type },
+      after: { url: result.url, size: result.size, filename: file.name, mimeType: file.type, category },
       req,
     });
 

@@ -11,7 +11,7 @@ vi.mock('@/lib/auth', () => ({
 
 vi.mock('@/lib/db', () => ({
   prisma: {
-    user: { findUnique: vi.fn() },
+    user: { findUnique: vi.fn(), update: vi.fn(), count: vi.fn() },
   },
 }));
 
@@ -21,6 +21,8 @@ import { prisma } from '@/lib/db';
 
 const mockGetCurrentUser = vi.mocked(getCurrentUser);
 const mockFindUnique = vi.mocked(prisma.user.findUnique);
+const mockUpdate = vi.mocked(prisma.user.update);
+const mockCount = vi.mocked(prisma.user.count);
 
 const fakePayload = { id: 'user1', email: 'test@example.com', role: 'user', type: 'user' as const };
 const fakeUser = { id: 'user1', email: 'test@example.com', name: '测试用户', avatar: null, role: 'user', level: 1, badge: null, points: 100, bio: '', city: '', createdAt: new Date() };
@@ -31,6 +33,8 @@ function makeReq() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockCount.mockResolvedValue(3);
+  mockUpdate.mockResolvedValue({} as never);
 });
 
 describe('GET /api/auth/me', () => {
@@ -61,5 +65,10 @@ describe('GET /api/auth/me', () => {
     expect(json.code).toBe(0);
     expect(json.data.id).toBe('user1');
     expect(json.data.email).toBe('test@example.com');
+    expect(json.data.level).toBe(2);
+    expect(mockUpdate).toHaveBeenCalledWith({
+      where: { id: 'user1' },
+      data: { level: 2, badge: null },
+    });
   });
 });

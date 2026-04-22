@@ -64,6 +64,16 @@ if (typeof globalThis !== 'undefined') {
   }
 }
 
+// ===================== 防缓存工具 =====================
+
+/** 为 API 响应注入 no-cache 头，防止 Nginx proxy_cache 缓存认证响应导致用户串号 */
+function addNoCacheHeaders(res: NextResponse): NextResponse {
+  res.headers.set('Cache-Control', 'private, no-store, no-cache, must-revalidate');
+  res.headers.set('Pragma', 'no-cache');
+  res.headers.set('Expires', '0');
+  return res;
+}
+
 // ===================== 中间件主函数 =====================
 
 function getClientIp(req: NextRequest): string {
@@ -100,40 +110,40 @@ export function middleware(req: NextRequest) {
     const wait = checkWriteRate(getClientIp(req), pathname);
     if (wait !== null) {
       logRequest(429);
-      return NextResponse.json(
+      return addNoCacheHeaders(NextResponse.json(
         { code: 429, message: `操作过于频繁，请 ${wait} 秒后再试`, data: null },
         { status: 429 }
-      );
+      ));
     }
   }
 
   // Admin API 路径保护
   if (pathname.startsWith('/api/admin/')) {
     if (ADMIN_PUBLIC_PATHS.some((p) => pathname === p)) {
-      return NextResponse.next();
+      return addNoCacheHeaders(NextResponse.next());
     }
     const adminToken = req.cookies.get('admin_token')?.value;
     if (!adminToken) {
       logRequest(401);
-      return NextResponse.json(
+      return addNoCacheHeaders(NextResponse.json(
         { code: 401, message: '管理员未登录', data: null },
         { status: 401 }
-      );
+      ));
     }
   }
 
   // TCG 运营后台 API 路径保护（独立 cookie tcg_admin_token）
   if (pathname.startsWith('/api/tcg/admin/')) {
     if (TCG_ADMIN_PUBLIC_PATHS.some((p) => pathname === p)) {
-      return NextResponse.next();
+      return addNoCacheHeaders(NextResponse.next());
     }
     const tcgToken = req.cookies.get('tcg_admin_token')?.value;
     if (!tcgToken) {
       logRequest(401);
-      return NextResponse.json(
+      return addNoCacheHeaders(NextResponse.json(
         { code: 401, message: 'TCG 运营账号未登录', data: null },
         { status: 401 }
-      );
+      ));
     }
   }
 
@@ -142,10 +152,10 @@ export function middleware(req: NextRequest) {
     const userToken = req.cookies.get('token')?.value;
     if (!userToken) {
       logRequest(401);
-      return NextResponse.json(
+      return addNoCacheHeaders(NextResponse.json(
         { code: 401, message: '未登录', data: null },
         { status: 401 }
-      );
+      ));
     }
   }
 
@@ -154,15 +164,15 @@ export function middleware(req: NextRequest) {
     const userToken = req.cookies.get('token')?.value;
     if (!userToken) {
       logRequest(401);
-      return NextResponse.json(
+      return addNoCacheHeaders(NextResponse.json(
         { code: 401, message: '请先登录后再进行好友对战', data: null },
         { status: 401 }
-      );
+      ));
     }
   }
 
-  // 正常放行的请求不记录 200（实际状态码由后续 handler 决定）
-  return NextResponse.next();
+  // 正常放行 —— 统一注入防缓存头
+  return addNoCacheHeaders(NextResponse.next());
 }
 
 export const config = {

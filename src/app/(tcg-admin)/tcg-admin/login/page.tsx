@@ -43,11 +43,11 @@ export default function TcgAdminLoginPage() {
 
       <div className="w-full max-w-sm relative z-10">
         <div className="text-center mb-8">
-          <div className="font-waterbrush inline-block text-[11px] tracking-[0.5em] text-[#A78BFA] mb-2">CHENZE · TCG · OPS</div>
+          <div className="font-waterbrush inline-block text-[11px] tracking-[0.5em] text-[#A78BFA] mb-2">CHENZE · GAME · OPS</div>
           <h1 className="text-3xl font-bold text-white mb-1" style={{ fontFamily: "'Russo One', 'Chakra Petch', sans-serif", letterSpacing: '0.04em' }}>
-            运营后台
+            游戏端管理
           </h1>
-          <p className="text-sm text-white/50">TCG 卡牌对战系统 · 独立入口</p>
+          <p className="text-sm text-white/50">当前项目游戏 + TCG 子类 · 统一管理入口</p>
         </div>
 
         <form
@@ -109,7 +109,7 @@ export default function TcgAdminLoginPage() {
         </form>
 
         <p className="mt-6 text-center text-[11px] tracking-[0.25em] text-white/30">
-          v1.0 · 独立于社区 /admin 后台
+          v1.0 · 独立于社区 /admin 的游戏端后台
         </p>
       </div>
     </div>

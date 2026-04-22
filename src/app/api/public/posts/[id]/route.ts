@@ -9,7 +9,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       where: { id: params.id },
       include: {
         author: {
-          select: { id: true, name: true, avatar: true, role: true, level: true, badge: true },
+          select: { id: true, name: true, avatar: true, role: true, level: true, badge: true, customBadge: true },
         },
         postTags: {
           select: { tag: { select: { id: true, name: true, color: true } } },
@@ -18,12 +18,12 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
           where: { parentId: null },
           include: {
             author: {
-              select: { id: true, name: true, avatar: true, role: true, level: true, badge: true },
+              select: { id: true, name: true, avatar: true, role: true, level: true, badge: true, customBadge: true },
             },
             replies: {
               include: {
                 author: {
-                  select: { id: true, name: true, avatar: true, role: true, level: true, badge: true },
+                  select: { id: true, name: true, avatar: true, role: true, level: true, badge: true, customBadge: true },
                 },
               },
               orderBy: { createdAt: 'asc' },

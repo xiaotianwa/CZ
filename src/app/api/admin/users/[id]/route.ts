@@ -15,7 +15,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
       where: { id },
       select: {
         id: true, email: true, name: true, avatar: true,
-        role: true, level: true, badge: true, points: true,
+        role: true, level: true, badge: true, customBadge: true, points: true,
         bio: true, isActive: true, createdAt: true,
         _count: { select: { posts: true, comments: true } },
       },
@@ -30,6 +30,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 const patchSchema = z.object({
   isActive: z.boolean().optional(),
   role: z.enum(['fan', 'star', 'assistant']).optional(),
+  customBadge: z.union([z.string().trim().max(12, '标签最多 12 个字'), z.null()]).optional(),
 });
 
 export async function PATCH(req: NextRequest, { params }: RouteParams) {
@@ -48,13 +49,20 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       return fail('无法禁用董事长账号');
     }
 
-    const user = await prisma.user.update({ where: { id }, data: parsed.data });
+    const updateData = {
+      ...parsed.data,
+      customBadge: typeof parsed.data.customBadge === 'string'
+        ? (parsed.data.customBadge.trim() || null)
+        : parsed.data.customBadge,
+    };
+
+    const user = await prisma.user.update({ where: { id }, data: updateData });
 
     if (parsed.data.isActive === false) {
       await revokeUserTokens(id);
     }
 
-    return ok({ id: user.id, isActive: user.isActive, role: user.role }, '更新成功');
+    return ok({ id: user.id, isActive: user.isActive, role: user.role, customBadge: user.customBadge }, '更新成功');
   } catch (err) {
     return handleError(err);
   }

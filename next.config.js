@@ -47,6 +47,15 @@ const nextConfig = {
   },
   async headers() {
     return [
+      // 所有 API 路由禁止缓存（防止 Nginx proxy_cache 缓存认证响应导致用户串号）
+      {
+        source: '/api/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'private, no-store, no-cache, must-revalidate' },
+          { key: 'Pragma', value: 'no-cache' },
+          { key: 'Expires', value: '0' },
+        ],
+      },
       {
         source: '/:path*',
         headers: [

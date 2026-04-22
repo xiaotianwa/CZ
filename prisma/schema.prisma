@@ -21,6 +21,7 @@ model User {
   role      String   @default("fan") // fan | star(董事长) | assistant(传媒成员)
   level     Int      @default(1)
   badge     String?
+  customBadge String?
   points    Int      @default(0)
   bio       String?
   city      String?
@@ -217,6 +218,25 @@ model Game {
   @@index([status])
 }
 
+model GameCenterEntry {
+  id        String   @id @default(cuid())
+  entryKey  String   @unique
+  title     String
+  href      String
+  subtitle  String   @default("GAME ENTRY")
+  desc      String   @default("点击进入游戏")
+  iconKey   String   @default("sparkles")
+  gradient  String   @default("from-violet-600 via-purple-600 to-indigo-700")
+  glowColor String   @default("rgba(124,58,237,0.4)")
+  badge     String?
+  isEnabled Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sortOrder])
+}
+
 // ==================== 时间线 ====================
 
 model TimelineEvent {
@@ -357,8 +377,67 @@ model QuizQuestion {
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+ 
+  @@index([isActive])
+}
+
+model GameQuizQuestion {
+  id        String   @id @default(cuid())
+  question  String
+  options   String
+  answer    Int
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([isActive])
+}
+
+model GameEmojiPuzzle {
+  id        String   @id @default(cuid())
+  emoji     String   // 表情组合，如 "🎮🎙️📺"
+  answer    String   // 正确答案，如 "直播"
+  hints     String   // JSON array of hint strings
+  category  String   @default("日常")
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+}
+
+model GameTypingSentence {
+  id        String   @id @default(cuid())
+  content   String   // 打字内容
+  category  String   @default("弹幕")
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+}
+
+model ProjectGameProfile {
+  id            String   @id @default(cuid())
+  name          String
+  cover         String
+  platform      String
+  genre         String
+  status        String   @default("playing")
+  lastPlayed    String   @default("")
+  hours         Int      @default(0)
+  rating        Int      @default(5)
+  comment       String   @default("")
+  description   String   @default("")
+  downloadLinks String   @default("[]")
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([status])
 }
 
 // ==================== 注册安全闭环 ====================

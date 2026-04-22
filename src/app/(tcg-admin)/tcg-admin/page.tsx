@@ -2,9 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Sparkles, Users, Gamepad2, FileBox, AlertCircle, TrendingUp, Swords } from 'lucide-react';
+import { Sparkles, Users, Gamepad2, FileBox, AlertCircle, TrendingUp, Swords, LibraryBig, Layers3 } from 'lucide-react';
 
 interface OverviewStats {
+   currentProject: {
+     games: number;
+     enabledEntries: number;
+   };
   cards: { total: number; active: number; byRarity: Array<{ rarity: string; count: number }> };
   players: { total: number; banned: number };
   matches: {
@@ -31,7 +35,10 @@ export default function TcgAdminDashboardPage() {
       .then((res) => res.json())
       .then((json) => {
         if (json.code === 0) {
-          setStats(json.data);
+          setStats({
+            ...json.data,
+            currentProject: json.data.currentProject ?? { games: 0, enabledEntries: 0 },
+          });
         } else {
           setError(json.message || '加载失败');
         }
@@ -44,9 +51,9 @@ export default function TcgAdminDashboardPage() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-white mb-1" style={{ fontFamily: "'Russo One', 'Chakra Petch', sans-serif" }}>
-          运营总览
+          游戏端管理总览
         </h2>
-        <p className="text-sm text-white/50">卡牌对战系统数据速览 · P0 MVP 版本</p>
+        <p className="text-sm text-white/50">当前项目游戏内容 + TCG 子类系统 · 统一管理入口</p>
       </div>
 
       {error && (
@@ -55,6 +62,46 @@ export default function TcgAdminDashboardPage() {
           {error}
         </div>
       )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Link href="/tcg-admin/project-games" className="group relative rounded-2xl border border-white/10 bg-[#141432]/55 p-5 overflow-hidden hover:border-[#A78BFA]/40 transition-colors">
+          <div aria-hidden className="absolute -top-16 -right-16 w-40 h-40 rounded-full bg-gradient-to-br from-[#7C3AED]/30 to-[#38BDF8]/20 blur-3xl group-hover:opacity-90 opacity-70 transition-opacity" />
+          <div className="relative flex items-start gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#7C3AED] to-[#38BDF8] flex items-center justify-center text-white shadow-[0_0_24px_-6px_rgba(124,58,237,0.7)]">
+              <LibraryBig className="w-6 h-6" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-semibold text-white">当前项目游戏</h3>
+                <span className="text-[10px] tracking-[0.2em] uppercase px-2 py-0.5 rounded-full border border-[#7C3AED]/25 bg-[#7C3AED]/10 text-[#C4B5FD]">主类</span>
+              </div>
+              <p className="mt-2 text-sm text-white/55">复制并统一管理当前项目已有的游戏资料、封面信息和 /play 大厅入口配置。</p>
+              <div className="mt-4 flex flex-wrap gap-3 text-xs text-white/70">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 border border-white/10">
+                  <Layers3 className="w-3.5 h-3.5 text-[#A78BFA]" />
+                  游戏 {stats?.currentProject.games ?? 0} 款
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 border border-white/10">
+                  <Gamepad2 className="w-3.5 h-3.5 text-[#38BDF8]" />
+                  开放入口 {stats?.currentProject.enabledEntries ?? 0} 个
+                </span>
+              </div>
+            </div>
+          </div>
+        </Link>
+
+        <div className="rounded-2xl border border-white/10 bg-[#141432]/55 p-5">
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles className="w-4 h-4 text-[#A78BFA]" />
+            <h3 className="text-lg font-semibold text-white">TCG 子类</h3>
+          </div>
+          <p className="text-sm text-white/55">保留原有卡牌对战后台能力，作为游戏端管理下的专项子类继续使用。</p>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <StatCard label="卡池总量" subtitle="启用 / 总数" value={stats ? `${stats.cards.active} / ${stats.cards.total}` : '—'} icon={Sparkles} accent="from-[#7C3AED] to-[#A78BFA]" href="/tcg-admin/cards" loading={loading} />
+            <StatCard label="玩家总数" subtitle="封禁账号" value={stats ? stats.players.total.toString() : '—'} extra={stats ? `封禁 ${stats.players.banned}` : undefined} icon={Users} accent="from-[#38BDF8] to-[#7C3AED]" href="/tcg-admin/players" loading={loading} />
+          </div>
+        </div>
+      </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard

@@ -1,7 +1,16 @@
 import { NextRequest } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { requireTcgAdmin } from '@/lib/tcg/auth';
 import { ok, handleError } from '@/lib/api';
+
+function isMissingGameCenterTable(err: unknown) {
+  return err instanceof Error && /GameCenterEntry/i.test(err.message) && /(no such table|does not exist)/i.test(err.message);
+}
+
+ function isMissingProjectGameProfileTable(err: unknown) {
+  return err instanceof Error && /ProjectGameProfile/i.test(err.message) && /(no such table|does not exist)/i.test(err.message);
+ }
 
 /** TCG 运营后台仪表盘 —— 数据总览统计 */
 export async function GET(req: NextRequest) {
@@ -15,6 +24,7 @@ export async function GET(req: NextRequest) {
     const [
       cardsTotal,
       cardsActive,
+      currentProjectGames,
       playersTotal,
       playersBanned,
       matchesTotal,
@@ -22,9 +32,16 @@ export async function GET(req: NextRequest) {
       decksTotal,
       recentMatches,
       cardsByRarity,
+      enabledEntriesRaw,
     ] = await Promise.all([
       prisma.tcgCard.count(),
       prisma.tcgCard.count({ where: { status: 'active' } }),
+      prisma.projectGameProfile.count().catch((err: unknown) => {
+        if (isMissingProjectGameProfileTable(err)) {
+          return 0;
+        }
+        throw err;
+      }),
       prisma.tcgPlayer.count(),
       prisma.tcgPlayer.count({ where: { banStatus: 'banned' } }),
       prisma.tcgMatch.count(),
@@ -42,6 +59,16 @@ export async function GET(req: NextRequest) {
         by: ['rarity'],
         where: { status: 'active' },
         _count: { _all: true },
+      }),
+      prisma.$queryRaw<Array<{ count: number }>>(Prisma.sql`
+        SELECT COUNT(*) as count
+        FROM "GameCenterEntry"
+        WHERE "isEnabled" = true
+      `).catch((err: unknown) => {
+        if (isMissingGameCenterTable(err)) {
+          return [{ count: 0 }];
+        }
+        throw err;
       }),
     ]);
 
@@ -70,6 +97,10 @@ export async function GET(req: NextRequest) {
     const userMap = new Map(users.map((u) => [u.id, u]));
 
     return ok({
+      currentProject: {
+        games: currentProjectGames,
+        enabledEntries: Number(enabledEntriesRaw[0]?.count ?? 0),
+      },
       cards: {
         total: cardsTotal,
         active: cardsActive,

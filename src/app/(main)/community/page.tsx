@@ -6,7 +6,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import {
   Heart, MessageCircle, Pin, Send, ImagePlus, ShieldCheck,
-  X, Video, AlertCircle, Loader2, Hash, ChevronDown, Check, Plus, Search, Gift, Flame,
+  X, Video, AlertCircle, Loader2, Hash, ChevronDown, Check, Plus, Search, Gift, Flame, Star,
 } from 'lucide-react';
 import Toast from '@/components/admin/Toast';
 import LoginRequiredModal from '@/components/LoginRequiredModal';
@@ -70,6 +70,47 @@ function RoleBadge({ role }: { role: string }) {
   return null;
 }
 
+function UserLevelBadge({ level }: { level: number }) {
+  return <span className="inline-flex items-center h-5 px-2 rounded-full bg-slate-100 text-slate-600 text-[11px] font-semibold">Lv.{level}</span>;
+}
+
+function SystemUserTagBadge({ label }: { label: string | null | undefined }) {
+  if (!label) return null;
+  if (label === '1103') {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-white/40 bg-gradient-to-r from-[#1d4ed8] via-[#3b82f6] to-[#7c3aed] px-2.5 py-1 text-white shadow-[0_8px_20px_rgba(59,130,246,0.22)] ring-1 ring-white/15">
+        <Star className="w-3 h-3 text-[#ffe7a3] fill-[#ffe7a3]" />
+        <span className="font-waterbrush text-[15px] leading-none text-white drop-shadow-[0_1px_4px_rgba(255,255,255,0.25)]">1103</span>
+      </span>
+    );
+  }
+
+  return <span className="inline-flex items-center h-5 px-2 rounded-full bg-primary/10 text-primary text-[11px] font-medium">{label}</span>;
+}
+
+function CustomUserTagBadge({ label }: { label: string | null | undefined }) {
+  if (!label) return null;
+
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full border border-primary/15 bg-gradient-to-r from-white to-primary-bg px-2.5 py-1 text-[11px] font-semibold text-primary shadow-sm">
+      <span className="h-1.5 w-1.5 rounded-full bg-primary/70" />
+      <span>{label}</span>
+    </span>
+  );
+}
+
+function UserBadgeGroup({ customBadge, badge }: { customBadge: string | null | undefined; badge: string | null | undefined }) {
+  const normalizedCustomBadge = customBadge?.trim();
+  const normalizedBadge = badge?.trim();
+
+  return (
+    <>
+      <CustomUserTagBadge label={normalizedCustomBadge} />
+      <SystemUserTagBadge label={normalizedBadge && normalizedBadge !== normalizedCustomBadge ? normalizedBadge : null} />
+    </>
+  );
+}
+
 interface PostItem {
   id: string;
   content: string;
@@ -77,7 +118,7 @@ interface PostItem {
   isPinned: boolean;
   likes: number;
   createdAt: string;
-  author: { id: string; name: string; avatar: string | null; role: string; level: number; badge: string | null };
+  author: { id: string; name: string; avatar: string | null; role: string; level: number; badge: string | null; customBadge: string | null };
   postTags: { tag: { id: string; name: string } }[];
   _count: { comments: number };
 }
@@ -99,7 +140,7 @@ interface CommentItem {
   createdAt: string;
   parentId: string | null;
   replyToName: string | null;
-  author: { id: string; name: string; avatar: string | null; role: string; level: number; badge: string | null };
+  author: { id: string; name: string; avatar: string | null; role: string; level: number; badge: string | null; customBadge: string | null };
   replies?: CommentItem[];
 }
 
@@ -857,6 +898,8 @@ function CommentSection({ postId, onToast, isLoggedIn }: { postId: string; onToa
                   <div className="flex items-center gap-1">
                     <span className="text-caption font-medium text-text-title">{c.author.name}</span>
                     <RoleBadge role={c.author.role} />
+                    <UserLevelBadge level={c.author.level} />
+                    <UserBadgeGroup customBadge={c.author.customBadge} badge={c.author.badge} />
                     <span className="text-[11px] text-text-disabled ml-auto">{timeAgo(c.createdAt)}</span>
                   </div>
                   <p className="text-caption text-text-body mt-0.5">{c.content}</p>
@@ -881,7 +924,11 @@ function CommentSection({ postId, onToast, isLoggedIn }: { postId: string; onToa
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <span className="text-[11px] font-medium text-text-title">{r.author.name}</span>
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <span className="text-[11px] font-medium text-text-title">{r.author.name}</span>
+                          <UserLevelBadge level={r.author.level} />
+                          <UserBadgeGroup customBadge={r.author.customBadge} badge={r.author.badge} />
+                        </div>
                         {r.replyToName && <span className="text-[11px] text-text-muted"> 回复 <span className="text-primary">{r.replyToName}</span></span>}
                         <p className="text-[11px] text-text-body">{r.content}</p>
                       </div>
@@ -1504,6 +1551,8 @@ export default function CommunityPage() {
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="text-body font-medium text-text-title">{post.author.name}</span>
                             <RoleBadge role={post.author.role} />
+                            <UserLevelBadge level={post.author.level} />
+                            <UserBadgeGroup customBadge={post.author.customBadge} badge={post.author.badge} />
                             {post.isPinned && (
                               <span className="inline-flex items-center gap-0.5 text-danger text-caption font-medium">
                                 <Pin className="w-3 h-3" /> 置顶
@@ -1556,9 +1605,9 @@ export default function CommunityPage() {
 
                       {/* Videos */}
                       {videos.length > 0 && (
-                        <div className="mt-4 space-y-2">
+                        <div className="mt-4 space-y-2 max-w-lg">
                           {videos.map((vid, idx) => (
-                            <video key={idx} src={vid} controls className="w-full max-w-2xl rounded-xl bg-black" />
+                            <video key={idx} src={vid} controls className="block w-full max-h-64 sm:max-h-72 rounded-xl bg-black object-contain" />
                           ))}
                         </div>
                       )}

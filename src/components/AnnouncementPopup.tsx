@@ -40,7 +40,7 @@ export default function AnnouncementPopup() {
   const [closing, setClosing] = useState(false);
 
   useEffect(() => {
-    fetch('/api/public/announcements')
+    fetch('/api/public/announcements', { cache: 'no-store' })
       .then((r) => r.json())
       .then((res) => {
         if (res.code !== 0 || !res.data?.length) return;

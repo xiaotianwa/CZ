@@ -5,7 +5,7 @@ import { handleError, getSearchParams } from '@/lib/api';
 import { getCurrentUser } from '@/lib/auth';
 
 const postInclude = {
-  author: { select: { id: true, name: true, avatar: true, role: true, level: true, badge: true } },
+  author: { select: { id: true, name: true, avatar: true, role: true, level: true, badge: true, customBadge: true } },
   postTags: { include: { tag: { select: { id: true, name: true } } } },
   _count: { select: { comments: true } },
 };

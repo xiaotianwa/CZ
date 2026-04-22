@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { ok, fail, handleError } from '@/lib/api';
 import { grantDailyLogin } from '@/lib/points';
+import { calcLevelFromPoints } from '@/lib/level';
 
 export const dynamic = 'force-dynamic';
 
@@ -70,7 +71,7 @@ export async function GET(req: NextRequest) {
       checkedIn: checkedInToday,
       streak,
       points: user.points,
-      level: user.level,
+      level: calcLevelFromPoints(user.points),
       checkedDays,
       month: now.getMonth() + 1,
       year: now.getFullYear(),
@@ -104,7 +105,7 @@ export async function POST(req: NextRequest) {
       totalPoints: result.totalPoints,
       level: result.level,
       levelUp: result.levelUp,
-    }, '签到成功！获得 5 积分');
+    }, '签到成功！获得 50 积分');
   } catch (err) {
     return handleError(err);
   }

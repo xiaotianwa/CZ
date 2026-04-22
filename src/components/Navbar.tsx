@@ -33,6 +33,8 @@ export default function Navbar({ profileName }: { profileName: string }) {
     { href: '/fan-map', label: '粉丝地图' },
   ];
   const moreLinks = [
+    { href: '/play', label: '游戏中心' },
+    { href: '/game', label: '卡牌对战' },
     { href: '/gallery', label: '相册' },
     { href: '/memes', label: '梗百科' },
     { href: '/fan-works', label: '二创作品' },

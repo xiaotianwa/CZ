@@ -33,6 +33,7 @@ export async function GET(req: NextRequest) {
           role: true,
           level: true,
           badge: true,
+          customBadge: true,
           points: true,
           isActive: true,
           createdAt: true,

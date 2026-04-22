@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Search, User, ShieldBan, ShieldCheck, MoreHorizontal, Filter } from 'lucide-react';
+import { Search, User, ShieldBan, ShieldCheck, MoreHorizontal, Filter, Save } from 'lucide-react';
 import { adminGet, adminPatch } from '@/lib/admin-fetch';
 
 interface UserItem {
@@ -12,6 +12,7 @@ interface UserItem {
   role: string;
   level: number;
   badge: string | null;
+  customBadge: string | null;
   points: number;
   isActive: boolean;
   createdAt: string;
@@ -153,6 +154,8 @@ export default function AdminUsersPage() {
   const [keyword, setKeyword] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [badgeDrafts, setBadgeDrafts] = useState<Record<string, string>>({});
+  const [savingBadgeId, setSavingBadgeId] = useState<string | null>(null);
   const userList = data?.list ?? [];
   const totalPages = data?.pagination?.totalPages ?? 0;
   const totalCount = data?.pagination?.total ?? 0;
@@ -176,6 +179,10 @@ export default function AdminUsersPage() {
   }, [page, keyword, roleFilter, statusFilter]);
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
+
+  useEffect(() => {
+    setBadgeDrafts(Object.fromEntries(userList.map((user) => [user.id, user.customBadge ?? ''])));
+  }, [userList]);
 
   const handleToggleActive = (user: UserItem) => {
     const willDisable = user.isActive;
@@ -220,6 +227,19 @@ export default function AdminUsersPage() {
     }
   };
 
+  const handleSaveBadge = async (user: UserItem) => {
+    setSavingBadgeId(user.id);
+    try {
+      const customBadge = badgeDrafts[user.id]?.trim() || null;
+      await adminPatch(`/api/admin/users/${user.id}`, { customBadge });
+      await fetchUsers();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '标签保存失败');
+    } finally {
+      setSavingBadgeId(null);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* 筛选栏 */}
@@ -261,6 +281,7 @@ export default function AdminUsersPage() {
               <tr className="border-b border-divider bg-gray-50/50">
                 <th className="text-left px-4 py-3 font-medium text-text-muted">用户</th>
                 <th className="text-left px-4 py-3 font-medium text-text-muted w-32">角色</th>
+                <th className="text-left px-4 py-3 font-medium text-text-muted w-56">自定义标签</th>
                 <th className="text-center px-4 py-3 font-medium text-text-muted w-20">等级</th>
                 <th className="text-center px-4 py-3 font-medium text-text-muted w-20">积分</th>
                 <th className="text-center px-4 py-3 font-medium text-text-muted w-20">帖子</th>
@@ -299,6 +320,29 @@ export default function AdminUsersPage() {
                       );
                     })()}
                   </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <input
+                        value={badgeDrafts[user.id] ?? ''}
+                        onChange={(e) => setBadgeDrafts((prev) => ({ ...prev, [user.id]: e.target.value.slice(0, 12) }))}
+                        placeholder="留空则不显示"
+                        className="h-8 w-full min-w-0 rounded-btn border border-border bg-white px-2.5 text-caption text-text-title focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                      />
+                      <button
+                        onClick={() => handleSaveBadge(user)}
+                        disabled={savingBadgeId === user.id}
+                        className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-btn border border-border text-text-muted transition-colors hover:border-primary hover:text-primary disabled:opacity-50"
+                        title="保存自定义标签"
+                      >
+                        <Save className={`w-3.5 h-3.5 ${savingBadgeId === user.id ? 'animate-pulse' : ''}`} />
+                      </button>
+                    </div>
+                    {user.customBadge ? (
+                      <p className="mt-1 text-[11px] text-text-muted">当前：{user.customBadge}</p>
+                    ) : (
+                      <p className="mt-1 text-[11px] text-text-disabled">当前无自定义标签</p>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-center text-text-muted">Lv.{user.level}</td>
                   <td className="px-4 py-3 text-center text-text-muted">{user.points.toLocaleString()}</td>
                   <td className="px-4 py-3 text-center text-text-muted">{user._count.posts}</td>
@@ -315,7 +359,7 @@ export default function AdminUsersPage() {
                 </tr>
               ))}
               {userList.length === 0 && (
-                <tr><td colSpan={9} className="px-4 py-8 text-center text-text-muted">暂无用户</td></tr>
+                <tr><td colSpan={10} className="px-4 py-8 text-center text-text-muted">暂无用户</td></tr>
               )}
             </tbody>
           </table>

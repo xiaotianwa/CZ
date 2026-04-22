@@ -13,13 +13,13 @@ export async function GET(
       where: { postId: id, parentId: null, status: 'published' },
       include: {
         author: {
-          select: { id: true, name: true, avatar: true, role: true, level: true, badge: true },
+          select: { id: true, name: true, avatar: true, role: true, level: true, badge: true, customBadge: true },
         },
         replies: {
           where: { status: 'published' },
           include: {
             author: {
-              select: { id: true, name: true, avatar: true, role: true, level: true, badge: true },
+              select: { id: true, name: true, avatar: true, role: true, level: true, badge: true, customBadge: true },
             },
           },
           orderBy: { createdAt: 'asc' },

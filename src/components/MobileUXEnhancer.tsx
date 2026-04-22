@@ -3,14 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { House, Images, MessageCircle, CalendarDays, User, RefreshCw } from 'lucide-react';
+import { House, Images, MessageCircle, CalendarDays, User, RefreshCw, Gamepad2 } from 'lucide-react';
 
 const mobileTabs = [
-  { href: '/', label: '首页', icon: House },
-  { href: '/community', label: '社区', icon: MessageCircle },
-  { href: '/gallery', label: '相册', icon: Images },
-  { href: '/events', label: '活动', icon: CalendarDays },
-  { href: '/me', label: '我的', icon: User },
+  { href: '/', label: '首页', icon: House, gradient: 'from-blue-500 via-sky-500 to-cyan-500', glow: 'rgba(14,165,233,0.4)' },
+  { href: '/community', label: '社区', icon: MessageCircle, gradient: 'from-emerald-500 via-green-500 to-teal-500', glow: 'rgba(16,185,129,0.4)' },
+  { href: '/play', label: '游戏', icon: Gamepad2, gradient: 'from-violet-500 via-purple-500 to-indigo-600', glow: 'rgba(124,58,237,0.45)', center: true },
+  { href: '/gallery', label: '相册', icon: Images, gradient: 'from-amber-500 via-orange-500 to-yellow-500', glow: 'rgba(245,158,11,0.4)' },
+  { href: '/me', label: '我的', icon: User, gradient: 'from-pink-500 via-rose-500 to-red-500', glow: 'rgba(244,63,94,0.4)' },
 ];
 
 const rootTabPaths = new Set(mobileTabs.map((t) => t.href));
@@ -130,20 +130,52 @@ export default function MobileUXEnhancer() {
         </div>
       </div>
 
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-divider bg-white/95 dark:bg-[#1e1e22]/95 backdrop-blur">
-        <div className="grid grid-cols-5 min-h-[56px] pb-[env(safe-area-inset-bottom)]">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/90 dark:bg-[#18181b]/90 backdrop-blur-xl border-t border-black/[0.06] dark:border-white/[0.08] shadow-[0_-4px_24px_rgba(0,0,0,0.06)] dark:shadow-[0_-4px_24px_rgba(0,0,0,0.3)]">
+        <div className="grid grid-cols-5 min-h-[62px] pb-[env(safe-area-inset-bottom)] items-end pt-1">
           {mobileTabs.map((tab) => {
             const active = isActive(tab.href);
+            const isCenter = 'center' in tab && tab.center;
+            const size = isCenter ? 'w-[52px] h-[52px]' : 'w-[44px] h-[44px]';
+            const iconSize = isCenter ? 'w-[22px] h-[22px]' : 'w-[19px] h-[19px]';
+            const inactiveIconSize = isCenter ? 'w-[20px] h-[20px]' : 'w-[18px] h-[18px]';
+
             return (
               <Link
                 key={tab.href}
                 href={tab.href}
-                className={`inline-flex flex-col items-center justify-center gap-0.5 text-[11px] transition-colors ${
-                  active ? 'text-primary font-medium' : 'text-text-muted'
+                className={`inline-flex flex-col items-center justify-end pb-0.5 transition-all duration-200 ${
+                  isCenter && active ? '-mt-5' : ''
                 }`}
               >
-                <tab.icon className={`w-4 h-4 ${active ? 'scale-105' : ''}`} />
-                <span>{tab.label}</span>
+                <div className="relative">
+                  {active && (
+                    <div
+                      className="absolute -inset-1 rounded-2xl blur-md animate-pulse"
+                      style={{ background: tab.glow }}
+                    />
+                  )}
+                  <div
+                    className={`relative transition-all duration-300 ${
+                      active
+                        ? `${size} rounded-2xl flex items-center justify-center bg-gradient-to-br ${tab.gradient} scale-105 active:scale-90`
+                        : 'flex items-center justify-center'
+                    }`}
+                    style={
+                      active
+                        ? { boxShadow: `0 4px 18px ${tab.glow}` }
+                        : undefined
+                    }
+                  >
+                    <tab.icon className={`${active ? iconSize : inactiveIconSize} transition-all duration-200 ${
+                      active
+                        ? 'text-white'
+                        : 'text-text-muted'
+                    }`} />
+                  </div>
+                </div>
+                <span className={`text-[10px] mt-1 font-medium transition-colors duration-200 ${
+                  active ? 'text-text-title dark:text-white' : 'text-gray-400 dark:text-gray-500'
+                }`}>{tab.label}</span>
               </Link>
             );
           })}

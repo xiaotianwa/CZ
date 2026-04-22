@@ -88,6 +88,10 @@ export async function POST(req: NextRequest) {
       pointsEarned: dailyResult ? dailyResult.points : 0,
       levelUp: dailyResult?.levelUp || false,
     });
+    // 防止 Nginx proxy_cache 缓存带 Set-Cookie 的登录响应导致用户串号
+    response.headers.set('Cache-Control', 'private, no-store, no-cache, must-revalidate');
+    response.headers.set('Pragma', 'no-cache');
+    response.headers.set('Expires', '0');
     setTokenCookie(response, token, USER_COOKIE_NAME);
 
     await recordSecurityEvent(prisma as any, {

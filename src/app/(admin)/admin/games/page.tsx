@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Trash2, Edit2, X, Star, Link, XCircle } from 'lucide-react';
-import { adminGet, adminPost, adminPut, adminDelete } from '@/lib/admin-fetch';
+import { Plus, Trash2, Edit2, X, Star, Link, XCircle, Gamepad2, Power } from 'lucide-react';
+import { adminGet, adminPost, adminPut, adminDelete, adminPatch } from '@/lib/admin-fetch';
 import ConfirmDialog from '@/components/admin/ConfirmDialog';
 import Toast from '@/components/admin/Toast';
 import ImageUpload from '@/components/admin/ImageUpload';
+import { GAME_CENTER_ICON_OPTIONS, type GameCenterIconKey } from '@/data/gameCenterEntries';
 
 interface GameItem {
   id: string;
@@ -28,14 +29,48 @@ interface PaginatedResponse {
   pagination: { total: number };
 }
 
+interface GameCenterEntryItem {
+  id: string;
+  entryKey: string;
+  title: string;
+  href: string;
+  subtitle: string;
+  desc: string;
+  iconKey: GameCenterIconKey;
+  gradient: string;
+  glowColor: string;
+  badge?: string;
+  isEnabled: boolean;
+  sortOrder: number;
+}
+
 const defaultForm = {
   name: '', cover: '', platform: '', genre: '', status: 'playing',
   lastPlayed: '', hours: 0, rating: 5, comment: '', description: '',
   downloadLinks: [] as { label: string; url: string }[], sortOrder: 0,
 };
 
+const defaultEntryForm = {
+  entryKey: '',
+  title: '',
+  href: '',
+  subtitle: '',
+  desc: '',
+  iconKey: 'sparkles' as GameCenterIconKey,
+  gradient: 'from-violet-600 via-purple-600 to-indigo-700',
+  glowColor: 'rgba(124,58,237,0.4)',
+  badge: '',
+  sortOrder: 0,
+  isEnabled: true,
+};
+
 export default function AdminGamesPage() {
   const [data, setData] = useState<PaginatedResponse | null>(null);
+  const [entries, setEntries] = useState<GameCenterEntryItem[]>([]);
+  const [togglingKey, setTogglingKey] = useState('');
+  const [showEntryForm, setShowEntryForm] = useState(false);
+  const [creatingEntry, setCreatingEntry] = useState(false);
+  const [entryForm, setEntryForm] = useState(defaultEntryForm);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<GameItem | null>(null);
   const [form, setForm] = useState(defaultForm);
@@ -49,9 +84,27 @@ export default function AdminGamesPage() {
     } catch (err) { console.error(err); }
   }, []);
 
-  useEffect(() => { fetchGames(); }, [fetchGames]);
+  const fetchEntries = useCallback(async () => {
+    try {
+      const res = await adminGet<GameCenterEntryItem[]>('/api/admin/game-center-entries');
+      setEntries(res.data);
+    } catch (err) { console.error(err); }
+  }, []);
+
+  useEffect(() => {
+    fetchGames();
+    fetchEntries();
+  }, [fetchGames, fetchEntries]);
 
   const openCreate = () => { setForm(defaultForm); setEditing(null); setShowForm(true); };
+
+  const openCreateEntry = () => {
+    setEntryForm({
+      ...defaultEntryForm,
+      sortOrder: entries.length > 0 ? Math.max(...entries.map((item) => item.sortOrder)) + 1 : 0,
+    });
+    setShowEntryForm(true);
+  };
 
   const openEdit = (item: GameItem) => {
     let links: { label: string; url: string }[] = [];
@@ -84,10 +137,239 @@ export default function AdminGamesPage() {
     fetchGames();
   };
 
+  const handleToggleEntry = async (entry: GameCenterEntryItem) => {
+    try {
+      setTogglingKey(entry.entryKey);
+      const res = await adminPatch<GameCenterEntryItem[]>('/api/admin/game-center-entries', {
+        entries: [
+          {
+            entryKey: entry.entryKey,
+            isEnabled: !entry.isEnabled,
+            sortOrder: entry.sortOrder,
+          },
+        ],
+      });
+      setEntries(res.data);
+      setToast({ open: true, message: `${entry.title}${entry.isEnabled ? '已关闭' : '已开放'}`, type: 'success' });
+    } catch (err) {
+      setToast({ open: true, message: err instanceof Error ? err.message : '操作失败', type: 'error' });
+    } finally {
+      setTogglingKey('');
+    }
+  };
+
+  const handleCreateEntry = async () => {
+    try {
+      setCreatingEntry(true);
+      const res = await adminPost<GameCenterEntryItem[]>('/api/admin/game-center-entries', {
+        ...entryForm,
+        badge: entryForm.badge.trim(),
+      });
+      setEntries(res.data);
+      setShowEntryForm(false);
+      setToast({ open: true, message: '游戏入口已添加', type: 'success' });
+    } catch (err) {
+      setToast({ open: true, message: err instanceof Error ? err.message : '操作失败', type: 'error' });
+    } finally {
+      setCreatingEntry(false);
+    }
+  };
+
   const statusLabel: Record<string, string> = { playing: '在玩', recent: '最近', favorite: '最爱' };
 
   return (
     <div className="space-y-4">
+      <div className="card p-5 space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+              <Gamepad2 className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="text-body font-semibold text-text-title">游戏大厅入口管理</h3>
+              <p className="text-caption text-text-muted">控制 /play 页面各个游戏入口的开放与关闭</p>
+            </div>
+          </div>
+          <button onClick={openCreateEntry} className="btn-primary h-9 px-4 flex items-center gap-1.5 text-caption">
+            <Plus className="w-4 h-4" /> 新增入口
+          </button>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {entries.map((entry) => (
+            <div key={entry.entryKey} className="rounded-2xl border border-border/60 bg-gray-50/60 p-4 flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="text-body font-semibold text-text-title">{entry.title}</p>
+                  <span className={`tag text-[10px] ${entry.isEnabled ? 'tag-success' : 'tag-muted'}`}>
+                    {entry.isEnabled ? '已开放' : '已关闭'}
+                  </span>
+                </div>
+                <p className="text-caption text-text-muted mt-1">{entry.subtitle}</p>
+                <p className="text-caption text-text-disabled mt-1 truncate">{entry.href}</p>
+              </div>
+              <button
+                onClick={() => handleToggleEntry(entry)}
+                disabled={togglingKey === entry.entryKey}
+                className={`h-9 px-4 rounded-full text-caption font-medium inline-flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed ${
+                  entry.isEnabled
+                    ? 'bg-red-50 text-danger hover:bg-red-100'
+                    : 'bg-primary/10 text-primary hover:bg-primary/15'
+                }`}
+              >
+                <Power className="w-3.5 h-3.5" />
+                {togglingKey === entry.entryKey ? '处理中...' : entry.isEnabled ? '关闭入口' : '开放入口'}
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {showEntryForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowEntryForm(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border/60">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Gamepad2 className="w-4 h-4 text-primary" />
+                </div>
+                <h3 className="text-heading-sm">新增游戏大厅入口</h3>
+              </div>
+              <button onClick={() => setShowEntryForm(false)} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"><X className="w-5 h-5 text-text-muted" /></button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-caption font-medium text-text-muted mb-1 block">入口标识</label>
+                  <input
+                    value={entryForm.entryKey}
+                    onChange={(e) => setEntryForm({ ...entryForm, entryKey: e.target.value })}
+                    placeholder="如 puzzle-run"
+                    className="w-full h-9 px-3 rounded-lg border border-border bg-gray-50/50 text-body focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 focus:bg-white transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="text-caption font-medium text-text-muted mb-1 block">入口名称</label>
+                  <input
+                    value={entryForm.title}
+                    onChange={(e) => setEntryForm({ ...entryForm, title: e.target.value })}
+                    placeholder="输入展示名称"
+                    className="w-full h-9 px-3 rounded-lg border border-border bg-gray-50/50 text-body focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 focus:bg-white transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-caption font-medium text-text-muted mb-1 block">入口链接</label>
+                  <input
+                    value={entryForm.href}
+                    onChange={(e) => setEntryForm({ ...entryForm, href: e.target.value })}
+                    placeholder="如 /play/puzzle-run"
+                    className="w-full h-9 px-3 rounded-lg border border-border bg-gray-50/50 text-body focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 focus:bg-white transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="text-caption font-medium text-text-muted mb-1 block">副标题</label>
+                  <input
+                    value={entryForm.subtitle}
+                    onChange={(e) => setEntryForm({ ...entryForm, subtitle: e.target.value })}
+                    placeholder="如 PUZZLE RUN"
+                    className="w-full h-9 px-3 rounded-lg border border-border bg-gray-50/50 text-body focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 focus:bg-white transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-caption font-medium text-text-muted mb-1 block">入口描述</label>
+                <textarea
+                  value={entryForm.desc}
+                  onChange={(e) => setEntryForm({ ...entryForm, desc: e.target.value })}
+                  rows={3}
+                  placeholder="简要描述这个游戏入口"
+                  className="w-full p-3 rounded-lg border border-border bg-gray-50/50 text-body resize-none focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 focus:bg-white transition-colors"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-caption font-medium text-text-muted mb-1 block">图标</label>
+                  <select
+                    value={entryForm.iconKey}
+                    onChange={(e) => setEntryForm({ ...entryForm, iconKey: e.target.value as GameCenterIconKey })}
+                    className="w-full h-9 px-3 rounded-lg border border-border bg-gray-50/50 text-body focus:outline-none focus:border-primary transition-colors"
+                  >
+                    {GAME_CENTER_ICON_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-caption font-medium text-text-muted mb-1 block">角标</label>
+                  <input
+                    value={entryForm.badge}
+                    onChange={(e) => setEntryForm({ ...entryForm, badge: e.target.value })}
+                    placeholder="可选，如 新"
+                    className="w-full h-9 px-3 rounded-lg border border-border bg-gray-50/50 text-body focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 focus:bg-white transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-caption font-medium text-text-muted mb-1 block">渐变类名</label>
+                  <input
+                    value={entryForm.gradient}
+                    onChange={(e) => setEntryForm({ ...entryForm, gradient: e.target.value })}
+                    placeholder="from-violet-600 via-purple-600 to-indigo-700"
+                    className="w-full h-9 px-3 rounded-lg border border-border bg-gray-50/50 text-body focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 focus:bg-white transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="text-caption font-medium text-text-muted mb-1 block">光晕颜色</label>
+                  <input
+                    value={entryForm.glowColor}
+                    onChange={(e) => setEntryForm({ ...entryForm, glowColor: e.target.value })}
+                    placeholder="rgba(124,58,237,0.4)"
+                    className="w-full h-9 px-3 rounded-lg border border-border bg-gray-50/50 text-body focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 focus:bg-white transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-caption font-medium text-text-muted mb-1 block">排序</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={entryForm.sortOrder}
+                    onChange={(e) => setEntryForm({ ...entryForm, sortOrder: Number(e.target.value) })}
+                    className="w-full h-9 px-3 rounded-lg border border-border bg-gray-50/50 text-body focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 focus:bg-white transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="text-caption font-medium text-text-muted mb-1 block">状态</label>
+                  <select
+                    value={entryForm.isEnabled ? 'enabled' : 'disabled'}
+                    onChange={(e) => setEntryForm({ ...entryForm, isEnabled: e.target.value === 'enabled' })}
+                    className="w-full h-9 px-3 rounded-lg border border-border bg-gray-50/50 text-body focus:outline-none focus:border-primary transition-colors"
+                  >
+                    <option value="enabled">开放</option>
+                    <option value="disabled">关闭</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-border/60 bg-gray-50/50">
+              <button onClick={() => setShowEntryForm(false)} className="btn-outline h-9 px-5 text-caption">取消</button>
+              <button onClick={handleCreateEntry} disabled={creatingEntry} className="btn-primary h-9 px-5 text-caption disabled:opacity-60 disabled:cursor-not-allowed">{creatingEntry ? '创建中...' : '创建入口'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <span className="text-body text-text-muted">共 {data?.pagination.total ?? 0} 款游戏</span>
         <button onClick={openCreate} className="btn-primary h-9 px-4 flex items-center gap-1.5 text-caption">

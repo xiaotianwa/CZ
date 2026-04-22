@@ -4,12 +4,17 @@ import { useState, useRef, useCallback } from 'react';
 import { Upload, X, Loader2 } from 'lucide-react';
 import { adminUpload } from '@/lib/admin-fetch';
 
+interface UploadResult {
+  url: string;
+}
+
 interface ImageUploadProps {
   value: string;
   onChange: (url: string) => void;
   category?: string;
   label?: string;
   aspect?: string;
+  uploader?: (file: File, category: string) => Promise<UploadResult>;
 }
 
 export default function ImageUpload({
@@ -18,6 +23,7 @@ export default function ImageUpload({
   category = 'general',
   label = '上传图片',
   aspect = 'aspect-video',
+  uploader = adminUpload,
 }: ImageUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -37,14 +43,14 @@ export default function ImageUpload({
     setError('');
     setUploading(true);
     try {
-      const result = await adminUpload(file, category);
+      const result = await uploader(file, category);
       onChange(result.url);
     } catch (err) {
       setError(err instanceof Error ? err.message : '上传失败');
     } finally {
       setUploading(false);
     }
-  }, [category, onChange]);
+  }, [category, onChange, uploader]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

@@ -5,6 +5,8 @@ import { getCache, setCache } from '@/lib/cache';
 const CACHE_KEY = 'public:announcements';
 const CACHE_TTL = 30_000; // 30秒
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const cached = getCache(CACHE_KEY);

@@ -11,6 +11,7 @@ import {
   Bookmark, Bell, Pin,
 } from 'lucide-react';
 import { CITY_GROUPS } from '@/data/cities';
+import { MAX_LEVEL, POINTS_PER_LEVEL, getLevelInfo, getLevelRange } from '@/lib/level';
 
 // ===== Types =====
 
@@ -111,14 +112,18 @@ function getRoleName(role: string): string {
   }
 }
 
-function getLevelInfo(level: number) {
-  const levels = [
-    { name: '新粉', min: 1, max: 1, color: 'bg-gray-400' },
-    { name: '铁粉', min: 2, max: 2, color: 'bg-green-500' },
-    { name: '金粉', min: 3, max: 3, color: 'bg-orange-500' },
-    { name: '传奇粉丝', min: 4, max: 99, color: 'bg-danger' },
-  ];
-  return levels.find((l) => level >= l.min && level <= l.max) || levels[0];
+function LevelBadge({ level, name, color, prefix }: { level: number; name: string; color: string; prefix?: string }) {
+  if (level < MAX_LEVEL) {
+    return <span className={`tag text-white ${color}`}>{prefix ? `${prefix} ${name}` : name}</span>;
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-white/40 bg-gradient-to-r from-[#1d4ed8] via-[#3b82f6] to-[#7c3aed] px-2.5 py-1 text-white shadow-[0_8px_20px_rgba(59,130,246,0.22)] ring-1 ring-white/15">
+      {prefix && <span className="rounded-full bg-white/16 px-1.5 py-0.5 text-[10px] font-bold tracking-wide text-white">{prefix}</span>}
+      <Star className="w-3 h-3 text-[#ffe7a3] fill-[#ffe7a3]" />
+      <span className="font-waterbrush text-[15px] leading-none text-white drop-shadow-[0_1px_4px_rgba(255,255,255,0.25)]">1103</span>
+    </span>
+  );
 }
 
 // ===== Confirm Modal =====
@@ -263,7 +268,7 @@ export default function MePage() {
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
                 <h1 className="text-heading-sm text-text-title">{user.name}</h1>
                 <span className="tag-primary">{getRoleName(user.role)}</span>
-                <span className={`tag text-white ${levelInfo.color}`}>Lv.{user.level} {levelInfo.name}</span>
+                <LevelBadge level={user.level} name={levelInfo.name} color={levelInfo.color} prefix={`Lv.${user.level}`} />
               </div>
               <p className="text-caption text-text-muted mt-1">{user.bio || '这个人很懒，什么都没写~'}</p>
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 sm:gap-4 mt-2 text-caption text-text-muted">
@@ -736,11 +741,10 @@ function CommentsTab({ showToast }: { showToast: (msg: string, type: 'success' |
 
 function LevelTab({ user }: { user: UserProfile }) {
   const levelInfo = getLevelInfo(user.level);
-  const milestonePts = [0, 100, 300, 500, 1000];
-  const currentIdx = Math.min(user.level, milestonePts.length - 1);
-  const currentPts = milestonePts[currentIdx - 1] || 0;
-  const nextPts = milestonePts[currentIdx] || milestonePts[milestonePts.length - 1];
-  const progress = nextPts > currentPts ? Math.min(100, ((user.points - currentPts) / (nextPts - currentPts)) * 100) : 100;
+  const levelRange = getLevelRange(user.level);
+  const progress = levelRange.nextMinPoints > levelRange.currentMinPoints
+    ? Math.min(100, ((user.points - levelRange.currentMinPoints) / (levelRange.nextMinPoints - levelRange.currentMinPoints)) * 100)
+    : 100;
 
   const [logs, setLogs] = useState<PointLogItem[]>([]);
   const [logLoading, setLogLoading] = useState(true);
@@ -767,17 +771,23 @@ function LevelTab({ user }: { user: UserProfile }) {
   };
 
   const milestones = [
-    { level: 1, name: '新粉', points: 100, icon: Star, color: 'text-gray-400' },
-    { level: 2, name: '铁粉', points: 300, icon: Shield, color: 'text-green-500' },
-    { level: 3, name: '金粉', points: 500, icon: Award, color: 'text-orange-500' },
-    { level: 4, name: '传奇粉丝', points: 1000, icon: Trophy, color: 'text-danger' },
+    { level: 10, name: '10级小泽', points: 900, icon: Star, color: 'text-sky-500' },
+    { level: 20, name: '20级小泽', points: 1900, icon: Shield, color: 'text-cyan-500' },
+    { level: 30, name: '30级小泽', points: 2900, icon: Award, color: 'text-blue-500' },
+    { level: 40, name: '40级小泽', points: 3900, icon: Trophy, color: 'text-violet-500' },
+    { level: 50, name: '50级小泽', points: 4900, icon: Star, color: 'text-purple-500' },
+    { level: 60, name: '60级小泽', points: 5900, icon: Shield, color: 'text-fuchsia-500' },
+    { level: 70, name: '70级小泽', points: 6900, icon: Award, color: 'text-pink-500' },
+    { level: 80, name: '80级小泽', points: 7900, icon: Trophy, color: 'text-rose-500' },
+    { level: 90, name: '90级小泽', points: 8900, icon: Star, color: 'text-amber-500' },
+    { level: 100, name: '100级小泽 · 1103', points: 9900, icon: Trophy, color: 'text-danger' },
   ];
 
   const rules = [
-    { action: '每日登录', points: '+5', desc: '每天首次访问社区' },
-    { action: '发帖', points: '+10', desc: '发布一篇新帖子' },
-    { action: '评论', points: '+3', desc: '在帖子下评论' },
-    { action: '被点赞', points: '+2', desc: '你的帖子/评论被点赞' },
+    { action: '每日登录', points: '+50', desc: '每天首次访问社区' },
+    { action: '发帖', points: '+50', desc: '发布一篇新帖子' },
+    { action: '评论', points: '+10', desc: '在帖子下评论' },
+    { action: '被点赞', points: '+10', desc: '你的帖子被点赞' },
     { action: '参与活动', points: '+20', desc: '报名并参与社区活动' },
   ];
 
@@ -793,15 +803,15 @@ function LevelTab({ user }: { user: UserProfile }) {
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <span className="text-heading-sm text-text-title">Lv.{user.level}</span>
-              <span className={`tag text-white ${levelInfo.color}`}>{levelInfo.name}</span>
+              <LevelBadge level={user.level} name={levelInfo.name} color={levelInfo.color} />
             </div>
-            <p className="text-caption text-text-muted mt-1">当前积分：{user.points}  ·  升级还需：{Math.max(0, nextPts - user.points)} 积分</p>
+            <p className="text-caption text-text-muted mt-1">当前积分：{user.points}  ·  升级还需：{Math.max(0, levelRange.nextMinPoints - user.points)} 积分</p>
             <div className="mt-3 h-2 bg-gray-100 dark:bg-[#28282c] rounded-full overflow-hidden">
               <div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />
             </div>
             <div className="flex justify-between mt-1">
-              <span className="text-caption text-text-disabled">Lv.{user.level}</span>
-              <span className="text-caption text-text-disabled">Lv.{Math.min(user.level + 1, 4)}</span>
+              <span className="text-caption text-text-disabled">Lv.{levelRange.currentLevel}</span>
+              <span className="text-caption text-text-disabled">Lv.{levelRange.nextLevel}</span>
             </div>
           </div>
         </div>
@@ -870,7 +880,7 @@ function LevelTab({ user }: { user: UserProfile }) {
                 <m.icon className={`w-5 h-5 ${reached ? m.color : 'text-text-disabled'}`} />
                 <div className="flex-1">
                   <span className={`text-body font-medium ${reached ? 'text-text-title' : 'text-text-disabled'}`}>Lv.{m.level} {m.name}</span>
-                  <span className="text-caption text-text-muted ml-2">{m.points} 积分</span>
+                  <span className="text-caption text-text-muted ml-2">{m.points.toLocaleString()} 积分</span>
                 </div>
                 {reached && <Check className="w-4 h-4 text-success" />}
               </div>
@@ -891,6 +901,7 @@ function LevelTab({ user }: { user: UserProfile }) {
             </div>
           ))}
         </div>
+        <p className="text-caption text-text-muted mt-4">等级按每 {POINTS_PER_LEVEL} 积分提升 1 级，每 10 级提升 1 档标签等级，Lv.{MAX_LEVEL} 显示 1103 特殊标签。</p>
       </div>
     </div>
   );

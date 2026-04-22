@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Sparkles, Users, Gamepad2,
   ScrollText, Settings, LogOut, Menu, X,
-  ChevronRight, FileBox, UserCog,
+  ChevronRight, FileBox, UserCog, LibraryBig, HelpCircle, Smile, Keyboard,
 } from 'lucide-react';
 
 interface SidebarLink {
@@ -30,14 +30,23 @@ const sidebarGroups: SidebarGroup[] = [
     ],
   },
   {
-    title: '卡池管理',
+    title: '当前项目',
+    links: [
+      { href: '/tcg-admin/project-games', label: '游戏总览', icon: LibraryBig },
+      { href: '/tcg-admin/project-games/quiz', label: '1103 知识问答', icon: HelpCircle },
+      { href: '/tcg-admin/project-games/emoji-guess', label: '表情猜猜猜', icon: Smile },
+      { href: '/tcg-admin/project-games/typing', label: '弹幕打字赛', icon: Keyboard },
+    ],
+  },
+  {
+    title: 'TCG 子类',
     links: [
       { href: '/tcg-admin/cards', label: '卡池', icon: Sparkles },
       { href: '/tcg-admin/deck-presets', label: '预设卡组', icon: FileBox, comingSoon: true },
     ],
   },
   {
-    title: '玩家服务',
+    title: 'TCG 玩家服务',
     links: [
       { href: '/tcg-admin/players', label: '玩家', icon: Users },
       { href: '/tcg-admin/matches', label: '战报', icon: Gamepad2 },
@@ -107,7 +116,9 @@ export default function TcgAdminLayout({ children }: { children: React.ReactNode
   }
 
   const allLinks = sidebarGroups.flatMap((g) => g.links);
-  const currentLink = allLinks.find((l) => l.href === pathname || (l.href !== '/tcg-admin' && pathname.startsWith(l.href)));
+  const currentLink = [...allLinks]
+    .sort((a, b) => b.href.length - a.href.length)
+    .find((l) => pathname === l.href || (l.href !== '/tcg-admin' && pathname.startsWith(`${l.href}/`)));
 
   return (
     <div className="tcg-shell min-h-screen flex relative text-[#E2E8F0]" style={{ background: '#0f0f23', fontFamily: "'Chakra Petch', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif" }}>
@@ -125,7 +136,7 @@ export default function TcgAdminLayout({ children }: { children: React.ReactNode
       >
         <div className="flex items-center justify-between h-14 px-4 border-b border-white/5">
           <Link href="/tcg-admin" className="font-bold text-white text-lg tracking-wider" style={{ fontFamily: "'Russo One', sans-serif" }}>
-            TCG · OPS
+            GAME · OPS
           </Link>
           <span className="text-[10px] font-semibold tracking-wider px-1.5 py-0.5 rounded-sm bg-[#7C3AED]/25 text-[#C4B5FD] border border-[#7C3AED]/40">
             v1.0
@@ -147,7 +158,7 @@ export default function TcgAdminLayout({ children }: { children: React.ReactNode
                 )}
                 <div className="space-y-0.5">
                   {visibleLinks.map((link) => {
-                    const isActive = pathname === link.href || (link.href !== '/tcg-admin' && pathname.startsWith(link.href));
+                    const isActive = currentLink?.href === link.href;
                     return (
                       <Link
                         key={link.href}
@@ -217,9 +228,12 @@ export default function TcgAdminLayout({ children }: { children: React.ReactNode
             {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
           <h1 className="text-base font-semibold text-white tracking-wider" style={{ fontFamily: "'Russo One', 'Chakra Petch', sans-serif" }}>
-            {currentLink?.label || 'TCG 后台'}
+            {currentLink?.label || '游戏端管理'}
           </h1>
           <div className="ml-auto flex items-center gap-2">
+            <Link href="/play" target="_blank" className="text-[11px] tracking-wider px-2.5 py-1 rounded-md bg-white/5 border border-white/10 text-white/65 hover:bg-[#7C3AED]/20 hover:text-[#C4B5FD] hover:border-[#7C3AED]/30 transition-colors">
+              游戏大厅 ↗
+            </Link>
             <Link href="/game" target="_blank" className="text-[11px] tracking-wider px-2.5 py-1 rounded-md bg-white/5 border border-white/10 text-white/65 hover:bg-[#7C3AED]/20 hover:text-[#C4B5FD] hover:border-[#7C3AED]/30 transition-colors">
               卡牌前台 ↗
             </Link>
