@@ -156,7 +156,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <div className="min-h-screen bg-bg-page flex">
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-60 bg-white border-r border-divider transform transition-transform duration-200 lg:translate-x-0 lg:static lg:inset-auto flex flex-col ${
+        className={`fixed inset-y-0 left-0 z-40 w-60 bg-white border-r border-divider transform transition-transform duration-200 lg:translate-x-0 flex flex-col ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -265,7 +265,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       )}
 
       {/* Main */}
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 lg:pl-60">
         <header className="sticky top-0 z-20 bg-white border-b border-divider h-14 flex items-center px-4 lg:px-6">
           <button
             className="lg:hidden p-2 -ml-2 mr-2 rounded-btn text-text-muted hover:bg-gray-50 cursor-pointer"
