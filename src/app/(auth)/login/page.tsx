@@ -94,15 +94,26 @@ export default function LoginPage() {
         credentials: 'same-origin',
         body: JSON.stringify(formData),
       });
-      const json = await res.json();
-      if (json.code !== 0) {
-        setError(json.message || '登录失败');
+      // 兜底：服务器若返回非 JSON（Nginx 限流/502 HTML 等），会让 res.json() 抛错，
+      // 这里先读 text 再手动解析，失败时给出更明确的错误码提示，便于定位。
+      const raw = await res.text();
+      let json: { code?: number; message?: string; data?: { user?: unknown } } | null = null;
+      try {
+        json = raw ? JSON.parse(raw) : null;
+      } catch {
+        setError(`服务器异常（${res.status}），请稍后重试或联系管理员`);
         return;
       }
-      localStorage.setItem('user', JSON.stringify(json.data.user));
+      if (!json || json.code !== 0) {
+        setError(json?.message || `登录失败（${res.status}）`);
+        return;
+      }
+      localStorage.setItem('user', JSON.stringify(json.data?.user ?? null));
       window.location.href = '/';
-    } catch {
-      setError('网络错误，请稍后重试');
+    } catch (err) {
+      // 典型情况：TLS 握手失败、DNS 解析失败、网络断开、浏览器拦截
+      const msg = err instanceof Error ? err.message : '';
+      setError(msg ? `网络错误：${msg}` : '网络错误，请稍后重试');
     } finally {
       setLoading(false);
     }
