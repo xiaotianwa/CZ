@@ -14,8 +14,11 @@ function requireEnv(name: string): string {
 
 const USER_JWT_SECRET = requireEnv('JWT_SECRET');
 const ADMIN_JWT_SECRET = requireEnv('ADMIN_JWT_SECRET');
-const JWT_EXPIRES_IN = '7d';
-const COOKIE_MAX_AGE = 7 * 24 * 60 * 60; // 7 days in seconds
+// 前台用户登录有效期：30 天
+// （管理员 cookie 是 session-only，过期时间不依赖该常量，但 JWT 签发时仍会用到；
+//  管理员 JWT 即便 30 天有效，因 cookie 关闭浏览器就丢，实际仍是会话级保护）
+const JWT_EXPIRES_IN = '30d';
+const COOKIE_MAX_AGE = 30 * 24 * 60 * 60; // 30 days in seconds
 
 export const USER_COOKIE_NAME = 'token';
 export const ADMIN_COOKIE_NAME = 'admin_token';
