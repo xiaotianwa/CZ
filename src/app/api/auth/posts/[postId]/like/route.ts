@@ -45,10 +45,22 @@ export async function POST(req: NextRequest, { params }: { params: { postId: str
       throw err;
     }
 
-    // 被点赞积分 +2（给帖子作者，不给自己点赞）
+    // 被点赞积分（给帖子作者，不给自己点赞）
+    // 幂等策略：同一 (authorId, postId, fromUserId) 一辈子只奖励一次，避免 like→unlike→like 刷分。
+    // 由于 PostLike 的 unique(userId, postId) 已阻断并发重复 like（上面的 P2002 分支），
+    // 本次执行到这里代表 PostLike 为新建，此时查询 PointLog 判定幂等是安全的（无 TOCTOU）。
     if (post.authorId !== payload.id) {
-      grantPoints(post.authorId, 'be_liked', '帖子被点赞').catch(() => {});
-      // 查询真实用户名用于通知
+      const idempotencyDetail = `帖子被点赞|post:${postId}|from:${payload.id}`;
+      prisma.pointLog.findFirst({
+        where: { userId: post.authorId, action: 'be_liked', detail: idempotencyDetail },
+        select: { id: true },
+      }).then((existing) => {
+        if (!existing) {
+          grantPoints(post.authorId, 'be_liked', idempotencyDetail).catch(() => {});
+        }
+      }).catch(() => {});
+
+      // 通知保持每次都发（业务上每次点赞都值得触达一次作者）
       prisma.user.findUnique({
         where: { id: payload.id },
         select: { name: true, avatar: true },
