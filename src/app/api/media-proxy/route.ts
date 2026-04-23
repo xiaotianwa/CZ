@@ -1,34 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { isAllowedUrl, MAX_PROXY_BYTES } from '@/lib/media-proxy-guard';
 
 /**
  * 媒体资源代理 — 解决浏览器 Private Network Access / CORS 导致的音频/视频加载失败
  * GET /api/media-proxy?url=<COS_URL>
  *
- * 安全策略：仅代理白名单域名下的资源
+ * 白名单与大小上限等 SSRF 防护逻辑统一在 @/lib/media-proxy-guard 中维护。
  */
-
-const ALLOWED_HOSTS = [
-  '.cos.ap-chongqing.myqcloud.com',
-  '.cos.ap-guangzhou.myqcloud.com',
-  '.cos.ap-shanghai.myqcloud.com',
-  '.cos.ap-beijing.myqcloud.com',
-];
-
-// 如果配置了 COS_CDN_DOMAIN 也加入白名单
-if (process.env.COS_CDN_DOMAIN) {
-  ALLOWED_HOSTS.push(process.env.COS_CDN_DOMAIN);
-}
-
-function isAllowedUrl(raw: string): URL | null {
-  try {
-    const u = new URL(raw);
-    if (u.protocol !== 'https:') return null;
-    if (ALLOWED_HOSTS.some((h) => u.hostname.endsWith(h))) return u;
-    return null;
-  } catch {
-    return null;
-  }
-}
 
 export async function GET(req: NextRequest) {
   const raw = req.nextUrl.searchParams.get('url');
@@ -64,6 +42,17 @@ export async function GET(req: NextRequest) {
     const contentLength = upstream.headers.get('content-length');
     const contentRange = upstream.headers.get('content-range');
     const acceptRanges = upstream.headers.get('accept-ranges');
+
+    // 大小上限预检：若上游声明的 Content-Length 超限则拒绝转发，防流量放大攻击
+    if (contentLength) {
+      const size = Number(contentLength);
+      if (Number.isFinite(size) && size > MAX_PROXY_BYTES) {
+        return NextResponse.json(
+          { code: 413, message: '资源过大，无法代理' },
+          { status: 413 },
+        );
+      }
+    }
 
     const resHeaders = new Headers({
       'Content-Type': contentType,
