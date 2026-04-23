@@ -18,6 +18,8 @@ const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 interface RateRecord { count: number; resetAt: number }
 const writeRateStore = new Map<string, RateRecord>();
+// 公共读接口限流（防爬虫批量抓取）与写限流分桶，避免互相挤占。
+const readRateStore = new Map<string, RateRecord>();
 
 // 不同路径的限流策略
 function getWriteRateConfig(pathname: string): { windowMs: number; max: number } {
@@ -50,6 +52,27 @@ function checkWriteRate(ip: string, pathname: string): number | null {
   return null;
 }
 
+/**
+ * 公共读接口限流：同一 IP 每分钟 120 次 GET（平均每秒 2 次），
+ * 正常浏览/翻页远低于此阈值，爬虫批量抓取会被快速拦截。
+ * key 按 IP 全局限流（不按 path），避免爬虫换 path 绕过。
+ */
+function checkPublicReadRate(ip: string): number | null {
+  const WINDOW = 60_000;
+  const MAX = 120;
+  const now = Date.now();
+  const record = readRateStore.get(ip);
+  if (record && now < record.resetAt) {
+    if (record.count >= MAX) {
+      return Math.ceil((record.resetAt - now) / 1000);
+    }
+    record.count++;
+    return null;
+  }
+  readRateStore.set(ip, { count: 1, resetAt: now + WINDOW });
+  return null;
+}
+
 // 定期清理
 if (typeof globalThis !== 'undefined') {
   const g = globalThis as unknown as { _mwCleanup?: boolean };
@@ -59,6 +82,9 @@ if (typeof globalThis !== 'undefined') {
       const now = Date.now();
       Array.from(writeRateStore.entries()).forEach(([k, r]) => {
         if (now >= r.resetAt) writeRateStore.delete(k);
+      });
+      Array.from(readRateStore.entries()).forEach(([k, r]) => {
+        if (now >= r.resetAt) readRateStore.delete(k);
       });
     }, 3 * 60 * 1000).unref?.();
   }
@@ -126,6 +152,19 @@ export function middleware(req: NextRequest) {
       logRequest(429);
       return addNoCacheHeaders(NextResponse.json(
         { code: 429, message: `操作过于频繁，请 ${wait} 秒后再试`, data: null },
+        { status: 429 }
+      ));
+    }
+  }
+
+  // 公共读接口限流（防爬虫批量抓取公开数据）：
+  // 仅对 /api/public/* 的 GET 请求生效，正常浏览远低于 120/min 阈值，不影响普通用户。
+  if (req.method === 'GET' && pathname.startsWith('/api/public/')) {
+    const wait = checkPublicReadRate(ip);
+    if (wait !== null) {
+      logRequest(429);
+      return addNoCacheHeaders(NextResponse.json(
+        { code: 429, message: `请求过于频繁，请 ${wait} 秒后再试`, data: null },
         { status: 429 }
       ));
     }
