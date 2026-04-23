@@ -59,13 +59,15 @@ export default function PlayPage() {
       {/* Hero Banner */}
       <section className="relative overflow-hidden mt-14">
         <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-[#0F0F23] to-gray-900" />
-        {/* 动态背景装饰 */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-10 left-[10%] w-72 h-72 bg-purple-600/20 rounded-full blur-[100px] animate-pulse" />
-          <div className="absolute bottom-10 right-[15%] w-64 h-64 bg-sky-500/15 rounded-full blur-[100px] animate-pulse" style={{ animationDelay: '1s' }} />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-pink-500/10 rounded-full blur-[120px]" />
-          {/* 扫描线 */}
-          <div className="absolute inset-0 opacity-[0.03] bg-[repeating-linear-gradient(0deg,transparent_0,transparent_3px,rgba(255,255,255,0.5)_3px,rgba(255,255,255,0.5)_4px)]" />
+        {/* 动态背景装饰
+            说明：原本使用 blur-[100px]/[120px] + animate-pulse 的巨型模糊层，
+            在 iOS Safari 上会触发超大合成层重绘，导致 /play 页面严重卡顿。
+            这里改用较小的 blur-2xl（40px），去掉 animate-pulse，并移除扫描线，
+            移动端仍保留视觉层次但性能友好。 */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none hidden sm:block">
+          <div className="absolute top-10 left-[10%] w-72 h-72 bg-purple-600/20 rounded-full blur-2xl" />
+          <div className="absolute bottom-10 right-[15%] w-64 h-64 bg-sky-500/15 rounded-full blur-2xl" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-pink-500/10 rounded-full blur-2xl" />
         </div>
         <div className="relative z-10 container-main px-4 sm:px-6 lg:px-8 py-16 sm:py-24 text-center">
           <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-1.5 mb-5 backdrop-blur-sm">
@@ -136,15 +138,18 @@ export default function PlayPage() {
                   onMouseEnter={() => setHoveredIdx(idx)}
                   onMouseLeave={() => setHoveredIdx(null)}
                 >
-                  {/* 卡片背景 */}
-                  <div className={`relative bg-white/40 dark:bg-[#1e1e22]/80 backdrop-blur-md border border-white/70 dark:border-[#333] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5),0_4px_24px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.3)] rounded-2xl p-5 sm:p-6 h-full transition-all duration-300 ${
+                  {/* 卡片背景
+                      注意：原本每张卡片都使用 backdrop-blur-md + blur-3xl 光斑，
+                      在 iOS Safari 上多卡片叠加会明显卡顿，这里去掉 backdrop-blur
+                      改为实心背景，并且光斑仅在 sm 以上屏幕上渲染。 */}
+                  <div className={`relative bg-white/95 dark:bg-[#1e1e22] border border-white/70 dark:border-[#333] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.5),0_4px_24px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.3)] rounded-2xl p-5 sm:p-6 h-full transition-all duration-300 ${
                     isLocked
                       ? 'opacity-60 grayscale-[0.3]'
                       : 'group-hover:border-purple-300/50 dark:group-hover:border-purple-500/40 group-hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.6),0_8px_32px_rgba(0,0,0,0.10)] dark:group-hover:shadow-[0_8px_32px_rgba(124,58,237,0.15)]'
                   }`}>
                     {/* 渐变光斑 */}
                     <div
-                      className={`absolute -top-20 -right-20 w-48 h-48 rounded-full bg-gradient-to-br ${game.gradient} opacity-0 blur-3xl transition-opacity duration-500 ${isHovered ? 'opacity-20' : ''}`}
+                      className={`hidden sm:block absolute -top-20 -right-20 w-48 h-48 rounded-full bg-gradient-to-br ${game.gradient} opacity-0 blur-2xl transition-opacity duration-500 ${isHovered ? 'opacity-20' : ''}`}
                     />
 
                     {/* Badge */}
