@@ -3,19 +3,43 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { House, Images, MapPin, CalendarDays, User, RefreshCw, Gamepad2 } from 'lucide-react';
+import { House, Images, MapPin, User, RefreshCw, Gamepad2 } from 'lucide-react';
 
-const mobileTabs = [
-  { href: '/', label: '首页', icon: House, gradient: 'from-blue-500 via-sky-500 to-cyan-500', glow: 'rgba(14,165,233,0.4)' },
-  { href: '/fan-map', label: '粉丝地图', icon: MapPin, gradient: 'from-emerald-500 via-green-500 to-teal-500', glow: 'rgba(16,185,129,0.4)' },
-  { href: '/play', label: '游戏', icon: Gamepad2, gradient: 'from-violet-500 via-purple-500 to-indigo-600', glow: 'rgba(124,58,237,0.45)', center: true },
-  { href: '/gallery', label: '相册', icon: Images, gradient: 'from-amber-500 via-orange-500 to-yellow-500', glow: 'rgba(245,158,11,0.4)' },
-  { href: '/me', label: '我的', icon: User, gradient: 'from-pink-500 via-rose-500 to-red-500', glow: 'rgba(244,63,94,0.4)' },
-];
+interface MobileTab {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  gradient: string;
+  glow: string;
+  center?: boolean;
+}
 
-const rootTabPaths = new Set(mobileTabs.map((t) => t.href));
+interface MobileUXFeatures {
+  galleryEnabled?: boolean;
+  playEnabled?: boolean;
+}
 
-export default function MobileUXEnhancer() {
+const baseHomeTab: MobileTab = { href: '/', label: '首页', icon: House, gradient: 'from-blue-500 via-sky-500 to-cyan-500', glow: 'rgba(14,165,233,0.4)' };
+const fanMapTab: MobileTab = { href: '/fan-map', label: '粉丝地图', icon: MapPin, gradient: 'from-emerald-500 via-green-500 to-teal-500', glow: 'rgba(16,185,129,0.4)' };
+const playTab: MobileTab = { href: '/play', label: '游戏', icon: Gamepad2, gradient: 'from-violet-500 via-purple-500 to-indigo-600', glow: 'rgba(124,58,237,0.45)', center: true };
+const galleryTab: MobileTab = { href: '/gallery', label: '相册', icon: Images, gradient: 'from-amber-500 via-orange-500 to-yellow-500', glow: 'rgba(245,158,11,0.4)' };
+const meTab: MobileTab = { href: '/me', label: '我的', icon: User, gradient: 'from-pink-500 via-rose-500 to-red-500', glow: 'rgba(244,63,94,0.4)' };
+
+function buildMobileTabs(features: MobileUXFeatures): MobileTab[] {
+  const { galleryEnabled = true, playEnabled = true } = features;
+  const tabs: MobileTab[] = [baseHomeTab, fanMapTab];
+  if (playEnabled) tabs.push(playTab);
+  if (galleryEnabled) tabs.push(galleryTab);
+  tabs.push(meTab);
+  // 如果关闭 play，把剩下的第三个 tab 临时标记为 center（保证中间凸起）
+  if (!playEnabled && tabs.length >= 3) {
+    const mid = Math.floor(tabs.length / 2);
+    tabs[mid] = { ...tabs[mid], center: true };
+  }
+  return tabs;
+}
+
+export default function MobileUXEnhancer({ features }: { features?: MobileUXFeatures } = {}) {
   const pathname = usePathname();
   const router = useRouter();
   const [pullDistance, setPullDistance] = useState(0);
@@ -27,11 +51,14 @@ export default function MobileUXEnhancer() {
   const swipeTriggeredRef = useRef(false);
   const pullDistanceRef = useRef(0);
 
+  const mobileTabs = useMemo(() => buildMobileTabs(features ?? {}), [features]);
+  const rootTabPaths = useMemo(() => new Set(mobileTabs.map((t) => t.href)), [mobileTabs]);
+
   const shouldEnableSwipeBack = useMemo(() => {
     if (!pathname) return false;
     if (rootTabPaths.has(pathname)) return false;
     return pathname.includes('/');
-  }, [pathname]);
+  }, [pathname, rootTabPaths]);
 
   const setPull = (value: number) => {
     pullDistanceRef.current = value;

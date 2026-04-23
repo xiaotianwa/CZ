@@ -37,9 +37,10 @@ interface HeroCarouselProps {
   profile: Profile;
   communityStats: CommunityStats;
   communityEnabled: boolean;
+  eventsEnabled?: boolean;
 }
 
-export default function HeroCarousel({ slides, profile, communityStats, communityEnabled }: HeroCarouselProps) {
+export default function HeroCarousel({ slides, profile, communityStats, communityEnabled, eventsEnabled = true }: HeroCarouselProps) {
   const heroSlides = slides.length > 0 ? slides : [{ id: 'placeholder', image: '', alt: '默认' }];
   const [current, setCurrent] = useState(0);
   const total = heroSlides.length;
@@ -137,12 +138,14 @@ export default function HeroCarousel({ slides, profile, communityStats, communit
                 进入社区
               </Link>
             )}
-            <Link
-              href="/events"
-              className="inline-flex items-center justify-center h-11 px-7 rounded-full border border-white/30 text-white/90 text-sm font-semibold hover:bg-white/10 transition-colors duration-150"
-            >
-              看看整活
-            </Link>
+            {eventsEnabled && (
+              <Link
+                href="/events"
+                className="inline-flex items-center justify-center h-11 px-7 rounded-full border border-white/30 text-white/90 text-sm font-semibold hover:bg-white/10 transition-colors duration-150"
+              >
+                看看整活
+              </Link>
+            )}
           </div>
         </div>
 

@@ -1,8 +1,20 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import Image from 'next/image';
-import { Save, AlertCircle, CheckCircle, Upload, X, Globe, User, Share2, BarChart3, RefreshCw } from 'lucide-react';
+import {
+  Save,
+  AlertCircle,
+  CheckCircle,
+  Upload,
+  X,
+  Globe,
+  User,
+  Share2,
+  BarChart3,
+  RefreshCw,
+  ToggleRight,
+} from 'lucide-react';
 import { adminGet, adminPut } from '@/lib/admin-fetch';
 
 interface Field {
@@ -11,43 +23,46 @@ interface Field {
   placeholder: string;
   type?: 'image' | 'textarea' | 'tags' | 'toggle';
   half?: boolean;
+  description?: string;
 }
 
 interface SettingsGroup {
+  id: string;
   title: string;
   description: string;
   icon: React.ComponentType<{ className?: string }>;
   fields: Field[];
 }
 
- interface SiteLogItem {
-   id: string;
-   path: string;
-   ip: string | null;
-   ua: string | null;
-   referrer: string | null;
-   createdAt: string;
- }
+interface SiteLogItem {
+  id: string;
+  path: string;
+  ip: string | null;
+  ua: string | null;
+  referrer: string | null;
+  createdAt: string;
+}
 
- interface SiteLogResponse {
-   summary: {
-     totalViews: number;
-     todayViews: number;
-     uniquePaths: number;
-     rangeDays: number;
-     topPaths: Array<{ path: string; count: number }>;
-   };
-   list: SiteLogItem[];
-   pagination: {
-     total: number;
-     page: number;
-     pageSize: number;
-     totalPages: number;
-   };
- }
+interface SiteLogResponse {
+  summary: {
+    totalViews: number;
+    todayViews: number;
+    uniquePaths: number;
+    rangeDays: number;
+    topPaths: Array<{ path: string; count: number }>;
+  };
+  list: SiteLogItem[];
+  pagination: {
+    total: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+  };
+}
 
 const settingsGroups: SettingsGroup[] = [
   {
+    id: 'basic',
     title: '基本设置',
     description: '站点名称、描述等基础信息',
     icon: Globe,
@@ -58,6 +73,7 @@ const settingsGroups: SettingsGroup[] = [
     ],
   },
   {
+    id: 'profile',
     title: '主播资料',
     description: '主播个人信息、头像与标签',
     icon: User,
@@ -74,6 +90,7 @@ const settingsGroups: SettingsGroup[] = [
     ],
   },
   {
+    id: 'social',
     title: '社交平台',
     description: '抖音、微博社交媒体链接与名片信息',
     icon: Share2,
@@ -93,14 +110,65 @@ const settingsGroups: SettingsGroup[] = [
     ],
   },
   {
+    id: 'features',
     title: '功能开关',
-    description: '控制前台功能入口的显示与访问权限',
-    icon: Globe,
+    description: '控制前台各模块入口的显示与访问',
+    icon: ToggleRight,
     fields: [
-      { key: 'feature_community_enabled', label: '启用社区入口', placeholder: '', type: 'toggle' },
+      {
+        key: 'feature_community_enabled',
+        label: '社区入口',
+        placeholder: '',
+        type: 'toggle',
+        description: '关闭后隐藏前台社区入口，并禁止访问 /community',
+      },
+      {
+        key: 'feature_gallery_enabled',
+        label: '相册入口',
+        placeholder: '',
+        type: 'toggle',
+        description: '关闭后隐藏导航、页脚、移动端的相册入口',
+      },
+      {
+        key: 'feature_memes_enabled',
+        label: '梗百科入口',
+        placeholder: '',
+        type: 'toggle',
+        description: '关闭后隐藏「发现」菜单与页脚中的梗百科入口',
+      },
+      {
+        key: 'feature_fan_works_enabled',
+        label: '二创作品入口',
+        placeholder: '',
+        type: 'toggle',
+        description: '关闭后隐藏「发现」菜单与页脚中的二创入口',
+      },
+      {
+        key: 'feature_events_enabled',
+        label: '活动入口',
+        placeholder: '',
+        type: 'toggle',
+        description: '关闭后隐藏导航/页脚/首页 Hero 中的活动入口',
+      },
+      {
+        key: 'feature_play_enabled',
+        label: '游戏中心入口',
+        placeholder: '',
+        type: 'toggle',
+        description: '关闭后隐藏导航与移动端底部的游戏中心入口',
+      },
     ],
   },
 ];
+
+const TOGGLE_DEFAULTS: Record<string, string> = {
+  feature_community_enabled: 'true',
+  feature_gallery_enabled: 'true',
+  feature_memes_enabled: 'true',
+  feature_fan_works_enabled: 'true',
+  feature_events_enabled: 'true',
+  feature_play_enabled: 'true',
+};
 
 function TagsInputField({ value, onChange, label, placeholder }: { value: string; onChange: (v: string) => void; label: string; placeholder: string }) {
   const [input, setInput] = useState('');
@@ -222,24 +290,84 @@ function ImageUploadField({ value, onChange, label }: { value: string; onChange:
   );
 }
 
+function ToggleField({
+  label,
+  description,
+  checked,
+  onChange,
+}: {
+  label: string;
+  description?: string;
+  checked: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <div className="rounded-card border border-divider bg-white px-4 py-3 hover:border-primary/40 transition-colors">
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0">
+          <label className="text-body font-medium text-text-title block">{label}</label>
+          {description ? (
+            <p className="text-caption text-text-muted mt-1 leading-relaxed">{description}</p>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={checked}
+          aria-label={label}
+          onClick={() => onChange(!checked)}
+          className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${checked ? 'bg-primary' : 'bg-gray-300'}`}
+        >
+          <span
+            className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform ${checked ? 'translate-x-[22px]' : 'translate-x-0.5'}`}
+          />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminSettingsPage() {
   const [settings, setSettings] = useState<Record<string, string>>({});
+  const [initial, setInitial] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [siteLogs, setSiteLogs] = useState<SiteLogResponse | null>(null);
   const [logsLoading, setLogsLoading] = useState(false);
   const [logDays, setLogDays] = useState(7);
+  const [activeSection, setActiveSection] = useState<string>(settingsGroups[0]?.id ?? 'basic');
 
+  // 初始加载
   useEffect(() => {
     adminGet<Record<string, string>>('/api/admin/settings')
-      .then((res) => setSettings({
-        ...res.data,
-        feature_community_enabled: res.data.feature_community_enabled ?? 'true',
-      }))
+      .then((res) => {
+        const merged = { ...TOGGLE_DEFAULTS, ...res.data };
+        setSettings(merged);
+        setInitial(merged);
+      })
       .catch((err) => setMessage({ type: 'error', text: err.message }));
   }, []);
 
-  const fetchSiteLogs = async (days: number = logDays) => {
+  const isDirty = useMemo(() => {
+    const keys = Array.from(new Set([...Object.keys(settings), ...Object.keys(initial)]));
+    for (const k of keys) {
+      if ((settings[k] ?? '') !== (initial[k] ?? '')) return true;
+    }
+    return false;
+  }, [settings, initial]);
+
+  // 离开提醒
+  useEffect(() => {
+    if (!isDirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isDirty]);
+
+  const fetchSiteLogs = useCallback(async (days: number) => {
     setLogsLoading(true);
     try {
       const res = await adminGet<SiteLogResponse>(`/api/admin/site-logs?days=${days}&page=1&pageSize=20`);
@@ -249,17 +377,18 @@ export default function AdminSettingsPage() {
     } finally {
       setLogsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchSiteLogs(logDays);
-  }, [logDays]);
+  }, [logDays, fetchSiteLogs]);
 
   const handleSave = async () => {
     setSaving(true);
     setMessage(null);
     try {
       await adminPut('/api/admin/settings', settings);
+      setInitial(settings);
       setMessage({ type: 'success', text: '保存成功' });
     } catch (err) {
       setMessage({ type: 'error', text: err instanceof Error ? err.message : '保存失败' });
@@ -268,212 +397,320 @@ export default function AdminSettingsPage() {
     }
   };
 
+  const handleReset = () => {
+    setSettings(initial);
+    setMessage(null);
+  };
+
+  const scrollToSection = (id: string) => {
+    setActiveSection(id);
+    const el = document.getElementById(`settings-group-${id}`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const setField = (key: string, value: string) => {
+    setSettings((prev) => ({ ...prev, [key]: value }));
+  };
+
   return (
-    <div className="max-w-3xl space-y-6 pb-20">
+    <div className="pb-24">
       {message && (
-        <div className={`flex items-center gap-2 p-3 rounded-btn text-body ${message.type === 'success' ? 'bg-green-50 text-success' : 'bg-red-50 text-danger'}`}>
+        <div className={`mb-4 flex items-center gap-2 p-3 rounded-btn text-body ${message.type === 'success' ? 'bg-green-50 text-success' : 'bg-red-50 text-danger'}`}>
           {message.type === 'success' ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
           {message.text}
         </div>
       )}
 
-      {settingsGroups.map((group) => (
-        <div key={group.title} className="card">
-          <div className="flex items-center gap-2.5 pb-4 mb-4 border-b border-divider">
-            <div className="w-8 h-8 rounded-btn bg-primary-bg flex items-center justify-center flex-shrink-0">
-              <group.icon className="w-4 h-4 text-primary" />
-            </div>
-            <div>
-              <h3 className="text-body font-semibold text-text-title">{group.title}</h3>
-              <p className="text-caption text-text-muted">{group.description}</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-4">
-            {group.fields.map((field) => (
-              <div key={field.key} className={field.half ? '' : 'md:col-span-2'}>
-                {field.type === 'tags' ? (
-                  <TagsInputField
-                    value={settings[field.key] || ''}
-                    onChange={(v) => setSettings({ ...settings, [field.key]: v })}
-                    label={field.label}
-                    placeholder={field.placeholder}
-                  />
-                ) : field.type === 'image' ? (
-                  <ImageUploadField
-                    value={settings[field.key] || ''}
-                    onChange={(url) => setSettings({ ...settings, [field.key]: url })}
-                    label={field.label}
-                  />
-                ) : field.type === 'toggle' ? (
-                  <div className="rounded-card border border-divider bg-gray-50/70 px-4 py-3">
-                    <div className="flex items-center justify-between gap-4">
-                      <div>
-                        <label className="text-body font-medium text-text-title block">{field.label}</label>
-                        <p className="text-caption text-text-muted mt-1">关闭后将隐藏前台社区入口，并禁止访问 `/community` 页面。</p>
-                      </div>
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={settings[field.key] !== 'false'}
-                        onClick={() => setSettings({
-                          ...settings,
-                          [field.key]: settings[field.key] === 'false' ? 'true' : 'false',
-                        })}
-                        className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${settings[field.key] !== 'false' ? 'bg-primary' : 'bg-gray-300'}`}
-                      >
-                        <span
-                          className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${settings[field.key] !== 'false' ? 'translate-x-6' : 'translate-x-1'}`}
-                        />
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <label className="text-body font-medium text-text-title mb-1.5 block">{field.label}</label>
-                    {field.type === 'textarea' ? (
-                      <textarea
-                        value={settings[field.key] || ''}
-                        onChange={(e) => setSettings({ ...settings, [field.key]: e.target.value })}
-                        placeholder={field.placeholder}
-                        rows={3}
-                        className="w-full p-3 rounded-btn border border-border bg-white text-body resize-none focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-text-disabled"
-                      />
-                    ) : (
-                      <input
-                        value={settings[field.key] || ''}
-                        onChange={(e) => setSettings({ ...settings, [field.key]: e.target.value })}
-                        placeholder={field.placeholder}
-                        className="w-full h-10 px-3 rounded-btn border border-border bg-white text-body focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-text-disabled"
-                      />
-                    )}
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
-
-      <div className="card">
-        <div className="flex flex-col gap-3 pb-4 mb-4 border-b border-divider sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-btn bg-primary-bg flex items-center justify-center flex-shrink-0">
-              <BarChart3 className="w-4 h-4 text-primary" />
-            </div>
-            <div>
-              <h3 className="text-body font-semibold text-text-title">网站日志</h3>
-              <p className="text-caption text-text-muted">查看页面访问记录与热门路径统计</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <select
-              value={logDays}
-              onChange={(e) => setLogDays(Number(e.target.value))}
-              className="h-9 px-3 rounded-btn border border-border bg-white text-body focus:outline-none focus:border-primary"
-            >
-              <option value={1}>最近 1 天</option>
-              <option value={7}>最近 7 天</option>
-              <option value={30}>最近 30 天</option>
-            </select>
+      <div className="grid grid-cols-1 lg:grid-cols-[200px_minmax(0,1fr)] gap-6">
+        {/* 左侧锚点导航（lg 及以上显示） */}
+        <aside className="hidden lg:block">
+          <nav className="sticky top-6 space-y-1">
+            {settingsGroups.map((group) => {
+              const isActive = activeSection === group.id;
+              return (
+                <button
+                  key={group.id}
+                  type="button"
+                  onClick={() => scrollToSection(group.id)}
+                  className={`w-full text-left flex items-center gap-2 px-3 h-9 rounded-btn text-body transition-colors ${
+                    isActive
+                      ? 'bg-primary-bg text-primary font-medium'
+                      : 'text-text-body hover:bg-gray-50 hover:text-primary'
+                  }`}
+                >
+                  <group.icon className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-primary' : 'text-text-muted'}`} />
+                  <span className="truncate">{group.title}</span>
+                </button>
+              );
+            })}
             <button
               type="button"
-              onClick={() => fetchSiteLogs(logDays)}
-              disabled={logsLoading}
-              className="inline-flex items-center gap-1.5 h-9 px-4 rounded-btn border border-border bg-white text-body text-text-body hover:border-primary hover:text-primary transition-colors disabled:opacity-50"
+              onClick={() => scrollToSection('logs')}
+              className={`w-full text-left flex items-center gap-2 px-3 h-9 rounded-btn text-body transition-colors ${
+                activeSection === 'logs'
+                  ? 'bg-primary-bg text-primary font-medium'
+                  : 'text-text-body hover:bg-gray-50 hover:text-primary'
+              }`}
             >
-              <RefreshCw className={`w-4 h-4 ${logsLoading ? 'animate-spin' : ''}`} />
-              刷新
+              <BarChart3 className={`w-4 h-4 flex-shrink-0 ${activeSection === 'logs' ? 'text-primary' : 'text-text-muted'}`} />
+              <span className="truncate">网站日志</span>
             </button>
-          </div>
-        </div>
+          </nav>
+        </aside>
 
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <div className="rounded-card border border-divider bg-gray-50/70 px-4 py-3">
-            <p className="text-caption text-text-muted">统计周期总访问</p>
-            <p className="mt-1 text-[22px] font-semibold text-text-title">{siteLogs?.summary.totalViews ?? 0}</p>
-          </div>
-          <div className="rounded-card border border-divider bg-gray-50/70 px-4 py-3">
-            <p className="text-caption text-text-muted">今日访问</p>
-            <p className="mt-1 text-[22px] font-semibold text-text-title">{siteLogs?.summary.todayViews ?? 0}</p>
-          </div>
-          <div className="rounded-card border border-divider bg-gray-50/70 px-4 py-3">
-            <p className="text-caption text-text-muted">访问路径数</p>
-            <p className="mt-1 text-[22px] font-semibold text-text-title">{siteLogs?.summary.uniquePaths ?? 0}</p>
-          </div>
-        </div>
-
-        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
-          <div className="rounded-card border border-divider bg-white">
-            <div className="border-b border-divider px-4 py-3">
-              <h4 className="text-body font-medium text-text-title">热门路径</h4>
+        {/* 右侧内容 */}
+        <div className="min-w-0 space-y-6">
+          {/* 移动端水平分组 Tab */}
+          <div className="lg:hidden -mx-4 px-4 overflow-x-auto">
+            <div className="flex gap-2 min-w-max pb-1">
+              {settingsGroups.map((group) => {
+                const isActive = activeSection === group.id;
+                return (
+                  <button
+                    key={group.id}
+                    type="button"
+                    onClick={() => scrollToSection(group.id)}
+                    className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-caption font-medium whitespace-nowrap transition-colors ${
+                      isActive
+                        ? 'bg-primary text-white'
+                        : 'bg-gray-100 text-text-body hover:bg-gray-200'
+                    }`}
+                  >
+                    <group.icon className="w-3.5 h-3.5" />
+                    {group.title}
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => scrollToSection('logs')}
+                className={`inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-caption font-medium whitespace-nowrap transition-colors ${
+                  activeSection === 'logs'
+                    ? 'bg-primary text-white'
+                    : 'bg-gray-100 text-text-body hover:bg-gray-200'
+                }`}
+              >
+                <BarChart3 className="w-3.5 h-3.5" />
+                网站日志
+              </button>
             </div>
-            <div className="px-4 py-3 space-y-3">
-              {(siteLogs?.summary.topPaths ?? []).length > 0 ? (
-                siteLogs?.summary.topPaths.map((item) => (
-                  <div key={item.path} className="flex items-center justify-between gap-3 text-body">
-                    <span className="truncate text-text-body">{item.path}</span>
-                    <span className="text-caption font-medium text-text-muted">{item.count}</span>
+          </div>
+
+          {settingsGroups.map((group) => (
+            <section
+              key={group.id}
+              id={`settings-group-${group.id}`}
+              className="card scroll-mt-6"
+            >
+              <div className="flex items-center gap-2.5 pb-4 mb-4 border-b border-divider">
+                <div className="w-8 h-8 rounded-btn bg-primary-bg flex items-center justify-center flex-shrink-0">
+                  <group.icon className="w-4 h-4 text-primary" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-body font-semibold text-text-title">{group.title}</h3>
+                  <p className="text-caption text-text-muted">{group.description}</p>
+                </div>
+              </div>
+
+              <div className={`grid grid-cols-1 ${group.id === 'features' ? 'md:grid-cols-2' : 'md:grid-cols-2'} gap-x-4 gap-y-4`}>
+                {group.fields.map((field) => (
+                  <div key={field.key} className={field.half || field.type === 'toggle' ? '' : 'md:col-span-2'}>
+                    {field.type === 'tags' ? (
+                      <TagsInputField
+                        value={settings[field.key] || ''}
+                        onChange={(v) => setField(field.key, v)}
+                        label={field.label}
+                        placeholder={field.placeholder}
+                      />
+                    ) : field.type === 'image' ? (
+                      <ImageUploadField
+                        value={settings[field.key] || ''}
+                        onChange={(url) => setField(field.key, url)}
+                        label={field.label}
+                      />
+                    ) : field.type === 'toggle' ? (
+                      <ToggleField
+                        label={field.label}
+                        description={field.description}
+                        checked={settings[field.key] !== 'false'}
+                        onChange={(next) => setField(field.key, next ? 'true' : 'false')}
+                      />
+                    ) : (
+                      <>
+                        <label className="text-body font-medium text-text-title mb-1.5 block">{field.label}</label>
+                        {field.type === 'textarea' ? (
+                          <textarea
+                            value={settings[field.key] || ''}
+                            onChange={(e) => setField(field.key, e.target.value)}
+                            placeholder={field.placeholder}
+                            rows={3}
+                            className="w-full p-3 rounded-btn border border-border bg-white text-body resize-none focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-text-disabled"
+                          />
+                        ) : (
+                          <input
+                            value={settings[field.key] || ''}
+                            onChange={(e) => setField(field.key, e.target.value)}
+                            placeholder={field.placeholder}
+                            className="w-full h-10 px-3 rounded-btn border border-border bg-white text-body focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-text-disabled"
+                          />
+                        )}
+                      </>
+                    )}
                   </div>
-                ))
-              ) : (
-                <p className="text-caption text-text-muted">暂无统计数据</p>
-              )}
-            </div>
-          </div>
+                ))}
+              </div>
+            </section>
+          ))}
 
-          <div className="rounded-card border border-divider bg-white overflow-hidden">
-            <div className="border-b border-divider px-4 py-3 flex items-center justify-between gap-3">
-              <h4 className="text-body font-medium text-text-title">最近访问记录</h4>
-              <span className="text-caption text-text-muted">近 {siteLogs?.summary.rangeDays ?? logDays} 天</span>
+          <section id="settings-group-logs" className="card scroll-mt-6">
+            <div className="flex flex-col gap-3 pb-4 mb-4 border-b border-divider sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-btn bg-primary-bg flex items-center justify-center flex-shrink-0">
+                  <BarChart3 className="w-4 h-4 text-primary" />
+                </div>
+                <div>
+                  <h3 className="text-body font-semibold text-text-title">网站日志</h3>
+                  <p className="text-caption text-text-muted">查看页面访问记录与热门路径统计</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <select
+                  value={logDays}
+                  onChange={(e) => setLogDays(Number(e.target.value))}
+                  className="h-9 px-3 rounded-btn border border-border bg-white text-body focus:outline-none focus:border-primary"
+                >
+                  <option value={1}>最近 1 天</option>
+                  <option value={7}>最近 7 天</option>
+                  <option value={30}>最近 30 天</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={() => fetchSiteLogs(logDays)}
+                  disabled={logsLoading}
+                  className="inline-flex items-center gap-1.5 h-9 px-4 rounded-btn border border-border bg-white text-body text-text-body hover:border-primary hover:text-primary transition-colors disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-4 h-4 ${logsLoading ? 'animate-spin' : ''}`} />
+                  刷新
+                </button>
+              </div>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-body">
-                <thead>
-                  <tr className="bg-gray-50/60 border-b border-divider">
-                    <th className="px-4 py-3 text-left font-medium text-text-muted">路径</th>
-                    <th className="px-4 py-3 text-left font-medium text-text-muted">IP</th>
-                    <th className="px-4 py-3 text-left font-medium text-text-muted">来源</th>
-                    <th className="px-4 py-3 text-left font-medium text-text-muted">时间</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {logsLoading && (
-                    <tr>
-                      <td colSpan={4} className="px-4 py-8 text-center text-text-muted">加载中...</td>
-                    </tr>
-                  )}
-                  {!logsLoading && (siteLogs?.list ?? []).map((item) => (
-                    <tr key={item.id} className="border-b border-divider last:border-0 align-top">
-                      <td className="px-4 py-3 text-text-title">
-                        <div className="max-w-[260px] truncate" title={item.path}>{item.path}</div>
-                        {item.ua ? <div className="mt-1 max-w-[260px] truncate text-[11px] text-text-muted" title={item.ua}>{item.ua}</div> : null}
-                      </td>
-                      <td className="px-4 py-3 text-text-muted whitespace-nowrap">{item.ip || '未知'}</td>
-                      <td className="px-4 py-3 text-text-muted">
-                        <div className="max-w-[220px] truncate" title={item.referrer || ''}>{item.referrer || '直接访问'}</div>
-                      </td>
-                      <td className="px-4 py-3 text-text-muted whitespace-nowrap">{new Date(item.createdAt).toLocaleString('zh-CN')}</td>
-                    </tr>
-                  ))}
-                  {!logsLoading && (siteLogs?.list ?? []).length === 0 && (
-                    <tr>
-                      <td colSpan={4} className="px-4 py-8 text-center text-text-muted">暂无日志记录</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+              <div className="rounded-card border border-divider bg-gray-50/70 px-4 py-3">
+                <p className="text-caption text-text-muted">统计周期总访问</p>
+                <p className="mt-1 text-[22px] font-semibold text-text-title">{siteLogs?.summary.totalViews ?? 0}</p>
+              </div>
+              <div className="rounded-card border border-divider bg-gray-50/70 px-4 py-3">
+                <p className="text-caption text-text-muted">今日访问</p>
+                <p className="mt-1 text-[22px] font-semibold text-text-title">{siteLogs?.summary.todayViews ?? 0}</p>
+              </div>
+              <div className="rounded-card border border-divider bg-gray-50/70 px-4 py-3">
+                <p className="text-caption text-text-muted">访问路径数</p>
+                <p className="mt-1 text-[22px] font-semibold text-text-title">{siteLogs?.summary.uniquePaths ?? 0}</p>
+              </div>
             </div>
-          </div>
+
+            <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
+              <div className="rounded-card border border-divider bg-white">
+                <div className="border-b border-divider px-4 py-3">
+                  <h4 className="text-body font-medium text-text-title">热门路径</h4>
+                </div>
+                <div className="px-4 py-3 space-y-3">
+                  {(siteLogs?.summary.topPaths ?? []).length > 0 ? (
+                    siteLogs?.summary.topPaths.map((item) => (
+                      <div key={item.path} className="flex items-center justify-between gap-3 text-body">
+                        <span className="truncate text-text-body">{item.path}</span>
+                        <span className="text-caption font-medium text-text-muted">{item.count}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-caption text-text-muted">暂无统计数据</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-card border border-divider bg-white overflow-hidden">
+                <div className="border-b border-divider px-4 py-3 flex items-center justify-between gap-3">
+                  <h4 className="text-body font-medium text-text-title">最近访问记录</h4>
+                  <span className="text-caption text-text-muted">近 {siteLogs?.summary.rangeDays ?? logDays} 天</span>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-body">
+                    <thead>
+                      <tr className="bg-gray-50/60 border-b border-divider">
+                        <th className="px-4 py-3 text-left font-medium text-text-muted">路径</th>
+                        <th className="px-4 py-3 text-left font-medium text-text-muted">IP</th>
+                        <th className="px-4 py-3 text-left font-medium text-text-muted">来源</th>
+                        <th className="px-4 py-3 text-left font-medium text-text-muted">时间</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {logsLoading && (
+                        <tr>
+                          <td colSpan={4} className="px-4 py-8 text-center text-text-muted">加载中...</td>
+                        </tr>
+                      )}
+                      {!logsLoading && (siteLogs?.list ?? []).map((item) => (
+                        <tr key={item.id} className="border-b border-divider last:border-0 align-top">
+                          <td className="px-4 py-3 text-text-title">
+                            <div className="max-w-[260px] truncate" title={item.path}>{item.path}</div>
+                            {item.ua ? <div className="mt-1 max-w-[260px] truncate text-[11px] text-text-muted" title={item.ua}>{item.ua}</div> : null}
+                          </td>
+                          <td className="px-4 py-3 text-text-muted whitespace-nowrap">{item.ip || '未知'}</td>
+                          <td className="px-4 py-3 text-text-muted">
+                            <div className="max-w-[220px] truncate" title={item.referrer || ''}>{item.referrer || '直接访问'}</div>
+                          </td>
+                          <td className="px-4 py-3 text-text-muted whitespace-nowrap">{new Date(item.createdAt).toLocaleString('zh-CN')}</td>
+                        </tr>
+                      ))}
+                      {!logsLoading && (siteLogs?.list ?? []).length === 0 && (
+                        <tr>
+                          <td colSpan={4} className="px-4 py-8 text-center text-text-muted">暂无日志记录</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </section>
         </div>
       </div>
 
-      <div className="sticky bottom-0 -mx-4 lg:-mx-6 px-4 lg:px-6 py-3 bg-white border-t border-divider flex items-center justify-between">
-        <p className="text-caption text-text-muted">修改后请点击保存</p>
-        <button onClick={handleSave} disabled={saving} className="btn-primary h-10 px-6 flex items-center gap-2 disabled:opacity-50">
-          <Save className="w-4 h-4" />
-          {saving ? '保存中...' : '保存设置'}
-        </button>
+      {/* 常驻保存条 */}
+      <div className="fixed bottom-0 left-0 right-0 lg:left-[var(--sidebar-width,0px)] z-30 bg-white/95 backdrop-blur border-t border-divider">
+        <div className="max-w-full px-4 lg:px-6 py-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            {isDirty ? (
+              <>
+                <span className="inline-flex w-2 h-2 rounded-full bg-amber-500" />
+                <p className="text-caption text-amber-700 truncate">有未保存的更改</p>
+              </>
+            ) : (
+              <>
+                <span className="inline-flex w-2 h-2 rounded-full bg-gray-300" />
+                <p className="text-caption text-text-muted truncate">所有更改已保存</p>
+              </>
+            )}
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              onClick={handleReset}
+              disabled={!isDirty || saving}
+              className="h-10 px-4 rounded-btn border border-border bg-white text-body text-text-body hover:border-primary hover:text-primary transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              撤销
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving || !isDirty}
+              className="btn-primary h-10 px-6 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Save className="w-4 h-4" />
+              {saving ? '保存中...' : '保存设置'}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

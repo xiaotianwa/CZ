@@ -6,7 +6,7 @@ import SplashScreen from '@/components/SplashScreen';
 import MobileUXEnhancer from '@/components/MobileUXEnhancer';
 import ToastProvider from '@/components/ToastProvider';
 import PageViewTracker from '@/components/PageViewTracker';
-import { getSiteConfig } from '@/lib/site-data';
+import { getSiteConfig, extractFeatureFlags } from '@/lib/site-data';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,11 +18,11 @@ export default async function MainLayout({
   const cfg = await getSiteConfig();
   const profileName = cfg.profile_name || '陈泽';
   const siteDescription = cfg.site_description || `${profileName}的专属粉丝社区`;
-  const communityEnabled = cfg.feature_community_enabled !== 'false';
+  const features = extractFeatureFlags(cfg);
 
   return (
     <ToastProvider>
-      <Navbar profileName={profileName} communityEnabled={communityEnabled} />
+      <Navbar profileName={profileName} features={features} />
       <main className="relative isolate bg-bg-page pb-20 md:pb-0">
         <div className="pointer-events-none fixed inset-0 overflow-hidden select-none z-0" aria-hidden="true">
           {/* 亮色模式：1103 水印（带 primary 色调） */}
@@ -55,8 +55,8 @@ export default async function MainLayout({
         </div>
         <div className="relative z-10">{children}</div>
       </main>
-      <MobileUXEnhancer />
-      <Footer profileName={profileName} siteDescription={siteDescription} communityEnabled={communityEnabled} />
+      <MobileUXEnhancer features={features} />
+      <Footer profileName={profileName} siteDescription={siteDescription} features={features} />
       <AnnouncementPopup />
       <MusicPlayer />
       <SplashScreen />

@@ -32,7 +32,13 @@ export default async function HomePage() {
 
   return (
     <>
-      <HeroCarousel slides={slides} profile={profile} communityStats={communityStats} communityEnabled={featureFlags.communityEnabled} />
+      <HeroCarousel
+        slides={slides}
+        profile={profile}
+        communityStats={communityStats}
+        communityEnabled={featureFlags.communityEnabled}
+        eventsEnabled={featureFlags.eventsEnabled}
+      />
 
       {featureFlags.communityEnabled && (
         <section className="section-block relative overflow-hidden animate-fade-in-up">
@@ -108,6 +114,7 @@ export default async function HomePage() {
       )}
 
       {/* 近期活动 */}
+      {featureFlags.eventsEnabled && (
       <section className="section-block border-t border-divider animate-fade-in-up">
         <div className="container-main">
           <div className="flex items-center justify-between mb-8">
@@ -160,6 +167,7 @@ export default async function HomePage() {
           )}
         </div>
       </section>
+      )}
 
       {/* CTA */}
       <section className="relative py-16 sm:py-20 overflow-hidden animate-fade-in-up bg-[#0a0a0a]">

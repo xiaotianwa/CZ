@@ -121,8 +121,15 @@ export async function getProfilePageData() {
 export function extractFeatureFlags(cfg: Record<string, string>) {
   return {
     communityEnabled: cfg.feature_community_enabled !== 'false',
+    galleryEnabled: cfg.feature_gallery_enabled !== 'false',
+    memesEnabled: cfg.feature_memes_enabled !== 'false',
+    fanWorksEnabled: cfg.feature_fan_works_enabled !== 'false',
+    eventsEnabled: cfg.feature_events_enabled !== 'false',
+    playEnabled: cfg.feature_play_enabled !== 'false',
   };
 }
+
+export type FeatureFlags = ReturnType<typeof extractFeatureFlags>;
 
 /**
  * 根据 key 前缀推断 group

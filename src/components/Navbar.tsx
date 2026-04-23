@@ -21,7 +21,16 @@ const brandHandwriting = localFont({
   weight: '400',
 });
 
-export default function Navbar({ profileName, communityEnabled }: { profileName: string; communityEnabled: boolean }) {
+interface NavbarFeatures {
+  communityEnabled: boolean;
+  galleryEnabled: boolean;
+  memesEnabled: boolean;
+  fanWorksEnabled: boolean;
+  eventsEnabled: boolean;
+  playEnabled: boolean;
+}
+
+export default function Navbar({ profileName, features }: { profileName: string; features: NavbarFeatures }) {
   const router = useRouter();
   const pathname = usePathname();
   const isHome = pathname === '/';
@@ -31,16 +40,16 @@ export default function Navbar({ profileName, communityEnabled }: { profileName:
     { href: '/games', label: '最近在玩' },
     { href: '/fan-map', label: '粉丝地图' },
   ];
-  const visibleNavLinks = communityEnabled
+  const visibleNavLinks = features.communityEnabled
     ? [...navLinks.slice(0, 2), { href: '/community', label: '社区' }, ...navLinks.slice(2)]
     : navLinks;
   const moreLinks = [
-    { href: '/play', label: '游戏中心' },
-    { href: '/gallery', label: '相册' },
-    { href: '/memes', label: '梗百科' },
-    { href: '/fan-works', label: '二创作品' },
-    { href: '/events', label: '活动' },
-  ];
+    features.playEnabled && { href: '/play', label: '游戏中心' },
+    features.galleryEnabled && { href: '/gallery', label: '相册' },
+    features.memesEnabled && { href: '/memes', label: '梗百科' },
+    features.fanWorksEnabled && { href: '/fan-works', label: '二创作品' },
+    features.eventsEnabled && { href: '/events', label: '活动' },
+  ].filter(Boolean) as { href: string; label: string }[];
   const allLinks = [...visibleNavLinks, ...moreLinks];
   const isMoreActive = moreLinks.some((l) => pathname === l.href);
   const [isOpen, setIsOpen] = useState(false);
@@ -190,6 +199,7 @@ export default function Navbar({ profileName, communityEnabled }: { profileName:
               </Link>
             ))}
             {/* "发现" 下拉菜单 */}
+            {moreLinks.length > 0 && (
             <div className="relative" ref={moreRef}>
               <button
                 onClick={() => setMoreOpen(!moreOpen)}
@@ -229,6 +239,7 @@ export default function Navbar({ profileName, communityEnabled }: { profileName:
                 </div>
               )}
             </div>
+            )}
           </div>
 
           {/* Center: logo — absolute positioned for true centering */}
@@ -424,6 +435,7 @@ export default function Navbar({ profileName, communityEnabled }: { profileName:
                 </Link>
               ))}
               {/* 移动端「发现」分组 */}
+              {moreLinks.length > 0 && (
               <div className={`mt-1 pt-1 border-t ${darkMode ? 'border-white/10' : 'border-gray-100'}`}>
                 <span className={`px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider ${darkMode ? 'text-white/40' : 'text-text-disabled'}`}>发现</span>
                 {moreLinks.map((link) => (
@@ -437,6 +449,7 @@ export default function Navbar({ profileName, communityEnabled }: { profileName:
                   </Link>
                 ))}
               </div>
+              )}
               <div className={`mt-2 pt-2 border-t flex flex-col gap-1 ${darkMode ? 'border-white/15' : 'border-gray-200'}`}>
                 {user ? (
                   <>

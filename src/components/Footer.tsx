@@ -153,20 +153,27 @@ function FeedbackModal({ open, onClose }: { open: boolean; onClose: () => void }
   );
 }
 
-export default function Footer({ profileName, siteDescription, communityEnabled }: { profileName: string; siteDescription: string; communityEnabled: boolean }) {
+interface FooterFeatures {
+  communityEnabled: boolean;
+  galleryEnabled: boolean;
+  memesEnabled: boolean;
+  fanWorksEnabled: boolean;
+  eventsEnabled: boolean;
+  playEnabled: boolean;
+}
+
+export default function Footer({ profileName, siteDescription, features }: { profileName: string; siteDescription: string; features: FooterFeatures }) {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
 
-  const quickLinks = [
+  const visibleQuickLinks = [
     { href: '/', label: '首页' },
     { href: '/profile', label: `关于${profileName}` },
-    { href: '/gallery', label: '相册' },
-    { href: '/memes', label: '梗百科' },
-    { href: '/fan-works', label: '二创作品' },
-    { href: '/events', label: '活动' },
-  ];
-  const visibleQuickLinks = communityEnabled
-    ? [...quickLinks.slice(0, 3), { href: '/community', label: '社区' }, ...quickLinks.slice(3)]
-    : quickLinks;
+    features.galleryEnabled && { href: '/gallery', label: '相册' },
+    features.communityEnabled && { href: '/community', label: '社区' },
+    features.memesEnabled && { href: '/memes', label: '梗百科' },
+    features.fanWorksEnabled && { href: '/fan-works', label: '二创作品' },
+    features.eventsEnabled && { href: '/events', label: '活动' },
+  ].filter(Boolean) as { href: string; label: string }[];
 
   return (
     <>
