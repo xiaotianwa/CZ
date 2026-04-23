@@ -70,7 +70,7 @@ export default function TcgAdminLoginPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="tcg-super@chenze.com"
+                placeholder="请输入运营账号邮箱"
                 required
                 autoComplete="email"
                 className="w-full h-11 pl-10 pr-4 rounded-lg bg-white/5 border border-white/10 text-white placeholder:text-white/30 focus:outline-none focus:border-[#A78BFA]/60 focus:ring-2 focus:ring-[#7C3AED]/20"
