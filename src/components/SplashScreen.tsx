@@ -78,9 +78,10 @@ export default function SplashScreen() {
       {phase === 'ready' && (
         <button
           onClick={handleEnter}
-          className="group relative px-8 py-3 rounded-full bg-white/10 text-white/80 text-sm font-medium
-                     backdrop-blur border border-white/10 cursor-pointer
-                     hover:bg-white/15 hover:text-white hover:border-white/20
+          className="group relative px-8 py-3 rounded-full bg-white/25 text-white text-sm font-semibold
+                     backdrop-blur border border-white/40 cursor-pointer
+                     shadow-[0_4px_20px_rgba(255,255,255,0.15)]
+                     hover:bg-white/35 hover:border-white/60 hover:shadow-[0_4px_24px_rgba(255,255,255,0.25)]
                      active:scale-95 transition-all duration-200
                      animate-[fadeInUp_0.5s_ease-out]"
         >
