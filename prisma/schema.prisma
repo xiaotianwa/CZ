@@ -902,6 +902,28 @@ model TcgOperator {
   @@index([isActive])
 }
 
+// 社区后台（/admin/*）管理员关键操作审计日志。与 TcgAuditLog 命名空间分离。
+// 写入策略：失败仅告警，不阻塞主流程（见 src/lib/admin-audit.ts）
+model AdminAuditLog {
+  id            String   @id @default(cuid())
+  operatorId    String                                // 管理员 user.id
+  operatorEmail String?                               // 冗余 email，便于账号删除后的溯源
+  action        String                                // user.delete / post.delete / announcement.create / settings.update ...
+  targetType    String?                               // user | post | comment | announcement | feedback | meme | settings ...
+  targetId      String?
+  before        String?                               // JSON 序列化变更前（可选）
+  after         String?                               // JSON 序列化变更后（可选）
+  note          String?                               // 操作备注
+  ip            String?
+  ua            String?
+  createdAt     DateTime @default(now())
+
+  @@index([operatorId, createdAt])
+  @@index([action])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+}
+
 model TcgAuditLog {
   id         String   @id @default(cuid())
   operatorId String

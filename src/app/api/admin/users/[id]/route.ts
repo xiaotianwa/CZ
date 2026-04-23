@@ -5,6 +5,7 @@ import { requireAdmin } from '@/lib/auth';
 import { ok, fail, handleError } from '@/lib/api';
 import { revokeUserTokens } from '@/lib/token-blacklist';
 import { deleteUserWithContent } from '@/lib/admin-users';
+import { logAdminAction } from '@/lib/admin-audit';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -30,16 +31,28 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
 export async function DELETE(req: NextRequest, { params }: RouteParams) {
   try {
-    await requireAdmin(req);
+    const admin = await requireAdmin(req);
     const { id } = await params;
 
     const existing = await prisma.user.findUnique({
       where: { id },
-      select: { id: true },
+      select: { id: true, email: true, name: true, role: true },
     });
     if (!existing) return fail('用户不存在', 404);
 
     const summary = await deleteUserWithContent(id);
+
+    // 审计：记录用户删除操作 + 级联删除统计（失败不阻塞返回）
+    logAdminAction({
+      operator: { id: admin.id, email: admin.email },
+      action: 'user.delete',
+      targetType: 'user',
+      targetId: id,
+      before: existing,
+      after: summary,
+      req,
+    });
+
     return ok(summary, '删除成功');
   } catch (err) {
     return handleError(err);
@@ -54,7 +67,7 @@ const patchSchema = z.object({
 
 export async function PATCH(req: NextRequest, { params }: RouteParams) {
   try {
-    await requireAdmin(req);
+    const admin = await requireAdmin(req);
     const { id } = await params;
     const body = await req.json();
     const parsed = patchSchema.safeParse(body);
@@ -80,6 +93,23 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     if (parsed.data.isActive === false) {
       await revokeUserTokens(id);
     }
+
+    // 审计：按不同字段变更选择具体 action，便于后续运营分析
+    let action: string = 'user.update';
+    if (parsed.data.role && parsed.data.role !== existing.role) action = 'user.role_change';
+    else if (parsed.data.isActive === false) action = 'user.deactivate';
+    else if (parsed.data.isActive === true) action = 'user.activate';
+    else if (parsed.data.customBadge !== undefined) action = 'user.badge_update';
+
+    logAdminAction({
+      operator: { id: admin.id, email: admin.email },
+      action,
+      targetType: 'user',
+      targetId: id,
+      before: { isActive: existing.isActive, role: existing.role, customBadge: existing.customBadge },
+      after: { isActive: user.isActive, role: user.role, customBadge: user.customBadge },
+      req,
+    });
 
     return ok({ id: user.id, isActive: user.isActive, role: user.role, customBadge: user.customBadge }, '更新成功');
   } catch (err) {

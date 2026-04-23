@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { requireAdmin } from '@/lib/auth';
 import { ok, fail, handleError } from '@/lib/api';
+import { logAdminAction } from '@/lib/admin-audit';
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -40,7 +41,7 @@ const updatePostSchema = z.object({
 
 export async function PUT(req: NextRequest, { params }: RouteParams) {
   try {
-    await requireAdmin(req);
+    const admin = await requireAdmin(req);
     const { id } = await params;
     const body = await req.json();
     const parsed = updatePostSchema.safeParse(body);
@@ -51,6 +52,12 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     const { tagIds, images, ...data } = parsed.data;
     const updateData: Record<string, unknown> = { ...data };
     if (images) updateData.images = JSON.stringify(images);
+
+    // 审计前快照（取核心可变字段即可，避免 include 全量）
+    const before = await prisma.post.findUnique({
+      where: { id },
+      select: { id: true, authorId: true, status: true, isPinned: true, content: true },
+    });
 
     if (tagIds) {
       await prisma.postTag.deleteMany({ where: { postId: id } });
@@ -70,6 +77,22 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
       },
     });
 
+    // 审计：优先用更细粒度的 action 命名
+    let action: string = 'post.update';
+    if (parsed.data.isPinned === true && before?.isPinned === false) action = 'post.pin';
+    else if (parsed.data.isPinned === false && before?.isPinned === true) action = 'post.unpin';
+    else if (parsed.data.status === 'hidden' && before?.status !== 'hidden') action = 'post.hide';
+
+    logAdminAction({
+      operator: { id: admin.id, email: admin.email },
+      action,
+      targetType: 'post',
+      targetId: id,
+      before,
+      after: { id: post.id, status: post.status, isPinned: post.isPinned },
+      req,
+    });
+
     return ok(post, '更新成功');
   } catch (err) {
     return handleError(err);
@@ -78,10 +101,26 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
 
 export async function DELETE(req: NextRequest, { params }: RouteParams) {
   try {
-    await requireAdmin(req);
+    const admin = await requireAdmin(req);
     const { id } = await params;
 
+    // 审计前抓取关键字段用于溯源（帖子被删后无法再查）
+    const before = await prisma.post.findUnique({
+      where: { id },
+      select: { id: true, authorId: true, content: true, status: true, createdAt: true },
+    });
+
     await prisma.post.delete({ where: { id } });
+
+    logAdminAction({
+      operator: { id: admin.id, email: admin.email },
+      action: 'post.delete',
+      targetType: 'post',
+      targetId: id,
+      before,
+      req,
+    });
+
     return ok(null, '删除成功');
   } catch (err) {
     return handleError(err);
