@@ -64,6 +64,9 @@ const nextConfig = {
           { key: 'X-XSS-Protection', value: '1; mode=block' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(self)' },
+          // HSTS：告诉浏览器未来 2 年只走 https，防中间人降级攻击
+          // 注意：首次请求后浏览器才会缓存该策略，所以 Nginx 层的 301 http→https 仍需保留
+          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
           {
             key: 'Content-Security-Policy',
             value: [
