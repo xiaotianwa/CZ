@@ -9,6 +9,7 @@ import { NextRequest } from 'next/server';
 import { ok, fail, handleError } from '@/lib/api';
 import { processJobs } from '@/lib/async-job';
 import { registerAllHandlers } from '@/lib/job-handlers';
+import { timingSafeEqualStr } from '@/lib/timing-safe';
 
 let handlersRegistered = false;
 
@@ -19,8 +20,8 @@ export async function POST(req: NextRequest) {
     if (!secret) {
       return fail('INTERNAL_API_SECRET not configured', 500);
     }
-    const authHeader = req.headers.get('Authorization');
-    if (authHeader !== `Bearer ${secret}`) {
+    const authHeader = req.headers.get('Authorization') || '';
+    if (!timingSafeEqualStr(authHeader, `Bearer ${secret}`)) {
       return fail('Unauthorized', 401);
     }
 

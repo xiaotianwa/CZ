@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { refreshAllHotScores } from '@/lib/hot-score';
+import { timingSafeEqualStr } from '@/lib/timing-safe';
 
 /**
  * Cron 定时刷新所有帖子热度分
@@ -7,13 +8,13 @@ import { refreshAllHotScores } from '@/lib/hot-score';
  * 鉴权方式：Authorization: Bearer <CRON_SECRET>
  */
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get('authorization');
+  const authHeader = req.headers.get('authorization') || '';
   const cronSecret = process.env.CRON_SECRET;
 
   if (!cronSecret) {
     return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 });
   }
-  if (authHeader !== `Bearer ${cronSecret}`) {
+  if (!timingSafeEqualStr(authHeader, `Bearer ${cronSecret}`)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { timingSafeEqualStr } from '@/lib/timing-safe';
 
 /**
  * 统一中间件
@@ -176,7 +177,7 @@ export function middleware(req: NextRequest) {
       : process.env.TCG_ADMIN_GATE_PASSWORD;
     if (gatePassword) {
       const provided = parseBasicAuthPassword(req.headers.get('authorization'));
-      if (provided !== gatePassword) {
+      if (!timingSafeEqualStr(provided, gatePassword)) {
         logRequest(401);
         const realm = requireAdminGate ? 'Admin Area' : 'TCG Admin Area';
         return new NextResponse('Authentication required', {
