@@ -153,18 +153,20 @@ function FeedbackModal({ open, onClose }: { open: boolean; onClose: () => void }
   );
 }
 
-export default function Footer({ profileName, siteDescription }: { profileName: string; siteDescription: string }) {
+export default function Footer({ profileName, siteDescription, communityEnabled }: { profileName: string; siteDescription: string; communityEnabled: boolean }) {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   const quickLinks = [
     { href: '/', label: '首页' },
     { href: '/profile', label: `关于${profileName}` },
     { href: '/gallery', label: '相册' },
-    { href: '/community', label: '社区' },
     { href: '/memes', label: '梗百科' },
     { href: '/fan-works', label: '二创作品' },
     { href: '/events', label: '活动' },
   ];
+  const visibleQuickLinks = communityEnabled
+    ? [...quickLinks.slice(0, 3), { href: '/community', label: '社区' }, ...quickLinks.slice(3)]
+    : quickLinks;
 
   return (
     <>
@@ -180,7 +182,7 @@ export default function Footer({ profileName, siteDescription }: { profileName: 
 
             <div className="flex flex-col gap-4">
               <div className="flex flex-wrap gap-x-6 gap-y-2">
-                {quickLinks.map((link) => (
+                {visibleQuickLinks.map((link) => (
                   <Link
                     key={link.href}
                     href={link.href}

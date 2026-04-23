@@ -9,7 +9,7 @@ interface Field {
   key: string;
   label: string;
   placeholder: string;
-  type?: 'image' | 'textarea' | 'tags';
+  type?: 'image' | 'textarea' | 'tags' | 'toggle';
   half?: boolean;
 }
 
@@ -90,6 +90,14 @@ const settingsGroups: SettingsGroup[] = [
       { key: 'social_weibo_account_id', label: '微博ID', placeholder: 'chenze_official', half: true },
       { key: 'social_weibo_desc', label: '微博简介', placeholder: '英雄联盟主播 | 动态更新' },
       { key: 'social_weibo_qrcode', label: '微博二维码', placeholder: '', type: 'image' },
+    ],
+  },
+  {
+    title: '功能开关',
+    description: '控制前台功能入口的显示与访问权限',
+    icon: Globe,
+    fields: [
+      { key: 'feature_community_enabled', label: '启用社区入口', placeholder: '', type: 'toggle' },
     ],
   },
 ];
@@ -224,7 +232,10 @@ export default function AdminSettingsPage() {
 
   useEffect(() => {
     adminGet<Record<string, string>>('/api/admin/settings')
-      .then((res) => setSettings(res.data))
+      .then((res) => setSettings({
+        ...res.data,
+        feature_community_enabled: res.data.feature_community_enabled ?? 'true',
+      }))
       .catch((err) => setMessage({ type: 'error', text: err.message }));
   }, []);
 
@@ -294,6 +305,29 @@ export default function AdminSettingsPage() {
                     onChange={(url) => setSettings({ ...settings, [field.key]: url })}
                     label={field.label}
                   />
+                ) : field.type === 'toggle' ? (
+                  <div className="rounded-card border border-divider bg-gray-50/70 px-4 py-3">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <label className="text-body font-medium text-text-title block">{field.label}</label>
+                        <p className="text-caption text-text-muted mt-1">关闭后将隐藏前台社区入口，并禁止访问 `/community` 页面。</p>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={settings[field.key] !== 'false'}
+                        onClick={() => setSettings({
+                          ...settings,
+                          [field.key]: settings[field.key] === 'false' ? 'true' : 'false',
+                        })}
+                        className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${settings[field.key] !== 'false' ? 'bg-primary' : 'bg-gray-300'}`}
+                      >
+                        <span
+                          className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${settings[field.key] !== 'false' ? 'translate-x-6' : 'translate-x-1'}`}
+                        />
+                      </button>
+                    </div>
+                  </div>
                 ) : (
                   <>
                     <label className="text-body font-medium text-text-title mb-1.5 block">{field.label}</label>

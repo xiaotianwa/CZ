@@ -80,7 +80,7 @@ export async function getHomePageData() {
         _count: { select: { comments: true } },
       },
       orderBy: [{ isPinned: 'desc' }, { createdAt: 'desc' }],
-      take: 4,
+      take: 3,
     }),
     prisma.event.findMany({
       where: { isActive: true },
@@ -95,6 +95,7 @@ export async function getHomePageData() {
     posts,
     events,
     profile: extractProfile(cfg),
+    featureFlags: extractFeatureFlags(cfg),
     communityStats: await getAutoStats(),
   };
 }
@@ -115,11 +116,21 @@ export async function getProfilePageData() {
 }
 
 /**
+ * 提取功能开关
+ */
+export function extractFeatureFlags(cfg: Record<string, string>) {
+  return {
+    communityEnabled: cfg.feature_community_enabled !== 'false',
+  };
+}
+
+/**
  * 根据 key 前缀推断 group
  */
 export function getGroupFromKey(key: string): string {
   if (key.startsWith('profile_')) return 'profile';
   if (key.startsWith('social_')) return 'social';
   if (key.startsWith('stats_')) return 'stats';
+  if (key.startsWith('feature_')) return 'feature';
   return 'general';
 }

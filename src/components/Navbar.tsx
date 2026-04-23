@@ -21,17 +21,19 @@ const brandHandwriting = localFont({
   weight: '400',
 });
 
-export default function Navbar({ profileName }: { profileName: string }) {
+export default function Navbar({ profileName, communityEnabled }: { profileName: string; communityEnabled: boolean }) {
   const router = useRouter();
   const pathname = usePathname();
   const isHome = pathname === '/';
   const navLinks = [
     { href: '/', label: '首页' },
     { href: '/profile', label: `关于${profileName}` },
-    { href: '/community', label: '社区' },
     { href: '/games', label: '最近在玩' },
     { href: '/fan-map', label: '粉丝地图' },
   ];
+  const visibleNavLinks = communityEnabled
+    ? [...navLinks.slice(0, 2), { href: '/community', label: '社区' }, ...navLinks.slice(2)]
+    : navLinks;
   const moreLinks = [
     { href: '/play', label: '游戏中心' },
     { href: '/gallery', label: '相册' },
@@ -39,7 +41,7 @@ export default function Navbar({ profileName }: { profileName: string }) {
     { href: '/fan-works', label: '二创作品' },
     { href: '/events', label: '活动' },
   ];
-  const allLinks = [...navLinks, ...moreLinks];
+  const allLinks = [...visibleNavLinks, ...moreLinks];
   const isMoreActive = moreLinks.some((l) => pathname === l.href);
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -178,7 +180,7 @@ export default function Navbar({ profileName }: { profileName: string }) {
         }`}>
           {/* Left: nav links */}
           <div className={`flex items-center gap-5 text-[13px] font-medium ${txtPrimary}`}>
-            {navLinks.map((link) => (
+            {visibleNavLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
@@ -411,7 +413,7 @@ export default function Navbar({ profileName }: { profileName: string }) {
               : 'bg-white/95 border border-gray-200 shadow-dropdown'
           }`}>
             <div className="flex flex-col gap-1">
-              {navLinks.map((link) => (
+              {visibleNavLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}

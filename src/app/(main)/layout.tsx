@@ -18,10 +18,11 @@ export default async function MainLayout({
   const cfg = await getSiteConfig();
   const profileName = cfg.profile_name || '陈泽';
   const siteDescription = cfg.site_description || `${profileName}的专属粉丝社区`;
+  const communityEnabled = cfg.feature_community_enabled !== 'false';
 
   return (
     <ToastProvider>
-      <Navbar profileName={profileName} />
+      <Navbar profileName={profileName} communityEnabled={communityEnabled} />
       <main className="relative isolate bg-bg-page pb-20 md:pb-0">
         <div className="pointer-events-none fixed inset-0 overflow-hidden select-none z-0" aria-hidden="true">
           {/* 亮色模式：1103 水印（带 primary 色调） */}
@@ -55,7 +56,7 @@ export default async function MainLayout({
         <div className="relative z-10">{children}</div>
       </main>
       <MobileUXEnhancer />
-      <Footer profileName={profileName} siteDescription={siteDescription} />
+      <Footer profileName={profileName} siteDescription={siteDescription} communityEnabled={communityEnabled} />
       <AnnouncementPopup />
       <MusicPlayer />
       <SplashScreen />

@@ -36,9 +36,10 @@ interface HeroCarouselProps {
   slides: HeroSlide[];
   profile: Profile;
   communityStats: CommunityStats;
+  communityEnabled: boolean;
 }
 
-export default function HeroCarousel({ slides, profile, communityStats }: HeroCarouselProps) {
+export default function HeroCarousel({ slides, profile, communityStats, communityEnabled }: HeroCarouselProps) {
   const heroSlides = slides.length > 0 ? slides : [{ id: 'placeholder', image: '', alt: '默认' }];
   const [current, setCurrent] = useState(0);
   const total = heroSlides.length;
@@ -128,12 +129,14 @@ export default function HeroCarousel({ slides, profile, communityStats }: HeroCa
             className="animate-fade-in-up mt-8 flex flex-wrap items-center gap-3"
             style={{ animationDelay: '0.45s' }}
           >
-            <Link
-              href="/community"
-              className="inline-flex items-center justify-center h-11 px-7 rounded-full bg-[#ffffff] text-[#1a1a1a] text-sm font-semibold hover:bg-[#f2f2f2] transition-colors duration-150"
-            >
-              进入社区
-            </Link>
+            {communityEnabled && (
+              <Link
+                href="/community"
+                className="inline-flex items-center justify-center h-11 px-7 rounded-full bg-[#ffffff] text-[#1a1a1a] text-sm font-semibold hover:bg-[#f2f2f2] transition-colors duration-150"
+              >
+                进入社区
+              </Link>
+            )}
             <Link
               href="/events"
               className="inline-flex items-center justify-center h-11 px-7 rounded-full border border-white/30 text-white/90 text-sm font-semibold hover:bg-white/10 transition-colors duration-150"
