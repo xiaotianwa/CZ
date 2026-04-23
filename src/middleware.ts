@@ -118,10 +118,77 @@ function getClientIp(req: NextRequest): string {
   return '127.0.0.1';
 }
 
+/** 判断是否属于社区管理后台区域（页面 + API） */
+function isAdminAreaPath(pathname: string): boolean {
+  return pathname === '/admin'
+    || pathname.startsWith('/admin/')
+    || pathname.startsWith('/api/admin/');
+}
+
+/** 判断是否属于 TCG 运营后台区域（页面 + API） */
+function isTcgAdminAreaPath(pathname: string): boolean {
+  return pathname === '/tcg-admin'
+    || pathname.startsWith('/tcg-admin/')
+    || pathname.startsWith('/api/tcg/admin/');
+}
+
+/**
+ * 从 Authorization 头解析 HTTP Basic Auth 的密码部分。
+ * Edge runtime 没有 Buffer，这里用 atob 解码。
+ * 解析失败返回空字符串。
+ */
+function parseBasicAuthPassword(authHeader: string | null): string {
+  if (!authHeader || !authHeader.toLowerCase().startsWith('basic ')) return '';
+  try {
+    const encoded = authHeader.slice(6).trim();
+    const decoded = atob(encoded); // "username:password"
+    const idx = decoded.indexOf(':');
+    if (idx < 0) return '';
+    return decoded.slice(idx + 1);
+  } catch {
+    return '';
+  }
+}
+
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const start = Date.now();
   const ip = getClientIp(req);
+
+  // 请求日志（提前声明，供后续各拦截分支调用）
+  const logRequest = (status: number) => {
+    const duration = Date.now() - start;
+    const level = status >= 500 ? 'ERROR' : status >= 400 ? 'WARN' : 'INFO';
+    console.log(
+      `[${level}] ${req.method} ${pathname} ${status} ${duration}ms ip=${ip}`
+    );
+  };
+
+  // ===================== 管理后台预授权闸门（HTTP Basic Auth） =====================
+  // 即使有人知道 /admin 或 /tcg-admin/login 的 URL，先要通过这道 Basic Auth 才能看到登录表单，
+  // 相当于把后台入口藏在一层共享密码后面（密码由管理员线下分发，不进数据库）。
+  // 密码通过环境变量配置；未配置时跳过该闸门（兼容本地开发）。
+  const requireAdminGate = isAdminAreaPath(pathname);
+  const requireTcgGate = isTcgAdminAreaPath(pathname);
+  if (requireAdminGate || requireTcgGate) {
+    const gatePassword = requireAdminGate
+      ? process.env.ADMIN_GATE_PASSWORD
+      : process.env.TCG_ADMIN_GATE_PASSWORD;
+    if (gatePassword) {
+      const provided = parseBasicAuthPassword(req.headers.get('authorization'));
+      if (provided !== gatePassword) {
+        logRequest(401);
+        const realm = requireAdminGate ? 'Admin Area' : 'TCG Admin Area';
+        return new NextResponse('Authentication required', {
+          status: 401,
+          headers: {
+            'WWW-Authenticate': `Basic realm="${realm}", charset="UTF-8"`,
+            'Cache-Control': 'no-store',
+          },
+        });
+      }
+    }
+  }
 
   // 生产环境强制 https：
   // 登录 cookie 带 Secure，http 访问时浏览器不会回传 cookie，
@@ -136,17 +203,8 @@ export function middleware(req: NextRequest) {
     }
   }
 
-  // 请求日志（仅记录 API 请求）
-  const logRequest = (status: number) => {
-    const duration = Date.now() - start;
-    const level = status >= 500 ? 'ERROR' : status >= 400 ? 'WARN' : 'INFO';
-    console.log(
-      `[${level}] ${req.method} ${pathname} ${status} ${duration}ms ip=${ip}`
-    );
-  };
-
-  // 写入请求统一限流
-  if (WRITE_METHODS.has(req.method)) {
+  // 写入请求统一限流（仅作用于 API 路径，避免扩展到页面后对 SSR 表单 POST 误限）
+  if (WRITE_METHODS.has(req.method) && pathname.startsWith('/api/')) {
     const wait = checkWriteRate(getClientIp(req), pathname);
     if (wait !== null) {
       logRequest(429);
@@ -229,5 +287,9 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/api/:path*'],
+  // 同时覆盖 API 路径和后台页面路径：
+  // - /api/:path*           —— 原有 API 鉴权 / 限流 / 防缓存
+  // - /admin/:path*         —— 社区管理后台 Basic Auth 闸门（/admin 自身也覆盖）
+  // - /tcg-admin/:path*     —— TCG 运营后台 Basic Auth 闸门
+  matcher: ['/api/:path*', '/admin', '/admin/:path*', '/tcg-admin', '/tcg-admin/:path*'],
 };
