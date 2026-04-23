@@ -97,6 +97,19 @@ export function middleware(req: NextRequest) {
   const start = Date.now();
   const ip = getClientIp(req);
 
+  // 生产环境强制 https：
+  // 登录 cookie 带 Secure，http 访问时浏览器不会回传 cookie，
+  // 会导致用户前台显示“已登录”但所有鉴权接口 401（看起来像登录循环）。
+  // Nginx 侧若未配置 301 到 https，就由应用层兜底。
+  if (process.env.NODE_ENV === 'production') {
+    const proto = req.headers.get('x-forwarded-proto');
+    if (proto && proto.toLowerCase() === 'http') {
+      const host = req.headers.get('host') || req.nextUrl.host;
+      const target = `https://${host}${pathname}${req.nextUrl.search}`;
+      return NextResponse.redirect(target, 308);
+    }
+  }
+
   // 请求日志（仅记录 API 请求）
   const logRequest = (status: number) => {
     const duration = Date.now() - start;
