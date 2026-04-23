@@ -70,11 +70,11 @@ export async function deleteUserWithContent(userId: string) {
   }
 
   const summary = await prisma.$transaction(async (tx) => {
-    const [authoredPosts, authoredComments, likedPosts] = await Promise.all([
-      tx.post.findMany({ where: { authorId: userId }, select: { id: true } }),
-      tx.comment.findMany({ where: { authorId: userId }, select: { id: true } }),
-      tx.postLike.findMany({ where: { userId }, select: { postId: true } }),
-    ]);
+    // Prisma 交互式事务的同一 tx 客户端不支持并发调用（底层共享连接 + 游标），
+    // 必须串行 await，否则 libSQL/SQLite 下可能出现 "Transaction already closed" 或数据不一致。
+    const authoredPosts = await tx.post.findMany({ where: { authorId: userId }, select: { id: true } });
+    const authoredComments = await tx.comment.findMany({ where: { authorId: userId }, select: { id: true } });
+    const likedPosts = await tx.postLike.findMany({ where: { userId }, select: { postId: true } });
 
     const postIds = authoredPosts.map((item) => item.id);
     const commentIds = authoredComments.map((item) => item.id);
@@ -83,14 +83,12 @@ export async function deleteUserWithContent(userId: string) {
       new Set(likedPosts.map((item) => item.postId).filter((postId) => !authoredPostIdSet.has(postId))),
     );
 
-    await Promise.all(
-      likedPostIds.map((postId) =>
-        tx.post.update({
-          where: { id: postId },
-          data: { likes: { decrement: 1 } },
-        }),
-      ),
-    );
+    for (const postId of likedPostIds) {
+      await tx.post.update({
+        where: { id: postId },
+        data: { likes: { decrement: 1 } },
+      });
+    }
 
     const reportConditions: Prisma.ReportWhereInput[] = [
       { reporterId: userId },
@@ -99,17 +97,15 @@ export async function deleteUserWithContent(userId: string) {
       ...commentIds.map((targetId) => ({ targetType: 'comment', targetId })),
     ];
 
-    const [deletedReports, deletedNotifications, deletedFeedbacks, deletedFanWorks, deletedBookmarks, deletedPostLikes, deletedComments, deletedPosts, deletedVerificationCodes] = await Promise.all([
-      tx.report.deleteMany({ where: { OR: reportConditions } }),
-      tx.notification.deleteMany({ where: { fromId: userId } }),
-      tx.feedback.deleteMany({ where: { userId } }),
-      tx.fanWork.deleteMany({ where: { userId } }),
-      tx.bookmark.deleteMany({ where: { userId } }),
-      tx.postLike.deleteMany({ where: { userId } }),
-      tx.comment.deleteMany({ where: { authorId: userId } }),
-      tx.post.deleteMany({ where: { authorId: userId } }),
-      tx.verificationCode.deleteMany({ where: { email: user.email } }),
-    ]);
+    const deletedReports = await tx.report.deleteMany({ where: { OR: reportConditions } });
+    const deletedNotifications = await tx.notification.deleteMany({ where: { fromId: userId } });
+    const deletedFeedbacks = await tx.feedback.deleteMany({ where: { userId } });
+    const deletedFanWorks = await tx.fanWork.deleteMany({ where: { userId } });
+    const deletedBookmarks = await tx.bookmark.deleteMany({ where: { userId } });
+    const deletedPostLikes = await tx.postLike.deleteMany({ where: { userId } });
+    const deletedComments = await tx.comment.deleteMany({ where: { authorId: userId } });
+    const deletedPosts = await tx.post.deleteMany({ where: { authorId: userId } });
+    const deletedVerificationCodes = await tx.verificationCode.deleteMany({ where: { email: user.email } });
 
     await tx.user.delete({ where: { id: userId } });
 
