@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { ok, fail, handleError } from '@/lib/api';
-import { isValidCosUrl, moderateImage, moderateVideo } from '@/lib/content-moderation';
+import { isValidCosUrl, moderateImage, submitVideoModeration } from '@/lib/content-moderation';
 
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime'];
@@ -76,7 +76,8 @@ export async function POST(req: NextRequest) {
         return fail(`图片审核未通过：${modResult.detail || '内容违规'}，请更换图片`);
       }
     } else if (isVideo) {
-      moderateVideo(url).catch(() => {});
+      // 视频异步审核：提交腾讯云 VM 任务 + 轮询 job 入队（失败静默不阻塞响应）
+      submitVideoModeration({ mediaId: media.id, videoUrl: url }).catch(() => {});
     }
 
     return ok({

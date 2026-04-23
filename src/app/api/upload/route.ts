@@ -3,7 +3,7 @@ import { prisma } from '@/lib/db';
 import { requireAdmin } from '@/lib/auth';
 import { uploadBuffer } from '@/lib/cos';
 import { ok, fail, handleError } from '@/lib/api';
-import { moderateImage, moderateVideo } from '@/lib/content-moderation';
+import { moderateImage, submitVideoModeration } from '@/lib/content-moderation';
 import { validateFileType } from '@/lib/file-validation';
 
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -68,7 +68,8 @@ export async function POST(req: NextRequest) {
         return fail(`图片审核未通过：${modResult.detail || '内容违规'}，请更换图片`);
       }
     } else if (isVideo) {
-      moderateVideo(media.url).catch(() => {});
+      // 视频异步审核：提交腾讯云 VM 任务 + 轮询 job 入队（失败静默不阻塞响应）
+      submitVideoModeration({ mediaId: media.id, videoUrl: media.url }).catch(() => {});
     }
 
     return ok({
