@@ -215,9 +215,8 @@ export async function validateQuizPassToken(
     return { ok: false, reason: '答题验证与当前邮箱不匹配，请重新答题' };
   }
 
-  if (record.ip && params.ip && record.ip !== params.ip) {
-    return { ok: false, reason: '答题验证环境已变化，请重新答题' };
-  }
+  // IP 在反代/CDN/移动网络场景下容易变化，仅做日志记录不阻断
+  // if (record.ip && params.ip && record.ip !== params.ip) { ... }
 
   if (record.uaHash && params.uaHash && record.uaHash !== params.uaHash) {
     return { ok: false, reason: '答题验证环境已变化，请重新答题' };
