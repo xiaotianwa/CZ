@@ -82,7 +82,8 @@ export async function POST(req: NextRequest) {
         role: admin.role,
       },
     });
-    setTokenCookie(response, token, ADMIN_COOKIE_NAME);
+    // 管理员 cookie 使用 session-only：关闭浏览器即失效，强制每次打开重新登录
+    setTokenCookie(response, token, ADMIN_COOKIE_NAME, { sessionOnly: true });
     return response;
   } catch (err) {
     return handleError(err);

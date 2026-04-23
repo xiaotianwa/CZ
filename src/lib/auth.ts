@@ -92,6 +92,21 @@ function cookieOptions(maxAgeSec: number = COOKIE_MAX_AGE) {
   };
 }
 
+/**
+ * 会话 cookie 选项：不设置 maxAge / expires，
+ * 浏览器按"关闭即失效"处理。用于管理员登录：关闭浏览器必须重新登录。
+ */
+function sessionCookieOptions() {
+  const isProd = process.env.NODE_ENV === 'production';
+  return {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: 'lax' as const,
+    path: '/',
+    // 不设 maxAge / expires：浏览器会话结束即删
+  };
+}
+
 export function applyPrivateNoStoreHeaders(res: NextResponse): NextResponse {
   res.headers.set('Cache-Control', 'private, no-store, no-cache, must-revalidate');
   res.headers.set('Pragma', 'no-cache');
@@ -100,9 +115,15 @@ export function applyPrivateNoStoreHeaders(res: NextResponse): NextResponse {
   return res;
 }
 
-export function setTokenCookie(res: NextResponse, token: string, cookieName: string): void {
+export function setTokenCookie(
+  res: NextResponse,
+  token: string,
+  cookieName: string,
+  opts?: { sessionOnly?: boolean },
+): void {
   applyPrivateNoStoreHeaders(res);
-  res.cookies.set(cookieName, token, cookieOptions());
+  const options = opts?.sessionOnly ? sessionCookieOptions() : cookieOptions();
+  res.cookies.set(cookieName, token, options);
 }
 
 export function clearTokenCookie(res: NextResponse, cookieName: string): void {

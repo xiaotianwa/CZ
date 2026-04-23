@@ -65,9 +65,25 @@ function cookieOptions() {
   };
 }
 
-export function setTcgCookie(res: NextResponse, token: string): void {
+/** 会话 cookie：不设 maxAge，浏览器关闭即失效 */
+function sessionCookieOptions() {
+  const isProd = process.env.NODE_ENV === 'production';
+  return {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: 'lax' as const,
+    path: '/',
+  };
+}
+
+export function setTcgCookie(
+  res: NextResponse,
+  token: string,
+  opts?: { sessionOnly?: boolean },
+): void {
   applyPrivateNoStoreHeaders(res);
-  res.cookies.set(TCG_COOKIE_NAME, token, cookieOptions());
+  const options = opts?.sessionOnly ? sessionCookieOptions() : cookieOptions();
+  res.cookies.set(TCG_COOKIE_NAME, token, options);
 }
 
 export function clearTcgCookie(res: NextResponse): void {

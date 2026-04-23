@@ -39,7 +39,8 @@ export async function POST(req: NextRequest) {
     const response = ok({
       operator: { id: op.id, email: op.email, name: op.name, avatar: op.avatar, role: op.role },
     });
-    setTcgCookie(response, token);
+    // TCG 运营后台 cookie 使用 session-only：关闭浏览器即失效
+    setTcgCookie(response, token, { sessionOnly: true });
     return response;
   } catch (err) {
     return handleError(err);
