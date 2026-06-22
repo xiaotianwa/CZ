@@ -139,12 +139,11 @@ export function FeedbackModal({ open, onClose, defaultType = 'suggestion' }: { o
   );
 }
 
-export default function Footer({ profileName, siteDescription }: { profileName: string; siteDescription: string; features?: unknown }) {
+export default function Footer({ profileName, siteDescription }: { profileName: string; siteDescription: string }) {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const visibleQuickLinks = [
     { href: '/', label: '首页' },
     { href: '/profile', label: `关于${profileName}` },
-    { href: '/games', label: '最近在玩' },
     { href: '/fan-map', label: '粉丝地图' },
     { href: '/feedback', label: '反馈答疑' },
   ];

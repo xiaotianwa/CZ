@@ -1,133 +1,358 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import Link from 'next/link';
-import { Bell, CalendarDays, Loader2, LogOut, Shield, UserRound } from 'lucide-react';
+import {
+  LogOut,
+  User,
+  Settings,
+  Trash2,
+  ChevronRight,
+  ShieldCheck,
+  MessageSquarePlus,
+  ImageUp,
+} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from '@/components/AuthProvider';
+import { api } from '@/lib/api';
+import { formatDate } from '@/lib/utils';
+import { cn } from '@/lib/utils';
+import { UserProfileForm } from '@/components/UserProfileForm';
+import { UserAvatarUpload } from '@/components/UserAvatarUpload';
+import { UserMediaGallery } from '@/components/UserMediaGallery';
 
 interface UserInfo {
   id: string;
-  email: string;
   name: string;
-  avatar?: string | null;
-  role: string;
-  level: number;
-  badge?: string | null;
-  points: number;
+  email: string;
+  avatar?: string;
+  bio?: string;
+  city?: string;
+  province?: string;
   createdAt: string;
 }
 
+interface FeedbackItem {
+  id: string;
+  type: string;
+  content: string;
+  status: string;
+  createdAt: string;
+  reply?: string | null;
+  repliedAt?: string | null;
+}
+
 export default function MePage() {
-  const [user, setUser] = useState<UserInfo | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, isLoggedIn, logout, refreshUser } = useAuth();
+  const router = useRouter();
+  const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState('profile');
+  const [isLoading, setIsLoading] = useState(false);
+  const [feedbackList, setFeedbackList] = useState<FeedbackItem[]>([]);
+  const [isFeedbackLoading, setIsFeedbackLoading] = useState(false);
+
+  // 未登录时重定向
+  useEffect(() => {
+    if (!isLoggedIn && !isLoading) {
+      router.push('/login');
+    }
+  }, [isLoggedIn, isLoading, router]);
+
+  // 加载反馈列表
+  const loadFeedback = useCallback(async () => {
+    if (!isLoggedIn) return;
+    setIsFeedbackLoading(true);
+    try {
+      const res = await api.get('/api/auth/feedback');
+      if (res.ok && Array.isArray(res.data)) {
+        setFeedbackList(res.data);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setIsFeedbackLoading(false);
+    }
+  }, [isLoggedIn]);
 
   useEffect(() => {
-    fetch('/api/auth/me', { credentials: 'same-origin' })
-      .then((res) => res.json())
-      .then((json) => {
-        if (json.code === 0 && json.data) setUser(json.data);
-      })
-      .finally(() => setLoading(false));
-  }, []);
+    if (activeTab === 'feedback') {
+      loadFeedback();
+    }
+  }, [activeTab, loadFeedback]);
 
-  const logout = () => {
-    fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' })
-      .finally(() => {
-        localStorage.removeItem('user');
-        window.location.href = '/';
-      });
+  const handleLogout = async () => {
+    setIsLoading(true);
+    await logout();
+    setIsLoading(false);
+    router.push('/');
   };
 
-  if (loading) {
-    return (
-      <div className="pt-14 min-h-screen flex items-center justify-center">
-        <Loader2 className="w-5 h-5 animate-spin text-primary" />
-      </div>
+  const handleDeleteAccount = async () => {
+    const confirmed = window.confirm(
+      '确定要注销账号吗？此操作不可恢复，您的所有数据将被永久删除。'
     );
-  }
+    if (!confirmed) return;
 
-  if (!user) {
+    setIsLoading(true);
+    try {
+      const res = await api.delete('/api/auth/me');
+      if (res.ok) {
+        toast({ title: '账号已注销', description: '您的账号和所有数据已被删除' });
+        await logout();
+        router.push('/');
+      } else {
+        toast({
+          title: '注销失败',
+          description: res.message || '请稍后重试',
+          variant: 'destructive',
+        });
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (!isLoggedIn || !user) {
     return (
-      <div className="pt-14 min-h-screen flex items-center justify-center px-4">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <UserRound className="w-10 h-10 text-text-disabled mx-auto mb-3" />
-          <p className="text-body text-text-muted">请先登录</p>
-          <Link href="/login" className="btn-primary mt-4 inline-flex">去登录</Link>
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">加载中...</p>
         </div>
       </div>
     );
   }
 
+  const menuItems = [
+    {
+      icon: User,
+      label: '个人资料',
+      tab: 'profile',
+    },
+    {
+      icon: ImageUp,
+      label: '我的相册',
+      tab: 'gallery',
+    },
+    {
+      icon: MessageSquarePlus,
+      label: '我的反馈',
+      tab: 'feedback',
+    },
+    {
+      icon: Settings,
+      label: '账号设置',
+      tab: 'settings',
+    },
+  ];
+
   return (
-    <div className="pt-14 min-h-screen bg-gray-50">
-      <div className="container-main px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid lg:grid-cols-[320px_1fr] gap-6">
-          <aside className="card p-6">
-            <div className="flex items-center gap-4">
-              <div className="relative w-16 h-16 rounded-full overflow-hidden bg-primary-bg flex-shrink-0">
+    <div className="min-h-screen bg-background">
+      {/* 顶部用户信息 */}
+      <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-background border-b">
+        <div className="max-w-4xl mx-auto px-4 py-8">
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <div className="w-20 h-20 rounded-full overflow-hidden bg-muted border-2 border-background shadow-lg">
                 {user.avatar ? (
-                  <Image src={user.avatar} alt={user.name} fill className="object-cover" />
+                  <Image
+                    src={user.avatar}
+                    alt={user.name}
+                    width={80}
+                    height={80}
+                    className="w-full h-full object-cover"
+                  />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-primary text-heading-sm font-bold">{user.name[0]}</div>
+                  <div className="w-full h-full flex items-center justify-center bg-primary/10">
+                    <User className="w-8 h-8 text-primary/60" />
+                  </div>
                 )}
               </div>
-              <div className="min-w-0">
-                <h1 className="text-heading-sm text-text-title truncate">{user.name}</h1>
-                <p className="text-caption text-text-muted truncate">{user.email}</p>
+            </div>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl font-bold truncate">{user.name}</h1>
+              <p className="text-sm text-muted-foreground">{user.email}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                注册于 {formatDate(user.createdAt)}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-4xl mx-auto px-4 py-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="w-full grid grid-cols-4 mb-6">
+            {menuItems.map((item) => (
+              <TabsTrigger key={item.tab} value={item.tab} className="flex items-center gap-1.5">
+                <item.icon className="w-4 h-4" />
+                <span className="hidden sm:inline">{item.label}</span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+
+          {/* 个人资料 */}
+          <TabsContent value="profile">
+            <div className="space-y-6">
+              <div className="bg-card rounded-lg border p-6">
+                <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <User className="w-5 h-5" />
+                  编辑资料
+                </h2>
+                <UserProfileForm user={user} onSuccess={refreshUser} />
+              </div>
+
+              <div className="bg-card rounded-lg border p-6">
+                <h2 className="text-lg font-semibold mb-4">头像设置</h2>
+                <UserAvatarUpload
+                  currentAvatar={user.avatar}
+                  onSuccess={refreshUser}
+                />
               </div>
             </div>
+          </TabsContent>
 
-            <div className="mt-6 space-y-3 text-body">
-              <div className="flex items-center justify-between">
-                <span className="text-text-muted">角色</span>
-                <span className="font-medium text-text-title">{user.role}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-text-muted">等级</span>
-                <span className="font-medium text-text-title">Lv.{user.level}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-text-muted">积分</span>
-                <span className="font-medium text-text-title">{user.points}</span>
-              </div>
-              {user.badge && (
-                <div className="flex items-center justify-between">
-                  <span className="text-text-muted">徽章</span>
-                  <span className="tag-primary">{user.badge}</span>
+          {/* 我的相册 */}
+          <TabsContent value="gallery">
+            <div className="bg-card rounded-lg border p-6">
+              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <ImageUp className="w-5 h-5" />
+                我的相册
+              </h2>
+              <UserMediaGallery />
+            </div>
+          </TabsContent>
+
+          {/* 我的反馈 */}
+          <TabsContent value="feedback">
+            <div className="bg-card rounded-lg border p-6">
+              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                <MessageSquarePlus className="w-5 h-5" />
+                我的反馈
+              </h2>
+              {isFeedbackLoading ? (
+                <div className="text-center py-8">
+                  <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">加载中...</p>
+                </div>
+              ) : feedbackList.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <MessageSquarePlus className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                  <p>暂无反馈记录</p>
+                  <p className="text-sm mt-1">遇到问题？去反馈页面提交建议吧</p>
+                  <Button
+                    variant="outline"
+                    className="mt-4"
+                    onClick={() => router.push('/feedback')}
+                  >
+                    去反馈
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {feedbackList.map((item) => (
+                    <div key={item.id} className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium">{item.type}</span>
+                        <span
+                          className={cn(
+                            'text-xs px-2 py-0.5 rounded-full',
+                            item.status === 'pending'
+                              ? 'bg-yellow-100 text-yellow-700'
+                              : item.status === 'replied'
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-gray-100 text-gray-600'
+                          )}
+                        >
+                          {item.status === 'pending'
+                            ? '待处理'
+                            : item.status === 'replied'
+                              ? '已回复'
+                              : '已处理'}
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-2">{item.content}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDate(item.createdAt)}
+                      </p>
+                      {item.reply && (
+                        <div className="mt-3 bg-muted rounded-lg p-3">
+                          <p className="text-sm font-medium mb-1">管理员回复：</p>
+                          <p className="text-sm">{item.reply}</p>
+                          {item.repliedAt && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {formatDate(item.repliedAt)}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
+          </TabsContent>
 
-            <button onClick={logout} className="btn-outline mt-6 w-full inline-flex items-center justify-center gap-2">
-              <LogOut className="w-4 h-4" />
-              退出登录
-            </button>
-          </aside>
+          {/* 账号设置 */}
+          <TabsContent value="settings">
+            <div className="bg-card rounded-lg border p-6 space-y-6">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Settings className="w-5 h-5" />
+                账号设置
+              </h2>
 
-          <main className="space-y-4">
-            <Link href="/me?tab=notifications" className="card p-5 flex items-center gap-4 hover:-translate-y-0.5 transition-all duration-200">
-              <Bell className="w-5 h-5 text-primary" />
-              <div>
-                <p className="text-body font-medium text-text-title">消息通知</p>
-                <p className="text-caption text-text-muted">查看系统通知与站内消息</p>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                  <div>
+                    <p className="font-medium">修改密码</p>
+                    <p className="text-sm text-muted-foreground">定期更换密码可提高账号安全性</p>
+                  </div>
+                  <Button variant="outline" onClick={() => router.push('/settings/password')}>
+                    修改
+                    <ChevronRight className="w-4 h-4 ml-1" />
+                  </Button>
+                </div>
+
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                  <div>
+                    <p className="font-medium flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-green-500" />
+                      账号安全
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      邮箱已验证，账号状态正常
+                    </p>
+                  </div>
+                </div>
               </div>
-            </Link>
-            <Link href="/me?tab=points" className="card p-5 flex items-center gap-4 hover:-translate-y-0.5 transition-all duration-200">
-              <Shield className="w-5 h-5 text-primary" />
-              <div>
-                <p className="text-body font-medium text-text-title">积分记录</p>
-                <p className="text-caption text-text-muted">查看登录与管理发放的积分变化</p>
-              </div>
-            </Link>
-            <div className="card p-5 flex items-center gap-4">
-              <CalendarDays className="w-5 h-5 text-primary" />
-              <div>
-                <p className="text-body font-medium text-text-title">加入时间</p>
-                <p className="text-caption text-text-muted">{new Date(user.createdAt).toLocaleString('zh-CN')}</p>
+
+              <div className="pt-4 border-t space-y-3">
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={handleLogout}
+                  disabled={isLoading}
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  {isLoading ? '退出中...' : '退出登录'}
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
+                  onClick={handleDeleteAccount}
+                  disabled={isLoading}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  注销账号
+                </Button>
               </div>
             </div>
-          </main>
-        </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

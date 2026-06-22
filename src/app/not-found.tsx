@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Home, Gamepad2, MessageSquare } from 'lucide-react';
+import { Home, MapPinned, MessageSquare } from 'lucide-react';
 import GoBackButton from '@/components/GoBackButton';
 
 export default function NotFound() {
@@ -54,11 +54,11 @@ export default function NotFound() {
               </span>
               <span className="text-xs font-medium">社区</span>
             </Link>
-            <Link href="/play" className="group flex flex-col items-center gap-1.5 text-text-muted hover:text-primary transition-colors duration-150">
+            <Link href="/fan-map" className="group flex flex-col items-center gap-1.5 text-text-muted hover:text-primary transition-colors duration-150">
               <span className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-gray-100 dark:bg-white/5 group-hover:bg-primary/10 dark:group-hover:bg-primary/10 transition-colors duration-150">
-                <Gamepad2 className="w-5 h-5" />
+                <MapPinned className="w-5 h-5" />
               </span>
-              <span className="text-xs font-medium">游戏中心</span>
+              <span className="text-xs font-medium">粉丝地图</span>
             </Link>
           </div>
         </div>

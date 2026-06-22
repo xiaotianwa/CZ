@@ -17,7 +17,6 @@ interface UserInfo {
 
 interface NavbarFeatures {
   memesEnabled: boolean;
-  playEnabled: boolean;
 }
 
 const brandHandwriting = localFont({
@@ -26,19 +25,17 @@ const brandHandwriting = localFont({
   weight: '400',
 });
 
-export default function Navbar({ profileName, features }: { profileName: string; features: NavbarFeatures }) {
+export default function Navbar({ profileName, features }: { profileName: string; features?: NavbarFeatures }) {
   const router = useRouter();
   const pathname = usePathname();
   const isHome = pathname === '/';
   const navLinks = [
     { href: '/', label: '首页' },
     { href: '/profile', label: `关于${profileName}` },
-    { href: '/games', label: '最近在玩' },
     { href: '/fan-map', label: '粉丝地图' },
   ];
   const moreLinks = [
-    features.playEnabled && { href: '/play', label: '游戏中心' },
-    features.memesEnabled && { href: '/memes', label: '梗百科' },
+    features?.memesEnabled && { href: '/memes', label: '梗百科' },
     { href: '/feedback', label: '反馈答疑' },
   ].filter(Boolean) as { href: string; label: string }[];
   const isMoreActive = moreLinks.some((l) => pathname === l.href);

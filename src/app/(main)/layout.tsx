@@ -55,8 +55,8 @@ export default async function MainLayout({
         </div>
         <div className="relative z-10">{children}</div>
       </main>
-      <MobileUXEnhancer features={features} />
-      <Footer profileName={profileName} siteDescription={siteDescription} features={features} />
+      <MobileUXEnhancer />
+      <Footer profileName={profileName} siteDescription={siteDescription} />
       <AnnouncementPopup />
       <MusicPlayer />
       <SplashScreen />

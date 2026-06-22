@@ -1,224 +1,196 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
+import { useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
-  BarChart3,
-  BookOpen,
-  ChevronDown,
-  Clock,
-  FolderOpen,
-  Gamepad2,
-  HelpCircle,
   LayoutDashboard,
-  LogOut,
-  Megaphone,
-  Menu,
-  MessageSquarePlus,
-  Music,
-  Settings,
-  ShieldBan,
-  SlidersHorizontal,
-  UserCog,
   Users,
+  MessageSquare,
+  ImageIcon,
+  Megaphone,
+  Settings,
+  ShieldCheck,
+  LogOut,
+  Menu,
   X,
+  ChevronRight,
+  FileText,
+  Ban,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useAdminAuth } from '@/components/AdminAuthProvider';
+import { cn } from '@/lib/utils';
 
-interface SidebarLink {
-  href: string;
-  label: string;
-  icon: typeof LayoutDashboard;
-}
-
-interface SidebarGroup {
-  key: string;
-  title: string;
-  icon: typeof LayoutDashboard;
-  links: SidebarLink[];
-}
-
-const topLinks: SidebarLink[] = [{ href: '/admin', label: '仪表盘', icon: LayoutDashboard }];
-
-const sidebarGroups: SidebarGroup[] = [
+const sidebarGroups = [
   {
-    key: 'content',
     title: '内容管理',
-    icon: Gamepad2,
-    links: [
-      { href: '/admin/games', label: '游戏管理', icon: Gamepad2 },
-      { href: '/admin/memes', label: '梗百科', icon: BookOpen },
-      { href: '/admin/timeline', label: '时间线', icon: Clock },
-    ],
-  },
-  {
-    key: 'media',
-    title: '媒体资源',
-    icon: FolderOpen,
-    links: [
-      { href: '/admin/slides', label: '轮播管理', icon: SlidersHorizontal },
-      { href: '/admin/media', label: '媒体库', icon: FolderOpen },
-      { href: '/admin/music', label: '音乐管理', icon: Music },
-    ],
-  },
-  {
-    key: 'interaction',
-    title: '用户互动',
-    icon: Users,
-    links: [
-      { href: '/admin/users', label: '用户管理', icon: Users },
-      { href: '/admin/quiz', label: '答题管理', icon: HelpCircle },
+    items: [
       { href: '/admin/announcements', label: '公告管理', icon: Megaphone },
-      { href: '/admin/feedback', label: '反馈管理', icon: MessageSquarePlus },
+      { href: '/admin/media', label: '媒体审核', icon: ImageIcon },
+      { href: '/admin/banned-words', label: '敏感词', icon: Ban },
     ],
   },
   {
-    key: 'system',
+    title: '用户互动',
+    items: [
+      { href: '/admin/feedback', label: '反馈管理', icon: MessageSquare },
+      { href: '/admin/users', label: '用户管理', icon: Users },
+    ],
+  },
+  {
     title: '系统设置',
-    icon: Settings,
-    links: [
-      { href: '/admin/admins', label: '管理员管理', icon: UserCog },
-      { href: '/admin/banned-words', label: '违禁词管理', icon: ShieldBan },
-      { href: '/admin/site-logs', label: '网站日志', icon: BarChart3 },
+    items: [
       { href: '/admin/settings', label: '站点设置', icon: Settings },
+      { href: '/admin/site-logs', label: '访问日志', icon: FileText },
     ],
   },
 ];
 
-const allSidebarLinks = [...topLinks, ...sidebarGroups.flatMap((g) => g.links)];
-
-function isGroupActive(group: SidebarGroup, pathname: string) {
-  return group.links.some((l) => pathname === l.href || pathname.startsWith(`${l.href}/`));
-}
-
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  const { admin, logout } = useAdminAuth();
   const pathname = usePathname();
   const router = useRouter();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [user, setUser] = useState<{ name: string; role: string } | null>(null);
-  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>(() => {
-    const init: Record<string, boolean> = {};
-    sidebarGroups.forEach((g) => {
-      init[g.key] = isGroupActive(g, pathname);
-    });
-    return init;
-  });
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const isLoginPage = pathname === '/admin/login';
-
-  useEffect(() => {
-    if (isLoginPage) return;
-    fetch('/api/admin/auth/me', { credentials: 'same-origin' })
-      .then((res) => res.json())
-      .then((json) => {
-        if (json.code !== 0) {
-          router.push('/admin/login');
-          return;
-        }
-        setUser(json.data);
-      })
-      .catch(() => router.push('/admin/login'));
-  }, [router, isLoginPage]);
-
-  useEffect(() => {
-    sidebarGroups.forEach((g) => {
-      if (isGroupActive(g, pathname)) {
-        setExpandedGroups((prev) => ({ ...prev, [g.key]: true }));
-      }
-    });
-  }, [pathname]);
-
-  const handleLogout = () => {
-    fetch('/api/admin/auth/logout', { method: 'POST', credentials: 'same-origin' }).finally(() => router.push('/admin/login'));
+  const handleLogout = async () => {
+    await logout();
+    router.push('/admin/login');
   };
 
-  if (isLoginPage) return <>{children}</>;
-
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-bg-page flex items-center justify-center">
-        <div className="text-text-muted">加载中...</div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-bg-page flex">
-      <aside className={`fixed inset-y-0 left-0 z-40 w-60 bg-white border-r border-divider transform transition-transform duration-200 lg:translate-x-0 flex flex-col ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="flex items-center justify-between h-14 px-4 border-b border-divider flex-shrink-0">
-          <Link href="/admin" className="font-waterbrush text-heading-sm text-primary">1103</Link>
-          <span className="tag-primary text-caption">管理端</span>
+    <div className="min-h-screen bg-background">
+      {/* 移动端顶部导航 */}
+      <div className="lg:hidden flex items-center justify-between p-4 border-b bg-card">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="w-5 h-5 text-primary" />
+          <span className="font-semibold">管理后台</span>
         </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        >
+          {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+        </Button>
+      </div>
 
-        <nav className="flex-1 p-3 overflow-y-auto">
-          {topLinks.map((link) => {
-            const isActive = pathname === link.href;
-            return (
-              <Link key={link.href} href={link.href} onClick={() => setSidebarOpen(false)} className={`flex items-center gap-2.5 px-3 py-2 rounded-btn text-body font-medium transition-colors duration-150 ${isActive ? 'bg-primary-bg text-primary' : 'text-text-body hover:bg-gray-50 hover:text-primary'}`}>
-                <link.icon className="w-4 h-4 flex-shrink-0" />
-                {link.label}
-              </Link>
-            );
-          })}
+      <div className="flex">
+        {/* 侧边栏 */}
+        <aside
+          className={cn(
+            'fixed inset-y-0 left-0 z-50 w-64 bg-card border-r transform transition-transform duration-200 lg:translate-x-0 lg:static lg:h-screen lg:sticky lg:top-0',
+            isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+          )}
+        >
+          {/* Logo */}
+          <div className="flex items-center gap-2 p-4 border-b">
+            <ShieldCheck className="w-6 h-6 text-primary" />
+            <span className="font-bold text-lg">管理后台</span>
+          </div>
 
-          {sidebarGroups.map((group) => {
-            const isOpen = !!expandedGroups[group.key];
-            const hasActive = isGroupActive(group, pathname);
-            return (
-              <div key={group.key} className="mt-1">
-                <button onClick={() => setExpandedGroups((prev) => ({ ...prev, [group.key]: !prev[group.key] }))} className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-btn text-body font-medium transition-colors duration-150 cursor-pointer ${hasActive ? 'text-primary' : 'text-text-body hover:bg-gray-50 hover:text-primary'}`}>
-                  <group.icon className="w-4 h-4 flex-shrink-0" />
-                  <span className="flex-1 text-left">{group.title}</span>
-                  <ChevronDown className={`w-3.5 h-3.5 text-text-muted transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
-                </button>
-                <div className={`overflow-hidden transition-all duration-200 ${isOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                  <div className="ml-4 pl-3 border-l border-divider space-y-0.5 mt-0.5 mb-1">
-                    {group.links.map((link) => {
-                      const isActive = pathname === link.href || pathname.startsWith(`${link.href}/`);
-                      return (
-                        <Link key={link.href} href={link.href} onClick={() => setSidebarOpen(false)} className={`flex items-center gap-2 px-2.5 py-1.5 rounded-btn text-caption font-medium transition-colors duration-150 ${isActive ? 'bg-primary-bg text-primary' : 'text-text-muted hover:bg-gray-50 hover:text-primary'}`}>
-                          <link.icon className="w-3.5 h-3.5 flex-shrink-0" />
-                          {link.label}
-                        </Link>
-                      );
-                    })}
-                  </div>
+          {/* 管理员信息 */}
+          {admin && (
+            <div className="p-4 border-b">
+              <p className="font-medium text-sm">{admin.name}</p>
+              <p className="text-xs text-muted-foreground">
+                {admin.role === 'super_admin'
+                  ? '超级管理员'
+                  : admin.role === 'admin'
+                    ? '管理员'
+                    : '编辑'}
+              </p>
+            </div>
+          )}
+
+          {/* 导航 */}
+          <nav className="p-2 space-y-4 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 140px)' }}>
+            {/* 仪表盘 */}
+            <Link
+              href="/admin"
+              className={cn(
+                'flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors',
+                pathname === '/admin'
+                  ? 'bg-primary/10 text-primary font-medium'
+                  : 'hover:bg-muted'
+              )}
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              <LayoutDashboard className="w-4 h-4" />
+              仪表盘
+            </Link>
+
+            {/* 分组导航 */}
+            {sidebarGroups.map((group) => (
+              <div key={group.title}>
+                <p className="px-3 text-xs font-medium text-muted-foreground mb-1">
+                  {group.title}
+                </p>
+                <div className="space-y-0.5">
+                  {group.items.map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={cn(
+                        'flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors',
+                        pathname === item.href || pathname.startsWith(`${item.href}/`)
+                          ? 'bg-primary/10 text-primary font-medium'
+                          : 'hover:bg-muted'
+                      )}
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      <item.icon className="w-4 h-4" />
+                      {item.label}
+                    </Link>
+                  ))}
                 </div>
               </div>
-            );
-          })}
-        </nav>
+            ))}
+          </nav>
 
-        <div className="flex-shrink-0 p-3 border-t border-divider bg-white">
-          <div className="flex items-center gap-2 px-3 py-2">
-            <div className="w-8 h-8 rounded-full bg-primary-bg flex items-center justify-center text-primary text-caption font-bold">{user.name[0]}</div>
-            <div className="flex-1 min-w-0">
-              <p className="text-body font-medium text-text-title truncate">{user.name}</p>
-              <p className="text-caption text-text-muted">{user.role}</p>
-            </div>
-            <button onClick={handleLogout} className="p-1.5 rounded-btn text-text-muted hover:text-danger hover:bg-red-50 transition-colors cursor-pointer" title="退出登录">
-              <LogOut className="w-4 h-4" />
-            </button>
+          {/* 退出登录 */}
+          <div className="absolute bottom-0 left-0 right-0 p-2 border-t bg-card">
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-muted-foreground"
+              onClick={handleLogout}
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              退出登录
+            </Button>
           </div>
-        </div>
-      </aside>
+        </aside>
 
-      {sidebarOpen && <div className="fixed inset-0 bg-black/20 z-30 lg:hidden" onClick={() => setSidebarOpen(false)} />}
+        {/* 遮罩 */}
+        {isMobileMenuOpen && (
+          <div
+            className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+        )}
 
-      <div className="flex-1 min-w-0 lg:pl-60">
-        <header className="sticky top-0 z-20 bg-white border-b border-divider h-14 flex items-center px-4 lg:px-6">
-          <button className="lg:hidden p-2 -ml-2 mr-2 rounded-btn text-text-muted hover:bg-gray-50 cursor-pointer" onClick={() => setSidebarOpen(!sidebarOpen)}>
-            {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-          </button>
-          <h1 className="text-heading-sm text-text-title">
-            {allSidebarLinks.find((l) => pathname === l.href || pathname.startsWith(`${l.href}/`))?.label || '管理后台'}
-          </h1>
-          <div className="ml-auto">
-            <Link href="/" className="text-caption text-text-muted hover:text-primary transition-colors">返回前台</Link>
+        {/* 主内容 */}
+        <main className="flex-1 p-4 lg:p-6 min-w-0">
+          {/* 面包屑 */}
+          <div className="flex items-center gap-1 text-sm text-muted-foreground mb-4">
+            <Link href="/admin" className="hover:text-foreground transition-colors">
+              管理后台
+            </Link>
+            {pathname !== '/admin' && (
+              <>
+                <ChevronRight className="w-3 h-3" />
+                <span className="text-foreground">
+                  {sidebarGroups
+                    .flatMap((g) => g.items)
+                    .find((i) => pathname === i.href || pathname.startsWith(`${i.href}/`))?.label ||
+                    '当前页面'}
+                </span>
+              </>
+            )}
           </div>
-        </header>
 
-        <main className="p-4 lg:p-6">{children}</main>
+          {children}
+        </main>
       </div>
     </div>
   );

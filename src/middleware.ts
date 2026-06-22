@@ -11,8 +11,6 @@ import { timingSafeEqualStr } from '@/lib/timing-safe';
 
 const ADMIN_PUBLIC_PATHS = ['/api/admin/auth/login', '/api/admin/auth/logout'];
 const AUTH_PUBLIC_PATHS = ['/api/auth/login', '/api/auth/logout', '/api/auth/me'];
-// TCG 独立运营后台 —— 独立 cookie（tcg_admin_token），与社区 /admin 互不干扰
-const TCG_ADMIN_PUBLIC_PATHS = ['/api/tcg/admin/auth/login', '/api/tcg/admin/auth/logout'];
 
 // ===================== 写入限流（内存级） =====================
 const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
@@ -126,13 +124,6 @@ function isAdminAreaPath(pathname: string): boolean {
     || pathname.startsWith('/api/admin/');
 }
 
-/** 判断是否属于 TCG 运营后台区域（页面 + API） */
-function isTcgAdminAreaPath(pathname: string): boolean {
-  return pathname === '/tcg-admin'
-    || pathname.startsWith('/tcg-admin/')
-    || pathname.startsWith('/api/tcg/admin/');
-}
-
 /**
  * 从 Authorization 头解析 HTTP Basic Auth 的密码部分。
  * Edge runtime 没有 Buffer，这里用 atob 解码。
@@ -166,24 +157,19 @@ export function middleware(req: NextRequest) {
   };
 
   // ===================== 管理后台预授权闸门（HTTP Basic Auth） =====================
-  // 即使有人知道 /admin 或 /tcg-admin/login 的 URL，先要通过这道 Basic Auth 才能看到登录表单，
+  // 即使有人知道 /admin 的 URL，先要通过这道 Basic Auth 才能看到登录表单，
   // 相当于把后台入口藏在一层共享密码后面（密码由管理员线下分发，不进数据库）。
   // 密码通过环境变量配置；未配置时跳过该闸门（兼容本地开发）。
-  const requireAdminGate = isAdminAreaPath(pathname);
-  const requireTcgGate = isTcgAdminAreaPath(pathname);
-  if (requireAdminGate || requireTcgGate) {
-    const gatePassword = requireAdminGate
-      ? process.env.ADMIN_GATE_PASSWORD
-      : process.env.TCG_ADMIN_GATE_PASSWORD;
+  if (isAdminAreaPath(pathname)) {
+    const gatePassword = process.env.ADMIN_GATE_PASSWORD;
     if (gatePassword) {
       const provided = parseBasicAuthPassword(req.headers.get('authorization'));
       if (!timingSafeEqualStr(provided, gatePassword)) {
         logRequest(401);
-        const realm = requireAdminGate ? 'Admin Area' : 'TCG Admin Area';
         return new NextResponse('Authentication required', {
           status: 401,
           headers: {
-            'WWW-Authenticate': `Basic realm="${realm}", charset="UTF-8"`,
+            'WWW-Authenticate': `Basic realm="Admin Area", charset="UTF-8"`,
             'Cache-Control': 'no-store',
           },
         });
@@ -193,7 +179,7 @@ export function middleware(req: NextRequest) {
 
   // 生产环境强制 https：
   // 登录 cookie 带 Secure，http 访问时浏览器不会回传 cookie，
-  // 会导致用户前台显示“已登录”但所有鉴权接口 401（看起来像登录循环）。
+  // 会导致用户前台显示"已登录"但所有鉴权接口 401（看起来像登录循环）。
   // Nginx 侧若未配置 301 到 https，就由应用层兜底。
   if (process.env.NODE_ENV === 'production') {
     const proto = req.headers.get('x-forwarded-proto');
@@ -244,21 +230,6 @@ export function middleware(req: NextRequest) {
     }
   }
 
-  // TCG 运营后台 API 路径保护（独立 cookie tcg_admin_token）
-  if (pathname.startsWith('/api/tcg/admin/')) {
-    if (TCG_ADMIN_PUBLIC_PATHS.some((p) => pathname === p)) {
-      return addNoCacheHeaders(NextResponse.next());
-    }
-    const tcgToken = req.cookies.get('tcg_admin_token')?.value;
-    if (!tcgToken) {
-      logRequest(401);
-      return addNoCacheHeaders(NextResponse.json(
-        { code: 401, message: 'TCG 运营账号未登录', data: null },
-        { status: 401 }
-      ));
-    }
-  }
-
   // Auth API 路径保护（需要用户登录的接口）
   if (pathname.startsWith('/api/auth/') && !AUTH_PUBLIC_PATHS.some((p) => pathname === p)) {
     const userToken = req.cookies.get('token')?.value;
@@ -266,18 +237,6 @@ export function middleware(req: NextRequest) {
       logRequest(401);
       return addNoCacheHeaders(NextResponse.json(
         { code: 401, message: '未登录', data: null },
-        { status: 401 }
-      ));
-    }
-  }
-
-  // TCG 好友房 API 保护（需要社区用户登录）
-  if (pathname.startsWith('/api/tcg/room/')) {
-    const userToken = req.cookies.get('token')?.value;
-    if (!userToken) {
-      logRequest(401);
-      return addNoCacheHeaders(NextResponse.json(
-        { code: 401, message: '请先登录后再进行好友对战', data: null },
         { status: 401 }
       ));
     }
@@ -291,6 +250,5 @@ export const config = {
   // 同时覆盖 API 路径和后台页面路径：
   // - /api/:path*           —— 原有 API 鉴权 / 限流 / 防缓存
   // - /admin/:path*         —— 社区管理后台 Basic Auth 闸门（/admin 自身也覆盖）
-  // - /tcg-admin/:path*     —— TCG 运营后台 Basic Auth 闸门
-  matcher: ['/api/:path*', '/admin', '/admin/:path*', '/tcg-admin', '/tcg-admin/:path*'],
+  matcher: ['/api/:path*', '/admin', '/admin/:path*'],
 };

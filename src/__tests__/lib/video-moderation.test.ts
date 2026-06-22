@@ -18,8 +18,7 @@ vi.mock('@/lib/content-moderation', () => ({
   saveModerationLog: vi.fn(),
 }));
 
-// 其他 handler 依赖的 mock（避免 registerAllHandlers 时报错）
-vi.mock('@/lib/points', () => ({ grantPoints: vi.fn() }));
+
 
 import { registerAllHandlers, VIDEO_MODERATION_MAX_POLLS, VIDEO_MODERATION_POLL_INTERVAL_MS } from '@/lib/job-handlers';
 import { registerJobHandler, enqueueJob } from '@/lib/async-job';

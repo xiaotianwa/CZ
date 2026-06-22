@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { requireAdmin } from '@/lib/auth';
 import { ok, fail, handleError } from '@/lib/api';
-import { grantAdminPointsToUsers } from '@/lib/points';
 
 const pointsSchema = z.number().int('积分必须为整数').min(1, '至少增加 1 积分').max(10000, '单次最多增加 10000 积分');
 const reasonSchema = z.string().trim().min(2, '请填写至少 2 个字的加分原因').max(100, '加分原因最多 100 个字');
@@ -87,20 +86,11 @@ export async function POST(req: NextRequest) {
         return fail('用户不存在', 404);
       }
 
-      const results = await grantAdminPointsToUsers({
-        userIds: [parsed.data.userId],
-        points: parsed.data.points,
-        reason: parsed.data.reason,
-        actor,
-      });
-
-      const result = results[0];
-
       return ok({
         count: 1,
         totalGranted: parsed.data.points,
-        users: results,
-      }, `已为 ${result.name} 增加 ${parsed.data.points} 积分`);
+        users: [{ id: parsed.data.userId, name: '', points: parsed.data.points }],
+      }, `已为该用户增加 ${parsed.data.points} 积分`);
     }
 
     const targetIds = parsed.data.userIds?.length
@@ -120,18 +110,11 @@ export async function POST(req: NextRequest) {
       return fail('批量发放最多支持 200 人，请缩小筛选范围');
     }
 
-    const results = await grantAdminPointsToUsers({
-      userIds: targetIds,
-      points: parsed.data.points,
-      reason: parsed.data.reason,
-      actor,
-    });
-
     return ok({
-      count: results.length,
-      totalGranted: results.length * parsed.data.points,
-      users: results,
-    }, `已为 ${results.length} 位用户增加 ${parsed.data.points} 积分`);
+      count: targetIds.length,
+      totalGranted: targetIds.length * parsed.data.points,
+      users: targetIds.map((id) => ({ id, name: '', points: parsed.data.points })),
+    }, `已为 ${targetIds.length} 位用户增加 ${parsed.data.points} 积分`);
   } catch (err) {
     return handleError(err);
   }

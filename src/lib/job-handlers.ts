@@ -1,5 +1,4 @@
 import { registerJobHandler, enqueueJob } from '@/lib/async-job';
-import { grantPoints, type PointAction } from '@/lib/points';
 import { describeVideoModerationTask, saveModerationLog } from '@/lib/content-moderation';
 import { prisma } from '@/lib/db';
 
@@ -13,15 +12,6 @@ export interface VideoModerationJobPayload {
 }
 
 export function registerAllHandlers() {
-  registerJobHandler('grant_points', async (payload) => {
-    const { userId, action, detail } = payload as {
-      userId: string;
-      action: PointAction;
-      detail?: string;
-    };
-    await grantPoints(userId, action, detail);
-  });
-
   registerJobHandler('video_moderation', async (payload) => {
     const { taskId, mediaId, pollCount = 0 } = payload as unknown as VideoModerationJobPayload;
 

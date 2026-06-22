@@ -1,139 +1,202 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { Activity, BarChart3, FolderOpen, Gamepad2, MessageSquarePlus, Users } from 'lucide-react';
-import { adminGet } from '@/lib/admin-fetch';
-
-interface RecentFeedback {
-  id: string;
-  type: string;
-  content: string;
-  status: string;
-  createdAt: string;
-  user: { name: string } | null;
-}
+import { useRouter } from 'next/navigation';
+import {
+  Users,
+  MessageSquare,
+  ImageIcon,
+  Megaphone,
+  BarChart3,
+  ShieldCheck,
+  Clock,
+  AlertTriangle,
+  ChevronRight,
+} from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { useAdminAuth } from '@/components/AdminAuthProvider';
+import { api } from '@/lib/api';
 
 interface Stats {
   users: number;
-  games: number;
+  feedback: number;
   media: number;
-  feedbacks: number;
-  pendingFeedbacks: number;
+  announcements: number;
+  admins: number;
   todayUsers: number;
-  todayViews: number;
-  totalViews30d: number;
-  activeUsers: number;
-  trend: {
-    dates: string[];
-    users: number[];
-    views: number[];
-  };
-  recentFeedbacks: RecentFeedback[];
+  todayFeedback: number;
+  pendingFeedback: number;
 }
 
-export default function AdminDashboard() {
+export default function AdminDashboardPage() {
+  const { admin, isLoggedIn } = useAdminAuth();
+  const router = useRouter();
   const [stats, setStats] = useState<Stats | null>(null);
-  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    adminGet<Stats>('/api/admin/stats')
-      .then((res) => setStats(res.data))
-      .catch((err) => setError(err.message));
-  }, []);
+    if (!isLoggedIn) {
+      router.push('/admin/login');
+      return;
+    }
+    loadStats();
+  }, [isLoggedIn, router]);
 
-  if (error) return <div className="card text-danger">{error}</div>;
+  const loadStats = async () => {
+    try {
+      const res = await api.get('/api/admin/stats');
+      if (res.ok && res.data) {
+        setStats(res.data);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const cards = [
-    { key: 'users', label: '用户', icon: Users, href: '/admin/users' },
-    { key: 'games', label: '游戏', icon: Gamepad2, href: '/admin/games' },
-    { key: 'media', label: '媒体', icon: FolderOpen, href: '/admin/media' },
-    { key: 'feedbacks', label: '反馈', icon: MessageSquarePlus, href: '/admin/feedback' },
-  ] as const;
+    { key: 'users', label: '用户', icon: Users, href: '/admin/users', color: 'text-blue-500' },
+    { key: 'feedback', label: '反馈', icon: MessageSquare, href: '/admin/feedback', color: 'text-yellow-500' },
+    { key: 'media', label: '媒体', icon: ImageIcon, href: '/admin/media', color: 'text-purple-500' },
+    { key: 'announcements', label: '公告', icon: Megaphone, href: '/admin/announcements', color: 'text-green-500' },
+  ];
+
+  if (!isLoggedIn || !admin) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">加载中...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <div className="card !p-0 overflow-hidden">
-        <div className="bg-gradient-to-r from-primary/5 via-white to-primary/5 p-5">
-          <p className="text-text-muted text-caption">{new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}</p>
-          <h2 className="text-heading-sm text-text-title mt-0.5">运营概览</h2>
-          <div className="grid sm:grid-cols-3 gap-4 mt-5">
-            <div>
-              <p className="text-caption text-text-muted">今日新用户</p>
-              <p className="text-heading-sm text-text-title">{stats?.todayUsers ?? '-'}</p>
-            </div>
-            <div>
-              <p className="text-caption text-text-muted">今日访问</p>
-              <p className="text-heading-sm text-text-title">{stats?.todayViews ?? '-'}</p>
-            </div>
-            <div>
-              <p className="text-caption text-text-muted">30 天访问</p>
-              <p className="text-heading-sm text-text-title">{stats?.totalViews30d ?? '-'}</p>
-            </div>
-          </div>
+      {/* 欢迎区域 */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">管理后台</h1>
+          <p className="text-muted-foreground mt-1">
+            欢迎回来，{admin.name} ({admin.role === 'super_admin' ? '超级管理员' : admin.role === 'admin' ? '管理员' : '编辑'})
+          </p>
+        </div>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <ShieldCheck className="w-4 h-4" />
+          <span>权限正常</span>
         </div>
       </div>
 
-      {stats && stats.pendingFeedbacks > 0 && (
-        <Link href="/admin/feedback" className="card flex items-center gap-3 hover:border-primary transition-colors">
-          <MessageSquarePlus className="w-5 h-5 text-warning" />
-          <span className="text-body text-text-body">有 {stats.pendingFeedbacks} 条反馈待处理</span>
-        </Link>
-      )}
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {cards.map((card) => (
-          <Link key={card.key} href={card.href} className="card flex items-center gap-3 hover:-translate-y-0.5 transition-all duration-200">
-            <div className="w-10 h-10 rounded-btn bg-primary-bg flex items-center justify-center">
-              <card.icon className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-caption text-text-muted">{card.label}</p>
-              <p className="text-heading-sm text-text-title">{stats ? Number(stats[card.key] ?? 0).toLocaleString() : '-'}</p>
-            </div>
-          </Link>
-        ))}
-      </div>
-
-      <div className="grid lg:grid-cols-2 gap-4">
-        <div className="card">
-          <h3 className="text-body font-semibold text-text-title flex items-center gap-2 mb-4">
-            <BarChart3 className="w-4 h-4 text-primary" />
-            访问趋势
-          </h3>
-          <div className="space-y-2">
-            {(stats?.trend?.dates ?? []).map((date, i) => {
-              const views = stats?.trend?.views ?? [];
-              const value = views[i] ?? 0;
-              const max = Math.max(...views, 1);
-              return (
-                <div key={date} className="flex items-center gap-3">
-                  <span className="text-caption text-text-muted w-16">{date.slice(5)}</span>
-                  <div className="flex-1 h-4 bg-gray-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-primary/70" style={{ width: `${Math.max(4, (value / max) * 100)}%` }} />
+      {/* 统计卡片 */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {cards.map((card) => {
+          const Icon = card.icon;
+          const value = stats ? (stats[card.key as keyof Stats] as number) ?? 0 : 0;
+          return (
+            <Card key={card.key} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.push(card.href)}>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">{card.label}</p>
+                    <p className="text-2xl font-bold mt-1">
+                      {isLoading ? '-' : value.toLocaleString()}
+                    </p>
                   </div>
-                  <span className="text-caption text-text-muted w-10 text-right">{value}</span>
+                  <Icon className={`w-8 h-8 ${card.color} opacity-60`} />
                 </div>
-              );
-            }) ?? <p className="text-caption text-text-muted">加载中...</p>}
-          </div>
-        </div>
-
-        <div className="card">
-          <h3 className="text-body font-semibold text-text-title flex items-center gap-2 mb-4">
-            <Activity className="w-4 h-4 text-primary" />
-            最近反馈
-          </h3>
-          <div className="divide-y divide-divider">
-            {stats?.recentFeedbacks?.length ? stats.recentFeedbacks.map((fb) => (
-              <div key={fb.id} className="py-3 first:pt-0 last:pb-0">
-                <p className="text-body text-text-body line-clamp-1">{fb.content}</p>
-                <p className="text-caption text-text-muted mt-1">{fb.user?.name || '匿名'} · {fb.status}</p>
-              </div>
-            )) : <p className="text-caption text-text-muted">暂无反馈</p>}
-          </div>
-        </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
+
+      {/* 今日概览 */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Clock className="w-4 h-4" />
+              今日新增用户
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">
+              {isLoading ? '-' : stats?.todayUsers ?? 0}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <MessageSquare className="w-4 h-4" />
+              今日反馈
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">
+              {isLoading ? '-' : stats?.todayFeedback ?? 0}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-yellow-500" />
+              待处理反馈
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">
+              {isLoading ? '-' : stats?.pendingFeedback ?? 0}
+            </p>
+            {stats && stats.pendingFeedback > 0 && (
+              <Button
+                variant="link"
+                className="p-0 h-auto text-sm mt-2"
+                onClick={() => router.push('/admin/feedback')}
+              >
+                去处理
+                <ChevronRight className="w-3 h-3 ml-1" />
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 快速操作 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <BarChart3 className="w-5 h-5" />
+            快速操作
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <Button variant="outline" className="justify-start" onClick={() => router.push('/admin/announcements/new')}>
+              <Megaphone className="w-4 h-4 mr-2" />
+              发布公告
+            </Button>
+            <Button variant="outline" className="justify-start" onClick={() => router.push('/admin/feedback')}>
+              <MessageSquare className="w-4 h-4 mr-2" />
+              处理反馈
+            </Button>
+            <Button variant="outline" className="justify-start" onClick={() => router.push('/admin/media')}>
+              <ImageIcon className="w-4 h-4 mr-2" />
+              审核媒体
+            </Button>
+            <Button variant="outline" className="justify-start" onClick={() => router.push('/admin/users')}>
+              <Users className="w-4 h-4 mr-2" />
+              管理用户
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

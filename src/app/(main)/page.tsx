@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Gamepad2, MapPinned, MessageSquarePlus, UserRound } from 'lucide-react';
+import { MapPinned, MessageSquarePlus, UserRound } from 'lucide-react';
 import HeroCarousel from '@/components/HeroCarousel';
 import { getHomePageData } from '@/lib/site-data';
 
@@ -16,7 +16,6 @@ export default async function HomePage() {
 
   const quickLinks = [
     { href: '/profile', label: `关于${profile.name}`, desc: '资料、经历与社交账号', icon: UserRound },
-    { href: '/games', label: '最近在玩', desc: '直播常玩游戏与推荐', icon: Gamepad2 },
     { href: '/fan-map', label: '粉丝地图', desc: '看看大家来自哪里', icon: MapPinned },
     { href: '/feedback', label: '反馈答疑', desc: '提交建议与问题', icon: MessageSquarePlus },
   ];

@@ -1,110 +1,118 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { verifyPassword, signToken, requireEnv } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import { verifyPassword, signUserToken, setTokenCookie, USER_COOKIE_NAME } from '@/lib/auth';
-import { ok, fail, handleError } from '@/lib/api';
-import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
-import { grantDailyLogin } from '@/lib/points';
-import { recordSecurityEvent, getRequestMeta } from '@/lib/registration-security';
+import { loginRateLimiter } from '@/lib/registration-security';
+import { timingSafeEqualStr } from '@/lib/timing-safe';
 
 const loginSchema = z.object({
-  email: z.string().email('邮箱格式不正确'),
-  password: z.string().min(6, '密码至少6位'),
+  email: z.string().email('请输入有效的邮箱地址'),
+  password: z.string().min(1, '请输入密码'),
 });
 
 export async function POST(req: NextRequest) {
-  const { ip, uaHash } = getRequestMeta(req);
+  let body: unknown;
   try {
-    const wait = await checkRateLimit(ip, { namespace: 'user-login', windowMs: 60_000, max: 10 });
-    if (wait !== null) {
-      return fail(`操作过于频繁，请 ${wait} 秒后再试`, 429);
-    }
+    body = await req.json();
+  } catch {
+    return NextResponse.json(
+      { code: 400, message: '请求体必须是有效的 JSON', data: null },
+      { status: 400 }
+    );
+  }
 
-    const body = await req.json();
-    const parsed = loginSchema.safeParse(body);
-    if (!parsed.success) {
-      return fail(parsed.error.issues[0].message);
-    }
+  const parsed = loginSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { code: 400, message: parsed.error.errors[0].message, data: null },
+      { status: 400 }
+    );
+  }
 
-    const { email, password } = parsed.data;
+  const { email, password } = parsed.data;
 
+  // 获取客户端 IP
+  const ip = req.headers.get('x-real-ip') || req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '127.0.0.1';
+
+  // 登录频率限制（IP 级别）
+  const rateLimit = await loginRateLimiter.check(ip);
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      { code: 429, message: `登录过于频繁，请 ${rateLimit.retryAfter} 秒后再试`, data: null },
+      { status: 429 }
+    );
+  }
+
+  try {
+    // 查找用户
     const user = await prisma.user.findUnique({
       where: { email },
-      select: { id: true, email: true, name: true, avatar: true, role: true, password: true, isActive: true },
     });
 
     if (!user) {
-      await recordSecurityEvent(prisma as any, {
-        eventType: 'login_attempt',
-        result: 'reject',
-        reason: 'user_not_found',
-        email,
-        ip,
-        uaHash,
-      }).catch(() => {});
-      return fail('邮箱或密码错误', 401);
+      return NextResponse.json(
+        { code: 401, message: '邮箱或密码错误', data: null },
+        { status: 401 }
+      );
     }
 
-    if (!user.isActive) {
-      await recordSecurityEvent(prisma as any, {
-        eventType: 'login_attempt',
-        result: 'reject',
-        reason: 'account_disabled',
-        email,
-        userId: user.id,
-        ip,
-        uaHash,
-      }).catch(() => {});
-      return fail('账号已被禁用', 403);
+    // 验证密码
+    const isValid = await verifyPassword(password, user.password);
+    if (!isValid) {
+      return NextResponse.json(
+        { code: 401, message: '邮箱或密码错误', data: null },
+        { status: 401 }
+      );
     }
 
-    const valid = await verifyPassword(password, user.password);
-    if (!valid) {
-      await recordSecurityEvent(prisma as any, {
-        eventType: 'login_attempt',
-        result: 'reject',
-        reason: 'wrong_password',
-        email,
-        userId: user.id,
-        ip,
-        uaHash,
-      }).catch(() => {});
-      return fail('邮箱或密码错误', 401);
-    }
+    // 生成 JWT
+    const token = await signToken({ userId: user.id, email: user.email });
 
-    const token = signUserToken({ id: user.id, email: user.email, role: user.role });
+    // 设置 cookie
+    const isProduction = process.env.NODE_ENV === 'production';
+    const cookieOptions = [
+      `token=${token}`,
+      'HttpOnly',
+      'Path=/',
+      isProduction ? 'Secure' : '',
+      'SameSite=Lax',
+      `Max-Age=${30 * 24 * 60 * 60}`,
+    ].filter(Boolean);
 
-    // 每日登录积分（异步，不阻塞登录）
-    const dailyResult = await grantDailyLogin(user.id).catch(() => null);
-
-    const response = ok({
-      user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        avatar: user.avatar,
-        role: user.role,
-      },
-      pointsEarned: dailyResult ? dailyResult.points : 0,
-      levelUp: dailyResult?.levelUp || false,
+    // 记录登录时间
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
     });
-    // 防止 Nginx proxy_cache 缓存带 Set-Cookie 的登录响应导致用户串号
-    response.headers.set('Cache-Control', 'private, no-store, no-cache, must-revalidate');
-    response.headers.set('Pragma', 'no-cache');
-    response.headers.set('Expires', '0');
-    setTokenCookie(response, token, USER_COOKIE_NAME);
 
-    await recordSecurityEvent(prisma as any, {
-      eventType: 'login_success',
-      result: 'success',
-      email: user.email,
-      userId: user.id,
-      ip,
-      uaHash,
-    }).catch(() => {});
-
-    return response;
+    return NextResponse.json(
+      {
+        code: 200,
+        message: '登录成功',
+        data: {
+          user: {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            avatar: user.avatar,
+            bio: user.bio,
+            city: user.city,
+            province: user.province,
+          },
+        },
+      },
+      {
+        status: 200,
+        headers: {
+          'Set-Cookie': cookieOptions.join('; '),
+        },
+      }
+    );
   } catch (err) {
-    return handleError(err);
+    console.error('Login error:', err);
+    return NextResponse.json(
+      { code: 500, message: '服务器内部错误', data: null },
+      { status: 500 }
+    );
   }
 }

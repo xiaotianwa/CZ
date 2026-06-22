@@ -69,8 +69,8 @@ export default function HeroCarousel({ slides, profile }: HeroCarouselProps) {
             <Link href="/fan-map" className="inline-flex items-center justify-center h-11 px-7 rounded-full bg-white text-[#1a1a1a] text-sm font-semibold hover:bg-[#f2f2f2] transition-colors duration-150">
               粉丝地图
             </Link>
-            <Link href="/play" className="inline-flex items-center justify-center h-11 px-7 rounded-full border border-white/30 text-white/90 text-sm font-semibold hover:bg-white/10 transition-colors duration-150">
-              游戏中心
+            <Link href="/feedback" className="inline-flex items-center justify-center h-11 px-7 rounded-full border border-white/30 text-white/90 text-sm font-semibold hover:bg-white/10 transition-colors duration-150">
+              反馈答疑
             </Link>
           </div>
         </div>

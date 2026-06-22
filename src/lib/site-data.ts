@@ -108,7 +108,6 @@ export async function getProfilePageData() {
 export function extractFeatureFlags(cfg: Record<string, string>) {
   return {
     memesEnabled: cfg.feature_memes_enabled === 'true',
-    playEnabled: cfg.feature_play_enabled === 'true',
   };
 }
 

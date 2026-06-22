@@ -1,61 +1,61 @@
-import { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+import { verifyToken } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import { getCurrentUser } from '@/lib/auth';
-import { ok, fail, handleError } from '@/lib/api';
-import { calcLevelFromPoints, getBadgeByLevel } from '@/lib/level';
 
 export async function GET(req: NextRequest) {
   try {
-    const payload = await getCurrentUser(req);
-    if (!payload) {
-      return fail('未登录', 401);
+    // 从 cookie 获取 token
+    const token = req.cookies.get('token')?.value;
+    if (!token) {
+      return NextResponse.json(
+        { code: 401, message: '未登录', data: null },
+        { status: 401 }
+      );
     }
 
+    // 验证 token
+    const payload = await verifyToken(token);
+    if (!payload) {
+      return NextResponse.json(
+        { code: 401, message: '登录已过期', data: null },
+        { status: 401 }
+      );
+    }
+
+    // 获取用户信息
     const user = await prisma.user.findUnique({
-      where: { id: payload.id },
+      where: { id: payload.userId },
       select: {
         id: true,
-        email: true,
         name: true,
+        email: true,
         avatar: true,
-        role: true,
-        level: true,
-        badge: true,
-        points: true,
         bio: true,
         city: true,
+        province: true,
         createdAt: true,
+        lastLoginAt: true,
       },
     });
 
     if (!user) {
-      return fail('用户不存在', 404);
+      return NextResponse.json(
+        { code: 401, message: '用户不存在', data: null },
+        { status: 401 }
+      );
     }
 
-    const syncedLevel = calcLevelFromPoints(user.points);
-    const syncedBadge = getBadgeByLevel(syncedLevel);
-
-    if (user.level !== syncedLevel || user.badge !== syncedBadge) {
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { level: syncedLevel, badge: syncedBadge },
-      });
-      user.level = syncedLevel;
-      user.badge = syncedBadge;
-    }
-
-    // 计算注册顺序：注册时间 <= 当前用户的用户数量 = 该用户是第几位
-    const joinOrder = await prisma.user.count({
-      where: { createdAt: { lte: user.createdAt } },
+    return NextResponse.json({
+      code: 200,
+      message: 'success',
+      data: { user },
     });
-
-    const res = ok({ ...user, joinOrder });
-    // 防止 Nginx proxy_cache 缓存带用户信息的响应导致串号
-    res.headers.set('Cache-Control', 'private, no-store, no-cache, must-revalidate');
-    res.headers.set('Pragma', 'no-cache');
-    res.headers.set('Expires', '0');
-    return res;
   } catch (err) {
-    return handleError(err);
+    console.error('Get me error:', err);
+    return NextResponse.json(
+      { code: 500, message: '服务器内部错误', data: null },
+      { status: 500 }
+    );
   }
 }
