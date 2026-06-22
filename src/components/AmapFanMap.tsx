@@ -82,8 +82,8 @@ interface AMapNamespace {
 
 declare global {
   interface Window {
-    AMap?: AMapNamespace;
-    __amapLoaderPromise?: Promise<AMapNamespace>;
+    AMap?: any;
+    __amapLoaderPromise?: Promise<any>;
     _AMapSecurityConfig?: {
       securityJsCode?: string;
     };

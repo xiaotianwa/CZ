@@ -3,6 +3,7 @@ import { Prisma } from '@/generated/prisma/client';
 import { prisma } from '@/lib/db';
 import { requireTcgAdmin } from '@/lib/tcg/auth';
 import { ok, handleError } from '@/lib/api';
+import { REMOVED_GAME_CENTER_ENTRY_KEYS } from '@/data/gameCenterEntries';
 
 function isMissingGameCenterTable(err: unknown) {
   return err instanceof Error && /GameCenterEntry/i.test(err.message) && /(no such table|does not exist)/i.test(err.message);
@@ -64,6 +65,7 @@ export async function GET(req: NextRequest) {
         SELECT COUNT(*) as count
         FROM "GameCenterEntry"
         WHERE "isEnabled" = true
+          AND "entryKey" NOT IN (${Prisma.join(REMOVED_GAME_CENTER_ENTRY_KEYS)})
       `).catch((err: unknown) => {
         if (isMissingGameCenterTable(err)) {
           return [{ count: 0 }];

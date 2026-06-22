@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard, Sparkles, Users, Gamepad2,
   ScrollText, Settings, LogOut, Menu, X,
-  ChevronRight, FileBox, UserCog, LibraryBig, HelpCircle, Smile, Keyboard,
+  ChevronRight, FileBox, UserCog, LibraryBig,
 } from 'lucide-react';
 
 interface SidebarLink {
@@ -33,9 +33,6 @@ const sidebarGroups: SidebarGroup[] = [
     title: '当前项目',
     links: [
       { href: '/tcg-admin/project-games', label: '游戏总览', icon: LibraryBig },
-      { href: '/tcg-admin/project-games/quiz', label: '1103 知识问答', icon: HelpCircle },
-      { href: '/tcg-admin/project-games/emoji-guess', label: '表情猜猜猜', icon: Smile },
-      { href: '/tcg-admin/project-games/typing', label: '弹幕打字赛', icon: Keyboard },
     ],
   },
   {

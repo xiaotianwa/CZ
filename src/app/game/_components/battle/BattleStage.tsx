@@ -27,17 +27,26 @@ export function BoardRow({
   minions, owner, onClick, onHover, legalMinions, isSelecting, selectedId, attackableSet,
 }: BoardRowProps) {
   return (
-    <div className={`relative flex gap-1.5 sm:gap-3 h-full min-h-[92px] sm:min-h-[100px] [@media(max-height:520px)]:min-h-0 rounded-xl p-1.5 sm:p-3 [@media(max-height:520px)]:p-1 transition-all ${
+    <div data-battle-board-row="true" className={`relative flex h-full min-h-[92px] items-center justify-center gap-1.5 overflow-hidden rounded-[24px] p-1.5 transition-all sm:min-h-[100px] sm:gap-3 sm:p-3 lg:min-h-0 [@media(max-height:520px)]:min-h-0 [@media(max-height:520px)]:p-1 ${
       minions.length === 0
-        ? 'bg-gradient-to-b from-white/[0.02] via-white/[0.04] to-white/[0.02] border border-dashed border-white/10'
-        : 'bg-gradient-to-b from-white/[0.04] via-white/[0.06] to-white/[0.04] border border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]'
-    } ${isSelecting ? 'ring-1 ring-white/20' : ''}`}>
+        ? 'border border-dashed border-[#b58b4a]/25 bg-[radial-gradient(ellipse_at_center,rgba(181,139,74,0.09),rgba(15,23,42,0.22)_56%,rgba(2,6,23,0.20))]'
+        : 'border border-white/10 bg-[radial-gradient(ellipse_at_center,rgba(20,184,166,0.11),rgba(15,23,42,0.45)_62%,rgba(2,6,23,0.30))] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]'
+    } ${isSelecting ? 'ring-1 ring-cyan-200/35' : ''}`}>
+      <div aria-hidden className="pointer-events-none absolute inset-x-4 top-1/2 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+      <div aria-hidden className="pointer-events-none absolute inset-3 grid grid-cols-6 gap-2 opacity-55">
+        {Array.from({ length: 6 }).map((_, index) => (
+          <span
+            key={index}
+            className="rounded-[18px] border border-[#b58b4a]/15 bg-black/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]"
+          />
+        ))}
+      </div>
       {minions.length === 0 && (
-        <div className="relative m-auto flex flex-col items-center gap-1.5 text-white/25">
-          <div className="inline-flex items-center justify-center w-10 h-10 rounded-full border-2 border-dashed border-white/20 bg-white/[0.02]">
-            <Icons.CharacterIcon size={18} className="text-white/30" />
+        <div className="relative m-auto flex flex-col items-center gap-2 text-white/30">
+          <div className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-dashed border-[#b58b4a]/35 bg-black/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+            <Icons.CharacterIcon size={18} className="text-amber-100/45" />
           </div>
-          <div className="text-[11px] font-medium tracking-[0.3em] uppercase">no minion</div>
+          <div className="text-[11px] font-semibold tracking-[0.28em] text-white/35">空场</div>
         </div>
       )}
       {minions.map((m) => {
@@ -51,7 +60,8 @@ export function BoardRow({
                       selected={selectedId === m.instanceId}
                       targetable={targetable}
                       dimmed={dimmed}
-                      attackable={attackable} />
+                      attackable={attackable}
+                      showActionStatus={!!attackableSet} />
         );
       })}
     </div>
@@ -67,16 +77,26 @@ export interface MinionCardProps {
   targetable: boolean;
   dimmed: boolean;
   attackable?: boolean;
+  showActionStatus?: boolean;
 }
 
 export function MinionCard({
-  minion, onClick, onHover, selected, targetable, dimmed, attackable,
+  minion, onClick, onHover, selected, targetable, dimmed, attackable, showActionStatus,
 }: MinionCardProps) {
   const def = getCardDef(minion.defId);
   const preset = getPreset(minion.defId);
   const rarity = def?.rarity ?? 'N';
   const kwArr = Array.from(minion.keywords);
   const hasTaunt = minion.keywords.has('taunt') && !minion.silenced;
+  const status = showActionStatus
+    ? attackable
+      ? { label: minion.attacksLeftThisTurn > 1 ? `${minion.attacksLeftThisTurn} 次` : '就绪', cls: 'bg-cyan-300 text-slate-950' }
+      : minion.summoningSickness
+        ? { label: '疲劳', cls: 'bg-slate-950/75 text-white/70' }
+        : minion.attacksLeftThisTurn <= 0
+          ? { label: '已行动', cls: 'bg-slate-950/70 text-white/55' }
+          : null
+    : null;
 
   return (
     <button onClick={(e) => onClick(e)}
@@ -84,7 +104,7 @@ export function MinionCard({
             onMouseLeave={() => onHover(null)}
             data-minion-id={minion.instanceId}
             data-hover-anchor="1"
-            className={`relative w-[96px] h-[124px] sm:w-[116px] sm:h-[148px] lg:w-[140px] lg:h-[184px] [@media(max-height:720px)]:w-[116px] [@media(max-height:720px)]:h-[148px] [@media(max-height:520px)]:w-[70px] [@media(max-height:520px)]:h-[88px] rounded-lg overflow-hidden border-[3px] animate-summon-in ${RARITY_COLOR[rarity]} ${RARITY_GLOW[rarity]} transition-all ${
+            className={`relative w-[96px] h-[124px] sm:w-[116px] sm:h-[148px] lg:w-[112px] lg:h-[148px] [@media(max-height:720px)]:w-[104px] [@media(max-height:720px)]:h-[136px] [@media(max-height:520px)]:w-[70px] [@media(max-height:520px)]:h-[88px] rounded-xl overflow-hidden border-[3px] animate-summon-in ${RARITY_COLOR[rarity]} ${RARITY_GLOW[rarity]} bg-slate-950 shadow-[0_14px_28px_rgba(0,0,0,0.34)] transition-all ${
               selected ? 'ring-4 ring-amber-400 -translate-y-2 scale-105' : ''
             } ${targetable ? 'ring-4 ring-emerald-400 animate-pulse' : ''} ${
               dimmed ? 'opacity-30 grayscale' : 'hover:-translate-y-1'
@@ -141,6 +161,12 @@ export function MinionCard({
       {minion.rebornAvailable && !minion.silenced && (
         <div className="absolute top-5 right-1 text-emerald-300" title="复出">
           <Icons.RebornIcon size={13} />
+        </div>
+      )}
+
+      {status && (
+        <div className={`absolute left-1 right-1 top-[48px] sm:top-[56px] [@media(max-height:520px)]:top-[38px] rounded px-1 py-0.5 text-center text-[9px] font-black shadow ${status.cls}`}>
+          {status.label}
         </div>
       )}
 

@@ -17,6 +17,7 @@
 
 import type { Action, CardDef, GameState, Minion, PlayerId, TargetRef } from './types';
 import { applyAction, getCardDef, HERO_ATTACKER_ID } from './engine';
+import { getHeroPowerDef } from './heroPowers';
 
 export type AIDifficulty = 'easy' | 'normal' | 'hard';
 
@@ -25,6 +26,9 @@ const TARGETED_EFFECT_IDS = new Set([
   'silence_target',
   'transform_target_1_1',
   'combo_damage_with_chenze',
+  'return_target_to_hand',
+  'give_target_divine_shield',
+  'damage_full_health_target_bonus',
 ]);
 
 function needsTarget(def: CardDef): boolean {
@@ -75,9 +79,8 @@ export function nextAction(
   const attack = tryAttack(state, ai, difficulty);
   if (attack) return attack;
 
-  // 3) 玩家技能（抽 1 张）—— 仅当剩 2+ 能量且未用
-  const p = state.players[ai];
-  if (!p.heroPowerUsed && p.mana >= 2) {
+  // 3) 玩家技能
+  if (canUseHeroPower(state, ai)) {
     return { type: 'HERO_POWER', player: ai };
   }
 
@@ -90,6 +93,15 @@ export function nextAction(
 function pickRandom<T>(arr: readonly T[]): T | undefined {
   if (arr.length === 0) return undefined;
   return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function canUseHeroPower(state: GameState, ai: PlayerId): boolean {
+  const p = state.players[ai];
+  const power = getHeroPowerDef(p.heroPowerId);
+  if (p.heroPowerUsed || p.mana < power.cost) return false;
+  if (power.kind === 'summon' && p.minions.length >= 6) return false;
+  if (power.kind === 'heal' && p.hp >= p.hpMax) return false;
+  return true;
 }
 
 // ============ 换牌决策 ============
@@ -162,6 +174,7 @@ function shuffle<T>(arr: readonly T[]): T[] {
 function chooseTarget(state: GameState, ai: PlayerId, def: CardDef, difficulty: AIDifficulty = 'normal'): TargetRef | null {
   const enemy = enemyOf(ai);
   const enemyP = state.players[enemy];
+  const selfP = state.players[ai];
   // 不可选中：对方潜水（旧称「隐身」）
   const attackableEnemyMinions = enemyP.minions.filter((m) => !(m.keywords.has('stealth') && !m.silenced));
 
@@ -173,14 +186,27 @@ function chooseTarget(state: GameState, ai: PlayerId, def: CardDef, difficulty: 
       kind: 'minion' as const, player: enemy, instanceId: m.instanceId,
     }));
     // 伤害类允许打脸
-    if (effectIds.includes('damage_target') || effectIds.includes('combo_damage_with_chenze')) {
+    if (
+      effectIds.includes('damage_target') ||
+      effectIds.includes('combo_damage_with_chenze') ||
+      effectIds.includes('damage_full_health_target_bonus')
+    ) {
       candidates.push({ kind: 'hero', player: enemy });
+    }
+    if (effectIds.includes('give_target_divine_shield')) {
+      candidates.push(...selfP.minions.map((m) => ({
+        kind: 'minion' as const, player: ai, instanceId: m.instanceId,
+      })));
     }
     return pickRandom(candidates) ?? null;
   }
 
   // 伤害类（上热搜 / OK了老铁）
-  if (effectIds.includes('damage_target') || effectIds.includes('combo_damage_with_chenze')) {
+  if (
+    effectIds.includes('damage_target') ||
+    effectIds.includes('combo_damage_with_chenze') ||
+    effectIds.includes('damage_full_health_target_bonus')
+  ) {
     const amt = estimateDirectDamage(def, state, ai);
     // 能斩杀 → 打脸
     if (amt >= enemyP.hp) {
@@ -217,6 +243,21 @@ function chooseTarget(state: GameState, ai: PlayerId, def: CardDef, difficulty: 
     return { kind: 'minion', player: enemy, instanceId: pick.instanceId };
   }
 
+  // 弹回：优先弹对方最高威胁角色
+  if (effectIds.includes('return_target_to_hand')) {
+    if (attackableEnemyMinions.length === 0) return null;
+    const pick = [...attackableEnemyMinions].sort((a, b) => priority(b) - priority(a))[0];
+    return { kind: 'minion', player: enemy, instanceId: pick.instanceId };
+  }
+
+  // 给盾：优先保护己方高攻或挡枪单位
+  if (effectIds.includes('give_target_divine_shield')) {
+    const candidates = selfP.minions.filter((m) => !m.divineShieldActive);
+    if (candidates.length === 0) return null;
+    const pick = [...candidates].sort((a, b) => priority(b) - priority(a))[0];
+    return { kind: 'minion', player: ai, instanceId: pick.instanceId };
+  }
+
   return null;
 }
 
@@ -241,6 +282,11 @@ function estimateDirectDamage(def: CardDef, state: GameState, ai: PlayerId): num
       const bonus = (eff.params?.bonus as number) ?? 3;
       const hasChenze = state.players[ai].minions.some((m) => m.defId === 'C14');
       return base + (hasChenze ? bonus : 0);
+    }
+    if (eff.effectId === 'damage_full_health_target_bonus') {
+      const base = (eff.params?.base as number) ?? 3;
+      const bonus = (eff.params?.bonus as number) ?? 0;
+      return base + bonus;
     }
   }
   return 0;
@@ -510,7 +556,7 @@ function collectCandidates(state: GameState, ai: PlayerId): Action[] {
   }
 
   // HERO_POWER
-  if (!p.heroPowerUsed && p.mana >= 2) {
+  if (canUseHeroPower(state, ai)) {
     out.push({ type: 'HERO_POWER', player: ai });
   }
 

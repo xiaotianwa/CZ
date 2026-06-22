@@ -117,7 +117,7 @@ export default function AdminMemesPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <span className="text-body text-text-muted">共 {data?.pagination.total ?? 0} 个梗</span>
+        <span className="text-body text-text-muted">共 {data?.pagination?.total ?? 0} 个梗</span>
         <button onClick={openCreate} className="btn-primary h-9 px-4 flex items-center gap-1.5 text-caption">
           <Plus className="w-4 h-4" /> 添加梗
         </button>
@@ -279,7 +279,7 @@ export default function AdminMemesPage() {
 
       {/* 列表 */}
       <div className="grid gap-3">
-        {data?.list.map((meme) => {
+        {data?.list?.map((meme) => {
           let tags: string[] = [];
           try { tags = JSON.parse(meme.tags || '[]'); } catch { /* */ }
           return (

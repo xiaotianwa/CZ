@@ -35,11 +35,11 @@ beforeEach(() => {
 describe('POST /api/pageview', () => {
   // ========== 正常流程 ==========
   it('test_pageview_validPath_createsRecord', async () => {
-    const res = await POST(makeReq({ path: '/community/123' }));
+    const res = await POST(makeReq({ path: '/profile' }));
     expect(res.status).toBe(200);
     expect(mockCreate).toHaveBeenCalledTimes(1);
     expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({
-      data: expect.objectContaining({ path: '/community/123', ip: '1.2.3.4' }),
+      data: expect.objectContaining({ path: '/profile', ip: '1.2.3.4' }),
     }));
   });
 
@@ -105,13 +105,13 @@ describe('POST /api/pageview', () => {
   // ========== 限流 ==========
   it('test_pageview_rateLimited_silentlyDropped', async () => {
     mockCheckRateLimit.mockResolvedValueOnce(30); // 剩余 30 秒
-    const res = await POST(makeReq({ path: '/community' }));
+    const res = await POST(makeReq({ path: '/profile' }));
     expect(res.status).toBe(200);
     expect(mockCreate).not.toHaveBeenCalled();
   });
 
   it('test_pageview_rateLimitUsesCorrectNamespace', async () => {
-    await POST(makeReq({ path: '/community' }));
+    await POST(makeReq({ path: '/profile' }));
     expect(mockCheckRateLimit).toHaveBeenCalledWith(
       '1.2.3.4',
       expect.objectContaining({ namespace: 'pageview', max: 60, windowMs: 60_000 }),

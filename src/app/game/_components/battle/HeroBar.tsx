@@ -12,6 +12,7 @@ import React from 'react';
 import * as Icons from '@/components/game/GameIcons';
 import CardBack from '@/components/game/CardBack';
 import { getCardDef } from '@/game/engine';
+import { getHeroPowerDef } from '@/game/heroPowers';
 import type { EventCard, PlayerState } from '@/game/types';
 
 export interface HeroBarProps {
@@ -35,6 +36,7 @@ export function HeroBar(props: HeroBarProps) {
 function HeroStrip({
   player, side, onClick, targetable, onHeroAttack, onHeroPower, heroPowerAvailable, flashKey,
 }: HeroBarProps) {
+  const heroPower = getHeroPowerDef(player.heroPowerId);
   // 配色：己方冷色、对方暖色
   const accent = side === 'me'
     ? 'from-emerald-500 via-emerald-600 to-teal-800'
@@ -108,15 +110,15 @@ function HeroStrip({
           {side === 'me' && onHeroPower && (
             <button onClick={(e) => { e.stopPropagation(); onHeroPower(); }}
                     disabled={!heroPowerAvailable}
-                    title={player.heroPowerUsed ? '本回合已用过' : player.mana < 2 ? '流量不足（2）' : '玩家技能：2 费抽 1 张牌'}
+                    title={getHeroPowerTitle(player, heroPower.name, heroPower.cost, heroPower.description)}
                     className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
                       heroPowerAvailable
-                        ? 'bg-gradient-to-r from-[#7C3AED] to-[#A855F7] hover:from-[#8B5CF6] hover:to-[#C084FC] text-white shadow-[0_0_14px_rgba(124,58,237,0.55)]'
+                        ? 'bg-gradient-to-r from-cyan-500 to-sky-500 hover:from-cyan-400 hover:to-sky-400 text-slate-950 shadow-[0_0_14px_rgba(34,211,238,0.35)]'
                         : 'bg-slate-700 text-white/35 cursor-not-allowed'
                     }`}>
-              <Icons.EffectIcon size={12} /> 技能
+              <Icons.EffectIcon size={12} /> {heroPower.shortLabel}
               <span className="inline-flex items-center gap-0.5 pl-1 border-l border-white/30 ml-0.5">
-                <Icons.ManaIcon size={10} className="text-cyan-200" /><span className="text-cyan-100">2</span>
+                <Icons.ManaIcon size={10} className="text-cyan-200" /><span className="text-cyan-100">{heroPower.cost}</span>
               </span>
             </button>
           )}
@@ -167,6 +169,7 @@ function HeroStrip({
 function HeroCorner({
   player, side, onClick, targetable, onHeroAttack, onHeroPower, heroPowerAvailable, flashKey,
 }: HeroBarProps) {
+  const heroPower = getHeroPowerDef(player.heroPowerId);
   const hpMax = player.hpMax || 40;
   const hpPct = Math.max(0, Math.min(100, (player.hp / hpMax) * 100));
   const manaPct = player.manaMax > 0 ? (player.mana / player.manaMax) * 100 : 0;
@@ -179,12 +182,13 @@ function HeroCorner({
       ? 'border-emerald-500/30'
       : 'border-rose-500/30';
   return (
-    <div className={`relative w-[186px] [@media(max-height:640px)]:w-[168px] flex flex-col gap-2 p-3 [@media(max-height:640px)]:p-2.5 rounded-2xl bg-gradient-to-b from-slate-900/85 via-slate-900/65 to-slate-900/85 border ${frameBorder} shadow-[0_16px_32px_rgba(0,0,0,0.35)] backdrop-blur-[2px]`}>
+    <div className={`relative w-[198px] [@media(max-height:640px)]:w-[178px] flex flex-col gap-2.5 p-3 [@media(max-height:640px)]:p-2.5 rounded-[24px] bg-[linear-gradient(160deg,rgba(15,23,42,0.95),rgba(12,18,32,0.82))] border ${frameBorder} shadow-[0_18px_40px_rgba(0,0,0,0.42),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-[2px]`}>
+      <div aria-hidden className={`absolute inset-x-4 top-0 h-px ${side === 'me' ? 'bg-emerald-300/45' : 'bg-rose-300/45'}`} />
       {/* 头像 + 名称 + 状态 */}
       <div className="flex items-center gap-2.5 min-w-0">
         <button onClick={onClick}
                 data-hero-id={player.id}
-                className={`group relative w-12 h-12 [@media(max-height:640px)]:w-11 [@media(max-height:640px)]:h-11 shrink-0 rounded-xl bg-gradient-to-br ${accent} flex items-center justify-center text-white border-2 border-white/25 cursor-pointer transition-transform ${targetable ? 'scale-110 ring-4 ring-emerald-400/60' : 'hover:scale-105'}`}
+                className={`group relative h-[52px] w-[52px] [@media(max-height:640px)]:w-11 [@media(max-height:640px)]:h-11 shrink-0 rounded-2xl bg-gradient-to-br ${accent} flex items-center justify-center text-white border-2 border-white/25 cursor-pointer transition-transform ${targetable ? 'scale-110 ring-4 ring-emerald-400/60' : 'hover:scale-105'}`}
                 title={`${player.id === 'P1' ? '玩家 1' : '玩家 2'}  HP ${player.hp}/${hpMax}`}>
           <span className="font-display tracking-tight text-base drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">{player.id}</span>
           <span key={flashKey}
@@ -205,7 +209,7 @@ function HeroCorner({
 
       {/* HP 条 + 数字 */}
       <div className="flex flex-col gap-0.5">
-        <div className="relative h-1.5 bg-slate-800/80 rounded-full overflow-hidden border border-white/5">
+        <div className="relative h-2 bg-black/35 rounded-full overflow-hidden border border-white/10">
           <div className={`h-full rounded-full transition-all duration-300 ${
             hpPct > 50 ? 'bg-gradient-to-r from-emerald-400 to-emerald-500'
               : hpPct > 25 ? 'bg-gradient-to-r from-amber-400 to-orange-500'
@@ -224,7 +228,7 @@ function HeroCorner({
 
       {/* 流量条 + 数字 */}
       <div className="flex flex-col gap-0.5">
-        <div className="relative h-1.5 bg-slate-800 rounded-full overflow-hidden border border-cyan-500/25">
+        <div className="relative h-2 bg-black/35 rounded-full overflow-hidden border border-cyan-500/25">
           <span className="absolute inset-y-0 left-0 bg-gradient-to-r from-cyan-400 to-sky-500" style={{ width: `${manaPct}%` }} />
         </div>
         <div className="flex items-center justify-between text-[10px] text-white/55 tabular-nums">
@@ -260,15 +264,15 @@ function HeroCorner({
           {onHeroPower && (
             <button onClick={(e) => { e.stopPropagation(); onHeroPower(); }}
                     disabled={!heroPowerAvailable}
-                    title={player.heroPowerUsed ? '本回合已用过' : player.mana < 2 ? '流量不足（2）' : '玩家技能：2 费抽 1 张牌'}
+                    title={getHeroPowerTitle(player, heroPower.name, heroPower.cost, heroPower.description)}
                     className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
                       heroPowerAvailable
-                        ? 'bg-gradient-to-r from-[#7C3AED] to-[#A855F7] hover:from-[#8B5CF6] hover:to-[#C084FC] text-white shadow-[0_0_12px_rgba(124,58,237,0.55)]'
+                        ? 'bg-gradient-to-r from-cyan-500 to-sky-500 hover:from-cyan-400 hover:to-sky-400 text-slate-950 shadow-[0_0_14px_rgba(34,211,238,0.35)]'
                         : 'bg-slate-700 text-white/35 cursor-not-allowed'
                     }`}>
-              <Icons.EffectIcon size={10} /> 技能
+              <Icons.EffectIcon size={10} /> {heroPower.shortLabel}
               <span className="inline-flex items-center gap-0.5 pl-0.5 border-l border-white/30">
-                <Icons.ManaIcon size={9} className="text-cyan-200" /><span className="text-cyan-100">2</span>
+                <Icons.ManaIcon size={9} className="text-cyan-200" /><span className="text-cyan-100">{heroPower.cost}</span>
               </span>
             </button>
           )}
@@ -293,6 +297,17 @@ function HeroCorner({
   );
 }
 
+function getHeroPowerTitle(
+  player: PlayerState,
+  name: string,
+  cost: number,
+  description: string,
+): string {
+  if (player.heroPowerUsed) return '本回合已用过';
+  if (player.mana < cost) return `流量不足（${cost}）`;
+  return `玩家技能：${cost} 费 · ${name}\n${description}`;
+}
+
 export function EventBadge({ ev, hideForOpp }: { ev: EventCard; hideForOpp: boolean }) {
   const def = getCardDef(ev.defId);
   if (ev.kind === 'secret' && hideForOpp) {
@@ -310,9 +325,9 @@ export function EventBadge({ ev, hideForOpp }: { ev: EventCard; hideForOpp: bool
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-500/25 text-indigo-200 text-xs rounded-full border border-indigo-500/50">
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-sky-500/20 text-sky-100 text-xs rounded-full border border-sky-400/40">
       <Icons.LocationIcon size={10} /> {def?.name ?? ev.defId}
-      <span className="inline-flex items-center gap-0.5 pl-1 border-l border-indigo-400/40 text-amber-300 font-bold">
+      <span className="inline-flex items-center gap-0.5 pl-1 border-l border-sky-300/30 text-amber-300 font-bold">
         <Icons.DelayedIcon size={9} />{ev.countdownRemaining}
       </span>
     </span>

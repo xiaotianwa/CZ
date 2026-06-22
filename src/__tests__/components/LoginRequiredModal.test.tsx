@@ -15,12 +15,12 @@ beforeEach(() => {
 
 describe('LoginRequiredModal', () => {
   it('test_modal_hiddenWhenOpenIsFalse', () => {
-    render(<LoginRequiredModal open={false} redirectTo="/community" onCancel={vi.fn()} />);
+    render(<LoginRequiredModal open={false} redirectTo="/profile" onCancel={vi.fn()} />);
     expect(screen.queryByText('需要登录')).toBeNull();
   });
 
   it('test_modal_visibleWhenOpenIsTrue', () => {
-    render(<LoginRequiredModal open={true} redirectTo="/community" onCancel={vi.fn()} />);
+    render(<LoginRequiredModal open={true} redirectTo="/profile" onCancel={vi.fn()} />);
     expect(screen.getByText('需要登录')).toBeInTheDocument();
     expect(screen.getByText('请先登录后再进行此操作')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '去登录' })).toBeInTheDocument();
@@ -29,7 +29,7 @@ describe('LoginRequiredModal', () => {
 
   it('test_modal_clickCancel_callsOnCancel', () => {
     const onCancel = vi.fn();
-    render(<LoginRequiredModal open={true} redirectTo="/community" onCancel={onCancel} />);
+    render(<LoginRequiredModal open={true} redirectTo="/profile" onCancel={onCancel} />);
     fireEvent.click(screen.getByRole('button', { name: '取消' }));
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(mockPush).not.toHaveBeenCalled();
@@ -37,15 +37,15 @@ describe('LoginRequiredModal', () => {
 
   it('test_modal_clickConfirm_navigatesToLoginWithRedirect', () => {
     const onCancel = vi.fn();
-    render(<LoginRequiredModal open={true} redirectTo="/community" onCancel={onCancel} />);
+    render(<LoginRequiredModal open={true} redirectTo="/profile" onCancel={onCancel} />);
     fireEvent.click(screen.getByRole('button', { name: '去登录' }));
-    expect(mockPush).toHaveBeenCalledWith('/login?redirect=%2Fcommunity');
+    expect(mockPush).toHaveBeenCalledWith('/login?redirect=%2Fprofile');
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
 
   it('test_modal_clickBackdrop_callsOnCancel', () => {
     const onCancel = vi.fn();
-    const { container } = render(<LoginRequiredModal open={true} redirectTo="/community" onCancel={onCancel} />);
+    const { container } = render(<LoginRequiredModal open={true} redirectTo="/profile" onCancel={onCancel} />);
     const backdrop = container.querySelector('.absolute.inset-0') as HTMLElement;
     fireEvent.click(backdrop);
     expect(onCancel).toHaveBeenCalledTimes(1);

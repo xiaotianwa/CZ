@@ -1,4 +1,4 @@
-// 首发 40 张卡牌预设（对应「卡池清单.md」）
+// 前台卡牌预设（对应引擎卡池与卡面展示）
 // 制作器可通过下拉选择一键加载数据与图片
 
 import type { CardRarity, CardType, CardSubtype } from '@/components/game/CardFrame';
@@ -132,6 +132,42 @@ const _PRESETS: CardPreset[] = [
     flavor: '家人们谁懂啊，这波操作直接炸裂',
     imagePath: '/cards/C14 主播·陈泽.jpeg',
   },
+  {
+    id: 'C15', name: '应援新人', type: 'character', rarity: 'N',
+    cost: 1, attack: 1, health: 1,
+    description: '普通角色；玩家技能「召集应援」会召唤它',
+    flavor: '第一次进直播间，先点个关注',
+  },
+  {
+    id: 'C16', name: '剪辑组长', type: 'character', rarity: 'R',
+    cost: 3, attack: 3, health: 4,
+    description: '【登场】抽 1 张牌，新抽到的牌费用 -1',
+    flavor: '素材已经切好了，标题也想好了',
+  },
+  {
+    id: 'C17', name: '护场保安', type: 'character', rarity: 'R',
+    cost: 4, attack: 3, health: 6,
+    description: '【挡枪】【吸粉】造成伤害时己方玩家恢复等量流量',
+    flavor: '场子我看着，你们安心输出',
+  },
+  {
+    id: 'C18', name: '节奏主持', type: 'character', rarity: 'SR',
+    cost: 5, attack: 4, health: 5,
+    description: '【试水】；攻击后抽 1 张牌',
+    flavor: '先把局面控住，再把节目做满',
+  },
+  {
+    id: 'C19', name: '榜一守护者', type: 'character', rarity: 'SR',
+    cost: 6, attack: 5, health: 6,
+    description: '【挡枪】【粉丝盾】；与「直播打赏王座」联动：生命 +2 并抽 1 张牌',
+    flavor: '榜一在，气势就在',
+  },
+  {
+    id: 'C20', name: '复盘老粉', type: 'character', rarity: 'R',
+    cost: 4, attack: 3, health: 3,
+    description: '【复出】；【退场】抽 1 张牌',
+    flavor: '这局我看明白了，下回合该我说',
+  },
 
   // ========== 🥤 道具 Item × 2（即时消耗品） ==========
   {
@@ -264,6 +300,48 @@ const _PRESETS: CardPreset[] = [
     description: '抽 3 张；本回合所有手牌 -2 费；回合末己方玩家回 5 流量',
     flavor: '究极无敌，全场沸腾',
   },
+  {
+    id: 'E13', name: '打榜冲刺', type: 'effect', rarity: 'R',
+    cost: 0,
+    description: '【即时】立即回复 2 点热度（技能点）',
+    flavor: '家人们，加把劲冲榜！',
+  },
+  {
+    id: 'E14', name: '氪金大爆发', type: 'effect', rarity: 'SR',
+    cost: 2,
+    description: '【即时】立即回复 4 点热度（技能点）',
+    flavor: '一次到位，技能点满血复活',
+  },
+  {
+    id: 'E15', name: '节奏复盘', type: 'effect', rarity: 'R',
+    cost: 2,
+    description: '抽 1 张牌，新抽到的牌费用 -1',
+    flavor: '上一波怎么输的，这次讲清楚',
+  },
+  {
+    id: 'E16', name: '控评降温', type: 'effect', rarity: 'R',
+    cost: 3,
+    description: '将目标角色弹回其主人手牌；手牌满则销毁',
+    flavor: '先别急，回去重新组织语言',
+  },
+  {
+    id: 'E17', name: '护盾应援', type: 'effect', rarity: 'N',
+    cost: 2,
+    description: '给目标角色一个【粉丝盾】',
+    flavor: '这一票，先保你一回合',
+  },
+  {
+    id: 'E18', name: '精准点名', type: 'effect', rarity: 'R',
+    cost: 3,
+    description: '对目标造成 3 伤害；若目标满血则改为 5 伤害',
+    flavor: '满血上场？先吃一记重点关注',
+  },
+  {
+    id: 'E19', name: '全员补位', type: 'effect', rarity: 'SR',
+    cost: 4,
+    description: '复活己方墓地最近 1 张角色为 1/1',
+    flavor: '缺人就补位，节目不能断',
+  },
 
   // ========== ⚡ 事件 Event × 6 ==========
   {
@@ -301,6 +379,24 @@ const _PRESETS: CardPreset[] = [
     cost: 5,
     description: '【暗箱】己方玩家首次受到 ≥5 伤害时改为 1，并抽 2 张牌',
     flavor: '回应来得又稳又狠',
+  },
+  {
+    id: 'V07', name: '律师函警告', type: 'event', rarity: 'SR',
+    cost: 2,
+    description: '【暗箱】对方下一张效果卡对己方玩家造成的伤害清零，己方额外回 5 流量并抽 1 张牌',
+    flavor: '已委托律师，追究到底',
+  },
+  {
+    id: 'V08', name: '直播间热场', type: 'event', rarity: 'N',
+    cost: 2,
+    description: '【场地·⏳2】倒计时归零：抽 1 张牌，己方玩家回 2 流量',
+    flavor: '灯光开好，弹幕预热',
+  },
+  {
+    id: 'V09', name: '粉丝团集结', type: 'event', rarity: 'R',
+    cost: 3,
+    description: '【场地·⏳2】倒计时归零：己方所有角色 +1/+1',
+    flavor: '今晚一起把牌面撑起来',
   },
 ];
 

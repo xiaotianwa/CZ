@@ -32,20 +32,20 @@ export const SYNERGY_SCOPES = [
 ] as const;
 
 export const SYNERGY_EFFECT_KINDS = [
-  { value: 'attack_buff', label: '攻击 +N', needsAmount: true, needsKeyword: false },
-  { value: 'health_buff', label: '生命 +N', needsAmount: true, needsKeyword: false },
-  { value: 'cost_reduce', label: '费用 -N（对应卡）', needsAmount: true, needsKeyword: false },
+  { value: 'attack_buff', label: '攻击增加 N', needsAmount: true, needsKeyword: false },
+  { value: 'health_buff', label: '生命增加 N', needsAmount: true, needsKeyword: false },
+  { value: 'cost_reduce', label: '手牌费用降低 N', needsAmount: true, needsKeyword: false },
   { value: 'keyword_grant', label: '获得关键字', needsAmount: false, needsKeyword: true },
   { value: 'draw_card', label: '抽 N 张牌', needsAmount: true, needsKeyword: false },
-  { value: 'heal', label: '治疗 N', needsAmount: true, needsKeyword: false },
-  { value: 'damage_enemy', label: '对敌方 N 伤害', needsAmount: true, needsKeyword: false },
-  { value: 'shield', label: '护盾 N', needsAmount: true, needsKeyword: false },
+  { value: 'heal', label: '治疗 N 点', needsAmount: true, needsKeyword: false },
+  { value: 'damage_enemy', label: '敌方经纪人受 N 点伤害', needsAmount: true, needsKeyword: false },
+  { value: 'shield', label: '获得护盾', needsAmount: false, needsKeyword: false },
 ] as const;
 
 export const SYNERGY_DURATIONS = [
-  { value: 'permanent', label: '永久', hint: '一次触发后永久生效' },
-  { value: 'turn', label: '本回合', hint: '仅当前回合生效' },
-  { value: 'while_paired', label: '联动期间', hint: '伙伴离场即失效' },
+  { value: 'permanent', label: '永久', hint: '推荐。触发后直接结算' },
+  { value: 'turn', label: '本回合', hint: '当前引擎按触发结算处理' },
+  { value: 'while_paired', label: '联动期间', hint: '当前引擎按触发结算处理' },
 ] as const;
 
 // 类型别名（string literal union）
@@ -126,14 +126,14 @@ export function createEmptySynergy(): CardSynergy {
     description: '',
     partners: [],
     trigger: 'both_in_play',
-    scope: 'self',
-    effects: [{ kind: 'attack_buff', amount: 1, duration: 'while_paired' }],
+    scope: 'both',
+    effects: [{ kind: 'attack_buff', amount: 1, duration: 'permanent' }],
   };
 }
 
 /** 生成新效果的默认值 */
 export function createEmptyEffect(): CardSynergyEffect {
-  return { kind: 'attack_buff', amount: 1, duration: 'while_paired' };
+  return { kind: 'attack_buff', amount: 1, duration: 'permanent' };
 }
 
 /** 效果的简短摘要（列表展示用） */

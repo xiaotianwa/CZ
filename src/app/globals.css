@@ -259,7 +259,7 @@ html.dark .bg-primary-bg { background-color: rgba(24, 144, 255, 0.12) !important
 html.dark .bg-\[\#fafafa\] { background-color: rgba(35, 35, 38, 0.8) !important; }
 html.dark .hover\:bg-\[\#fafafa\]:hover { background-color: rgba(42, 42, 46, 0.8) !important; }
 
-/* Glass cards in community/gallery etc */
+/* Glass cards used by remaining visual content sections */
 html.dark [class*="bg-white/40"],
 html.dark [class*="bg-white/50"],
 html.dark [class*="bg-white/60"],

@@ -126,14 +126,14 @@ export default function AdminBannedWordsPage() {
     }
   };
 
-  const activeCount = data?.list.filter((w) => w.isActive).length ?? 0;
+  const activeCount = data?.list?.filter((w) => w.isActive).length ?? 0;
 
   return (
     <div className="space-y-4">
       {/* 顶部操作栏 */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <span className="text-body text-text-muted">共 {data?.pagination.total ?? 0} 个违禁词</span>
+          <span className="text-body text-text-muted">共 {data?.pagination?.total ?? 0} 个违禁词</span>
           <span className="tag-success text-caption">{activeCount} 个启用中</span>
         </div>
         <div className="flex items-center gap-2">

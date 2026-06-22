@@ -19,7 +19,6 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         id: true, email: true, name: true, avatar: true,
         role: true, level: true, badge: true, customBadge: true, points: true,
         bio: true, isActive: true, createdAt: true,
-        _count: { select: { posts: true, comments: true } },
       },
     });
     if (!user) return fail('用户不存在', 404);

@@ -5,7 +5,7 @@ import { prisma } from '@/lib/db';
 import { requireTcgAdmin, requireTcgOps } from '@/lib/tcg/auth';
 import { ok, fail, handleError } from '@/lib/api';
 import { DEFAULT_GAME_CENTER_ENTRIES, GAME_CENTER_ICON_KEYS } from '@/data/gameCenterEntries';
-import { mergeGameCenterEntries, type GameCenterEntryRecord } from '@/lib/game-center';
+import { isRemovedGameCenterEntryKey, mergeGameCenterEntries, type GameCenterEntryRecord } from '@/lib/game-center';
 
 const createSchema = z.object({
   entryKey: z.string().trim().min(1, '请输入入口标识').max(50, '入口标识不能超过 50 个字符').regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, '入口标识仅支持小写字母、数字和中划线'),
@@ -108,6 +108,9 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const parsed = createSchema.safeParse(body);
     if (!parsed.success) return fail(parsed.error.issues[0].message);
+    if (isRemovedGameCenterEntryKey(parsed.data.entryKey)) {
+      return fail('该游戏入口已下线，不能重新添加');
+    }
 
     const entries = await ensureEntries();
     if (entries.some((item) => item.entryKey === parsed.data.entryKey)) {

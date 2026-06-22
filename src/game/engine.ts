@@ -33,6 +33,7 @@ import {
   updatePlayer,
 } from './engine-utils';
 import { runEffect } from './effects';
+import { getHeroPowerDef } from './heroPowers';
 import { triggerSynergiesOnEntry } from './synergyRuntime';
 
 // ============ 卡牌数据库（由外部注入 / cards.ts 填充） ============
@@ -90,6 +91,7 @@ export function initGame(opts: InitOptions): GameState {
     activePlayer: 'P1',
     ended: false,
     log: [],
+    triggeredSynergies: [],
     players: {
       P1: makePlayer('P1', opts.p1Deck),
       P2: makePlayer('P2', opts.p2Deck),
@@ -140,6 +142,7 @@ function makePlayer(id: PlayerId, deck: Deck): PlayerState {
   }));
   return {
     id,
+    heroPowerId: deck.heroPowerId || 'hp_draw1',
     hp: HERO_HP,
     hpMax: HERO_HP,
     mana: 0,
@@ -445,6 +448,23 @@ function handleMulligan(state: GameState, player: PlayerId, replaceIds: string[]
 
 // ============ 打出卡牌 ============
 
+function getPlayRestriction(state: GameState, owner: PlayerId, def: CardDef): string | null {
+  const player = state.players[owner];
+
+  if (def.type === 'character' && player.minions.length >= BOARD_MAX) {
+    return '战场已满';
+  }
+
+  if (def.type === 'event') {
+    if (player.events.length >= 3) return '事件槽已满';
+    if (def.secretTrigger && player.events.some((e) => e.kind === 'secret' && e.defId === def.id)) {
+      return '同暗箱不可重复';
+    }
+  }
+
+  return null;
+}
+
 function handlePlayCard(
   state: GameState,
   owner: PlayerId,
@@ -460,6 +480,11 @@ function handlePlayCard(
   // 能量检查
   if (p.mana < card.currentCost) {
     return addLog(state, { turn: state.turn, player: owner, kind: 'invalid', text: '能量不足' });
+  }
+
+  const playRestriction = getPlayRestriction(state, owner, def);
+  if (playRestriction) {
+    return addLog(state, { turn: state.turn, player: owner, kind: 'invalid', text: playRestriction });
   }
 
   // 扣费 + 从手牌移除 + 累积本回合打出类型（用于三连爆款联动）
@@ -943,21 +968,74 @@ function handleHeroWeaponAttack(
 // ============ 经纪人技能 ============
 
 function handleHeroPower(state: GameState, owner: PlayerId, target?: TargetRef): GameState {
-  const HP_COST = 2;
   const p = state.players[owner];
+  const power = getHeroPowerDef(p.heroPowerId);
   if (p.heroPowerUsed) {
     return addLog(state, { turn: state.turn, player: owner, kind: 'invalid', text: '本回合已用过玩家技能' });
   }
-  if (p.mana < HP_COST) {
+  if (p.mana < power.cost) {
     return addLog(state, { turn: state.turn, player: owner, kind: 'invalid', text: '能量不足' });
   }
+  if (power.kind === 'summon') {
+    if (p.minions.length >= BOARD_MAX) {
+      return addLog(state, { turn: state.turn, player: owner, kind: 'invalid', text: '战场已满，无法召集应援' });
+    }
+    const tokenDef = CARD_DB.get(power.tokenDefId ?? '');
+    if (!tokenDef) {
+      return addLog(state, {
+        turn: state.turn,
+        player: owner,
+        kind: 'invalid',
+        text: `玩家技能缺少召唤单位 ${power.tokenDefId ?? ''}`,
+      });
+    }
+  }
+
   let s = updatePlayer(state, owner, (pl) => ({
     ...pl,
-    mana: pl.mana - HP_COST,
+    mana: pl.mana - power.cost,
     heroPowerUsed: true,
   }));
-  // 默认经纪人技能：抽 1 张牌（可后续按角色切换）
-  s = drawCards(s, owner, 1);
-  s = addLog(s, { turn: s.turn, player: owner, kind: 'play', text: `${owner} 使用玩家技能` });
+
+  switch (power.kind) {
+    case 'draw':
+      s = drawCards(s, owner, power.amount ?? 1);
+      break;
+    case 'heal':
+      s = healHero(s, owner, power.amount ?? 2);
+      break;
+    case 'summon': {
+      const tokenDef = CARD_DB.get(power.tokenDefId ?? '');
+      if (!tokenDef) break;
+      const keywords = new Set<Keyword>(tokenDef.keywords ?? []);
+      const instanceId = genInstanceId('power');
+      const token: Minion = {
+        instanceId,
+        defId: tokenDef.id,
+        owner,
+        attack: tokenDef.attack ?? 1,
+        maxHealth: tokenDef.health ?? 1,
+        health: tokenDef.health ?? 1,
+        attacksLeftThisTurn: 0,
+        summoningSickness: true,
+        keywords,
+        silenced: false,
+        deathrattles: (tokenDef.effects ?? []).filter((e) => e.trigger === 'deathrattle'),
+        divineShieldActive: keywords.has('divineShield'),
+        justSummoned: true,
+        rebornAvailable: keywords.has('reborn'),
+      };
+      s = updatePlayer(s, owner, (pl) => ({ ...pl, minions: [...pl.minions, token] }));
+      s = triggerSecrets(s, owner, 'enemyPlaysMinion', instanceId);
+      s = triggerSynergiesOnEntry(s, owner, {
+        kind: 'minion',
+        defId: tokenDef.id,
+        instanceId,
+      });
+      break;
+    }
+  }
+
+  s = addLog(s, { turn: s.turn, player: owner, kind: 'play', text: `${owner} 使用玩家技能：${power.name}` });
   return reapMinions(s);
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Lightbulb, Bug, HelpCircle, Trash2, CheckCircle, Eye, Mail, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Lightbulb, Bug, HelpCircle, Trash2, CheckCircle, Eye, Mail, ChevronLeft, ChevronRight, MessageCircle } from 'lucide-react';
 import { adminGet, adminPatch, adminDelete } from '@/lib/admin-fetch';
 import ConfirmDialog from '@/components/admin/ConfirmDialog';
 
@@ -24,6 +24,7 @@ interface PaginatedResponse {
 
 const typeConfig: Record<string, { label: string; icon: typeof Lightbulb; color: string; bg: string }> = {
   suggestion: { label: '建议', icon: Lightbulb, color: 'text-primary', bg: 'bg-primary-bg' },
+  question: { label: '答疑', icon: MessageCircle, color: 'text-success', bg: 'bg-green-50' },
   bug: { label: 'Bug', icon: Bug, color: 'text-danger', bg: 'bg-red-50' },
   other: { label: '其他', icon: HelpCircle, color: 'text-text-muted', bg: 'bg-gray-100' },
 };
@@ -75,7 +76,7 @@ export default function AdminFeedbackPage() {
   const handleReply = async () => {
     if (!replyState) return;
     try {
-      await adminPatch(`/api/admin/feedback/${replyState.id}`, { reply: replyState.reply, status: 'resolved' });
+      await adminPatch(`/api/admin/feedback/${replyState.id}`, { reply: replyState.reply.trim(), status: 'resolved' });
       setReplyState(null);
       fetchData();
     } catch (err) {
@@ -188,14 +189,12 @@ export default function AdminFeedbackPage() {
                           <CheckCircle className="w-3.5 h-3.5" /> 标为已解决
                         </button>
                       )}
-                      {!item.reply && (
-                        <button
-                          onClick={() => setReplyState({ id: item.id, reply: '' })}
-                          className="inline-flex items-center gap-1 h-7 px-2.5 rounded-btn text-caption font-medium text-text-muted hover:bg-gray-50 transition-colors cursor-pointer"
-                        >
-                          <Mail className="w-3.5 h-3.5" /> 回复
-                        </button>
-                      )}
+                      <button
+                        onClick={() => setReplyState({ id: item.id, reply: item.reply || '' })}
+                        className="inline-flex items-center gap-1 h-7 px-2.5 rounded-btn text-caption font-medium text-text-muted hover:bg-gray-50 transition-colors cursor-pointer"
+                      >
+                        <Mail className="w-3.5 h-3.5" /> {item.reply ? '编辑回复' : '回复'}
+                      </button>
                       <button
                         onClick={() => setConfirmState({ open: true, id: item.id })}
                         className="inline-flex items-center gap-1 h-7 px-2.5 rounded-btn text-caption font-medium text-danger hover:bg-red-50 transition-colors cursor-pointer ml-auto"

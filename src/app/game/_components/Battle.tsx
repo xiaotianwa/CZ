@@ -10,14 +10,16 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useCardPresets } from '@/lib/tcg/useCardPresets';
 import { useGame } from '@/game/useGame';
 import { HERO_ATTACKER_ID, getCardDef, MAX_TURNS } from '@/game/engine';
+import { getHeroPowerDef } from '@/game/heroPowers';
 import { mergeLivePresetsIntoEngine } from '@/game/cardLoader';
 import { nextAction as aiNextAction, type AIDifficulty } from '@/game/ai';
-import type { CardInstance, Minion, PlayerId } from '@/game/types';
+import type { CardInstance, Minion, PlayerId, PlayerState } from '@/game/types';
 import * as Icons from '@/components/game/GameIcons';
 import { sfx, isMuted as isSfxMuted, setMuted as setSfxMuted, unlockAudio as unlockSfx } from '@/game/sound';
 // D2 部分拆分：低耦合子组件外移
 import { GameOverOverlay } from './battle/GameOverOverlay';
 import { LogPanel } from './battle/LogPanel';
+import { BattleCoach, type BattleHint } from './battle/BattleCoach';
 import { HeroBar } from './battle/HeroBar';
 import { BoardRow } from './battle/BattleStage';
 import { HandArea, OpponentHandArea } from './battle/HandArea';
@@ -35,6 +37,13 @@ import {
   defNeedsTarget, rectCenter,
   type Point,
 } from './battle/shared';
+
+function canUseHeroPowerUi(player: PlayerState, ended: boolean): boolean {
+  const power = getHeroPowerDef(player.heroPowerId);
+  if (ended || player.heroPowerUsed || player.mana < power.cost) return false;
+  if (power.kind === 'summon' && player.minions.length >= 6) return false;
+  return true;
+}
 
 // ============ Battle ============
 
@@ -132,6 +141,7 @@ export function Battle({ p1Deck, p2Deck, firstPlayer, onQuit, perspective, aiPla
   const [pendingAttack, setPendingAttack] = useState<PendingAttack>(null);
   const [hoverCard, setHoverCard] = useState<{ defId: string; cost: number; rect: DOMRect } | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [desktopLogOpen, setDesktopLogOpen] = useState(false);
   // 攻击/施法发起瞬间锁定 hover preview，避免动画期间被大卡面挡住
   const hoverUiLockRef = useRef(false);
   const lockHoverUi = useCallback((ms: number = 700) => {
@@ -224,6 +234,155 @@ export function Battle({ p1Deck, p2Deck, firstPlayer, onQuit, perspective, aiPla
     }
     return s;
   }, [mePlayer]);
+
+  const battleHints = useMemo<BattleHint[]>(() => {
+    const hints: BattleHint[] = [];
+    const oppTauntCount = oppPlayer.minions.filter((m) => m.keywords.has('taunt') && !m.silenced).length;
+    const heroCanAttack = !!mePlayer.equipped && mePlayer.heroAttacksLeftThisTurn > 0 && mePlayer.equipped.attack > 0;
+    const attackableCount = attackableMyMinions.size + (heroCanAttack ? 1 : 0);
+    const playableCount = mePlayer.hand.filter((card) => card.currentCost <= mePlayer.mana).length;
+    const heroPower = getHeroPowerDef(mePlayer.heroPowerId);
+    const heroPowerReady = canUseHeroPowerUi(mePlayer, state.ended);
+    const faceDamage = oppTauntCount === 0
+      ? mePlayer.minions.reduce((sum, m) => (
+          attackableMyMinions.has(m.instanceId) ? sum + Math.max(0, m.attack) : sum
+        ), 0) + (heroCanAttack ? mePlayer.equipped?.attack ?? 0 : 0)
+      : 0;
+
+    if (state.ended) {
+      hints.push({
+        key: 'ended',
+        title: '对局结束',
+        value: state.winner === 'draw' ? '平局' : `${state.winner} 胜利`,
+        detail: '可以复盘日志或重新开局。',
+        tone: 'slate',
+        Icon: Icons.TrophyIcon,
+      });
+      return hints;
+    }
+
+    if (state.phase === 'mulligan') {
+      hints.push({
+        key: 'mulligan',
+        title: '换牌阶段',
+        value: `${state.mulliganPending.length} 人待确认`,
+        detail: '优先保留 1-3 费牌和当前套牌的关键节奏牌。',
+        tone: 'amber',
+        Icon: Icons.RebornIcon,
+      });
+      return hints;
+    }
+
+    if (pendingAttack) {
+      hints.push({
+        key: 'attack-target',
+        title: '选择攻击目标',
+        value: `${legalTargets.minions.size + legalTargets.heroes.size} 个目标`,
+        detail: oppTauntCount > 0 ? '对方有挡枪，必须先处理高亮目标。' : '可以攻击随从或直接打脸。',
+        tone: oppTauntCount > 0 ? 'amber' : 'rose',
+        Icon: Icons.AttackIcon,
+      });
+    } else if (pendingPlay) {
+      const card = mePlayer.hand.find((c) => c.instanceId === pendingPlay.instanceId);
+      const def = card ? getCardDef(card.defId) : undefined;
+      hints.push({
+        key: 'play-target',
+        title: '指定卡牌目标',
+        value: def?.name ?? '选择目标',
+        detail: '点击绿色高亮的英雄或随从完成施放，按 Esc 可取消。',
+        tone: 'cyan',
+        Icon: Icons.EffectIcon,
+      });
+    } else if (!isHumanTurn) {
+      hints.push({
+        key: 'waiting',
+        title: isAITurn ? 'AI 思考中' : '等待行动',
+        value: state.activePlayer,
+        detail: '观察对方费用、手牌数和事件槽，为下一回合保留解法。',
+        tone: 'slate',
+        Icon: Icons.TimerIcon,
+      });
+    } else if (oppTauntCount === 0 && faceDamage >= oppPlayer.hp && faceDamage > 0) {
+      hints.push({
+        key: 'lethal',
+        title: '斩杀窗口',
+        value: `${faceDamage} 点`,
+        detail: '当前可攻击伤害已覆盖对方生命，优先确认能否直接结束对局。',
+        tone: 'rose',
+        Icon: Icons.FireIcon,
+      });
+    } else if (oppTauntCount > 0) {
+      hints.push({
+        key: 'taunt',
+        title: '挡枪优先',
+        value: `${oppTauntCount} 个`,
+        detail: '对方挡枪单位在场时，攻击不能越过它们。',
+        tone: 'amber',
+        Icon: Icons.TauntIcon,
+      });
+    }
+
+    if (playableCount > 0) {
+      hints.push({
+        key: 'playable',
+        title: '可打手牌',
+        value: `${playableCount} 张`,
+        detail: `当前还有 ${mePlayer.mana} 点能量，优先把费用用满。`,
+        tone: 'cyan',
+        Icon: Icons.ManaIcon,
+      });
+    }
+
+    if (attackableCount > 0) {
+      hints.push({
+        key: 'attackable',
+        title: '可用攻击',
+        value: `${attackableCount} 次`,
+        detail: '先计算交换收益，再决定是否打脸抢血。',
+        tone: 'rose',
+        Icon: Icons.AttackIcon,
+      });
+    }
+
+    if (heroPowerReady) {
+      hints.push({
+        key: 'hero-power',
+        title: '玩家技能',
+        value: `${heroPower.cost} 费`,
+        detail: heroPower.description,
+        tone: 'emerald',
+        Icon: Icons.SparkleIcon,
+      });
+    }
+
+    if (hints.length === 0) {
+      hints.push({
+        key: 'end-turn',
+        title: '暂无行动',
+        value: '结束回合',
+        detail: '确认攻击和技能都处理完后结束当前回合。',
+        tone: 'slate',
+        Icon: Icons.CheckIcon,
+      });
+    }
+
+    return hints.slice(0, 4);
+  }, [
+    attackableMyMinions,
+    isAITurn,
+    isHumanTurn,
+    legalTargets.heroes.size,
+    legalTargets.minions.size,
+    mePlayer,
+    oppPlayer,
+    pendingAttack,
+    pendingPlay,
+    state.activePlayer,
+    state.ended,
+    state.mulliganPending.length,
+    state.phase,
+    state.winner,
+  ]);
 
   // ====== HP 变化动画 ======
   const [flashPlayer, setFlashPlayer] = useState<Record<PlayerId, number>>({ P1: 0, P2: 0 });
@@ -445,29 +604,30 @@ export function Battle({ p1Deck, p2Deck, firstPlayer, onQuit, perspective, aiPla
 
   return (
     <div
-      className="relative pt-2 pb-2 px-2 sm:pt-3 sm:pb-3 sm:px-4 [@media(max-height:520px)]:!pt-1 [@media(max-height:520px)]:!pb-1 [@media(max-height:520px)]:!px-2 flex flex-col gap-1.5 sm:gap-2 [@media(max-height:520px)]:!gap-1 sm:h-[calc(100dvh-24px)] sm:min-h-0 sm:overflow-hidden [@media(max-height:520px)]:!h-auto [@media(max-height:520px)]:!min-h-0 [@media(max-height:520px)]:!overflow-visible"
+      className="relative flex flex-col gap-2 overflow-hidden bg-[#050914] px-2 py-2 text-white sm:h-[calc(100dvh-24px)] sm:min-h-0 sm:px-4 sm:py-3 [@media(max-height:520px)]:!h-auto [@media(max-height:520px)]:!min-h-0 [@media(max-height:520px)]:!overflow-visible [@media(max-height:520px)]:!px-2 [@media(max-height:520px)]:!py-1"
       onClickCapture={unlockSfx}
     >
-      {/* 背景光效装饰 */}
+      {/* 背景与牌桌质感 */}
       <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[700px] h-[700px] rounded-full bg-[#7C3AED] opacity-[0.08] blur-[140px]" />
-        <div className="absolute top-1/3 -left-32 w-[500px] h-[500px] rounded-full bg-cyan-500 opacity-[0.06] blur-[120px]" />
-        <div className="absolute -bottom-40 right-0 w-[600px] h-[600px] rounded-full bg-rose-500 opacity-[0.06] blur-[130px]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,rgba(15,15,35,0.6)_80%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(22,32,48,0.88)_0%,rgba(8,12,24,0.97)_58%,#030712_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(45,212,191,0.10),transparent_24%,transparent_74%,rgba(245,158,11,0.10))]" />
+        <div className="absolute inset-0 opacity-[0.12] bg-[linear-gradient(rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.05)_1px,transparent_1px)] bg-[size:72px_72px]" />
+        <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-white/[0.05] to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-black/55 to-transparent" />
       </div>
       {/* 主内容保持在光效之上：移动端竖屏自然高度可滚动，sm+ 与短视窗（手机横屏）占满视窗 */}
-      <div className="relative z-10 flex flex-col gap-1.5 sm:gap-2 [@media(max-height:520px)]:!gap-1 sm:flex-1 sm:min-h-0 [@media(max-height:520px)]:!flex-none [@media(max-height:520px)]:!min-h-0">
-      {/* 顶部状态栏：demo 风格 panel 容器，移动端保持换行 */}
-      <div className="relative flex flex-wrap lg:flex-nowrap items-center gap-x-1.5 gap-y-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-900/60 border border-white/10 backdrop-blur-sm shrink-0">
+      <div className="relative z-10 flex flex-col gap-2 sm:flex-1 sm:min-h-0 [@media(max-height:520px)]:!flex-none [@media(max-height:520px)]:!min-h-0 [@media(max-height:520px)]:!gap-1">
+      {/* 顶部指挥栏 */}
+      <div className="relative flex shrink-0 flex-wrap items-center gap-x-1.5 gap-y-1.5 rounded-[18px] border border-white/10 bg-[#0b1220]/85 px-2.5 py-1.5 shadow-[0_18px_50px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-md sm:px-3 lg:flex-nowrap">
         <div className="flex items-center gap-1 sm:gap-2 flex-wrap lg:flex-nowrap min-w-0">
           {/* 品牌 logo：整合自原顶部导航（纯展示，不可点击） */}
           <div className="flex items-baseline gap-1.5 select-none pr-2 mr-0.5 sm:mr-1 border-r border-white/10 lg:absolute lg:left-1/2 lg:top-1/2 lg:-translate-x-1/2 lg:-translate-y-1/2 lg:border-r-0 lg:pr-0 lg:mr-0 lg:z-10">
-            <span className="font-waterbrush text-[26px] leading-none tracking-tight pr-[6px] bg-gradient-to-br from-[#A78BFA] via-[#C084FC] to-[#FB7185] bg-clip-text text-transparent drop-shadow-[0_0_8px_rgba(167,139,250,0.45)]">
+            <span className="font-waterbrush text-[26px] leading-none tracking-tight pr-[6px] text-cyan-100 drop-shadow-[0_0_8px_rgba(34,211,238,0.45)]">
               1103
             </span>
             <span className="hidden sm:flex items-baseline gap-1.5 leading-none">
               <span className="font-logo text-[22px] leading-none text-white drop-shadow-[0_0_6px_rgba(255,255,255,0.25)]">陈泽传媒</span>
-              <span className="font-waterbrush text-[14px] leading-none text-[#A78BFA]/80">CHENZE · TCG</span>
+              <span className="font-waterbrush text-[14px] leading-none text-amber-200/80">CHENZE · TCG</span>
             </span>
           </div>
           <button onClick={onQuit} aria-label="返回" className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 btn-ghost rounded-lg text-sm cursor-pointer">
@@ -476,7 +636,7 @@ export function Battle({ p1Deck, p2Deck, firstPlayer, onQuit, perspective, aiPla
           <button onClick={() => reset()} aria-label="重开" className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 btn-ghost rounded-lg text-sm cursor-pointer">
             <Icons.RestartIcon size={14} /><span className="hidden sm:inline">重开</span>
           </button>
-          <button onClick={() => setHelpOpen(true)} aria-label="卡牌说明" className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-sm font-semibold cursor-pointer bg-[#7C3AED]/20 hover:bg-[#7C3AED]/35 border border-[#A78BFA]/40 text-[#E9D5FF] transition-colors duration-200">
+          <button onClick={() => setHelpOpen(true)} aria-label="卡牌说明" className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 rounded-lg text-sm font-semibold cursor-pointer bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-300/30 text-cyan-100 transition-colors duration-200">
             <Icons.HelpIcon size={14} /><span className="hidden sm:inline">卡牌说明</span>
           </button>
           <button onClick={onSurrender} disabled={state.ended || state.phase === 'mulligan'} aria-label="投降"
@@ -547,6 +707,10 @@ export function Battle({ p1Deck, p2Deck, firstPlayer, onQuit, perspective, aiPla
         </div>
       )}
 
+      <div className="lg:hidden">
+        <BattleCoach hints={battleHints} />
+      </div>
+
       <div className="flex flex-col gap-3 [@media(max-height:520px)]:!gap-1.5 sm:flex-1 sm:min-h-0 sm:overflow-hidden [@media(max-height:520px)]:!flex-none [@media(max-height:520px)]:!min-h-0 [@media(max-height:520px)]:!overflow-visible">
         {/* 主战场（移动端：原 flex-col 堆叠；桌面端走下方 grid） */}
         <div className="flex flex-col gap-1.5 [@media(max-height:520px)]:!gap-1 min-w-0 lg:hidden sm:flex-1 sm:min-h-0 sm:overflow-hidden [@media(max-height:520px)]:!flex-none [@media(max-height:520px)]:!min-h-0 [@media(max-height:520px)]:!overflow-visible">
@@ -582,63 +746,121 @@ export function Battle({ p1Deck, p2Deck, firstPlayer, onQuit, perspective, aiPla
                      targetable={legalTargets.heroes.has(me)}
                      onHeroAttack={onHeroAttack}
                      onHeroPower={onHeroPower}
-                     heroPowerAvailable={!mePlayer.heroPowerUsed && mePlayer.mana >= 2 && !state.ended}
+                     heroPowerAvailable={canUseHeroPowerUi(mePlayer, state.ended)}
                      flashKey={flashPlayer[me]} />
           </div>
         </div>
 
-        {/* 桌面端（lg+）demo 风格：左 arena（corner HeroBar + BoardRow），右 LogPanel */}
-        <div className="hidden lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(260px,300px)] gap-3 flex-1 min-h-0 overflow-hidden">
-          <div className="relative grid grid-rows-[minmax(220px,1fr)_auto_minmax(220px,1fr)] [@media(max-height:720px)]:grid-rows-[minmax(170px,1fr)_auto_minmax(170px,1fr)] gap-2 p-3 rounded-2xl bg-slate-900/40 border border-white/5 min-h-0 overflow-hidden">
-            <div className="relative pl-[200px] min-h-0">
-              <div className="absolute left-0 top-0 bottom-0 w-[186px] flex items-start"><HeroBar variant="corner" player={oppPlayer} side="opp" onClick={() => onHeroClick(opp)} targetable={legalTargets.heroes.has(opp)} flashKey={flashPlayer[opp]} /></div>
-              <div className="h-full min-h-[148px]"><BoardRow minions={oppPlayer.minions} owner={opp} onClick={(m, e) => onMinionClick(opp, m, e)} onHover={onMinionHover} legalMinions={legalTargets.minions} isSelecting={isSelecting} /></div>
-            </div>
-            <div className="relative flex items-center z-10">
-              {/* 左侧信息块：对齐 HeroCorner 宽度，展示 回合 / 倒计时 / 行动 */}
-              <div className="w-[186px] [@media(max-height:640px)]:w-[168px] shrink-0 flex items-center justify-center gap-2 px-2 py-1 rounded-xl bg-slate-900/60 border border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] backdrop-blur-[2px]">
-                <span className="inline-flex items-baseline gap-0.5">
-                  <span className="text-[9px] text-white/45 tracking-[0.2em] uppercase font-semibold">T</span>
-                  <b className={`text-sm font-black tabular-nums ${state.turn >= MAX_TURNS - 2 ? 'text-rose-300' : 'text-amber-300'}`}>{state.turn}</b>
-                  <span className="text-white/25 text-[9px] tabular-nums">/ {MAX_TURNS}</span>
-                </span>
-                {state.phase === 'main' && !state.ended && (
-                  <>
-                    <span className="h-3 w-px bg-white/15" />
-                    <span className={`inline-flex items-center gap-0.5 text-xs font-black tabular-nums ${
-                      secondsLeft <= 10 ? 'text-rose-300 animate-pulse' : 'text-cyan-200'
-                    }`}>
-                      <Icons.TimerIcon size={10} />
-                      {String(Math.floor(secondsLeft / 60)).padStart(2, '0')}:{String(secondsLeft % 60).padStart(2, '0')}
-                    </span>
-                  </>
-                )}
-                <span className="h-3 w-px bg-white/15" />
-                <span className="inline-flex items-baseline gap-0.5">
-                  <span className="text-[9px] text-white/45 tracking-[0.2em] uppercase font-semibold">行动</span>
-                  <b className="text-xs font-black text-amber-300">{state.activePlayer}</b>
-                </span>
+        {/* 桌面端：按炉石 PC 的中心牌桌、上下英雄、双随从线、右侧结束回合重排 */}
+        <div className="hidden min-h-0 flex-1 grid-rows-[minmax(0,1fr)_156px] gap-3 overflow-hidden lg:grid">
+          <div
+            data-battle-desktop-board="true"
+            className="relative min-h-0 overflow-hidden rounded-[38px] border border-[#b58b4a]/30 bg-[radial-gradient(ellipse_at_center,rgba(181,139,74,0.18),rgba(15,23,42,0.54)_46%,rgba(4,8,14,0.96)_100%)] px-8 py-4 shadow-[0_30px_86px_rgba(0,0,0,0.46),inset_0_1px_0_rgba(255,255,255,0.08)]"
+          >
+            <div aria-hidden className="pointer-events-none absolute inset-7 rounded-[30px] border border-[#b58b4a]/18" />
+            <div aria-hidden className="pointer-events-none absolute inset-x-12 top-1/2 h-px bg-gradient-to-r from-transparent via-[#b58b4a]/45 to-transparent" />
+            <div aria-hidden className="pointer-events-none absolute left-4 top-1/2 h-[72%] w-16 -translate-y-1/2 rounded-full border border-[#b58b4a]/18 bg-black/16 blur-[0.2px]" />
+            <div aria-hidden className="pointer-events-none absolute right-4 top-1/2 h-[72%] w-16 -translate-y-1/2 rounded-full border border-[#b58b4a]/18 bg-black/16 blur-[0.2px]" />
+
+            <div className="relative z-10 grid h-full min-h-0 grid-rows-[62px_88px_minmax(124px,1fr)_54px_minmax(124px,1fr)_88px] gap-1.5">
+              <div className="flex min-h-0 items-center justify-center">
+                <div className="w-[370px] rounded-[999px] border border-white/10 bg-black/24 px-5 py-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+                  <OpponentHandArea
+                    count={oppPlayer.hand.length}
+                    cardWidth={oppPlayer.hand.length >= 8 ? 34 : oppPlayer.hand.length >= 6 ? 38 : 42}
+                    maxVisible={8}
+                    dim={state.ended}
+                  />
+                </div>
               </div>
-              {/* VS 分割线 + 圆形，靠右 flex-1 铺满，居中 BoardRow 区域 */}
-              <div className="flex-1 flex items-center justify-center gap-4 pl-3">
-                <div className="flex-1 max-w-[260px] h-px bg-gradient-to-r from-transparent via-cyan-400/60 to-transparent shadow-[0_0_16px_rgba(98,240,255,0.6)]" />
-                <span className="w-11 h-11 rounded-full flex items-center justify-center font-black text-amber-300 border border-white/15 bg-[radial-gradient(circle,rgba(255,255,255,0.18),rgba(255,255,255,0.05))] shadow-[0_0_20px_rgba(255,207,112,0.25)]">VS</span>
-                <div className="flex-1 max-w-[260px] h-px bg-gradient-to-r from-transparent via-rose-400/60 to-transparent shadow-[0_0_16px_rgba(255,143,160,0.6)]" />
+
+              <div className="flex min-h-0 items-center justify-center">
+                <BattleHeroMedallion
+                  player={oppPlayer}
+                  side="opp"
+                  active={state.activePlayer === opp}
+                  targetable={legalTargets.heroes.has(opp)}
+                  onClick={() => onHeroClick(opp)}
+                  flashKey={flashPlayer[opp]}
+                />
+              </div>
+
+              <div className="min-h-0 px-24 xl:px-32">
+                <BoardRow minions={oppPlayer.minions} owner={opp} onClick={(m, e) => onMinionClick(opp, m, e)} onHover={onMinionHover} legalMinions={legalTargets.minions} isSelecting={isSelecting} />
+              </div>
+
+              <RoundStatusPill
+                turn={state.turn}
+                maxTurns={MAX_TURNS}
+                activePlayer={state.activePlayer}
+                secondsLeft={secondsLeft}
+                ended={state.ended}
+                phase={state.phase}
+              />
+
+              <div className="min-h-0 px-24 xl:px-32">
+                <BoardRow minions={mePlayer.minions} owner={me} onClick={(m, e) => onMinionClick(me, m, e)} onHover={onMinionHover} legalMinions={legalTargets.minions} isSelecting={isSelecting} selectedId={pendingAttack?.attackerId} attackableSet={!isSelecting ? attackableMyMinions : undefined} />
+              </div>
+
+              <div className="flex min-h-0 items-center justify-center">
+                <BattleHeroMedallion
+                  player={mePlayer}
+                  side="me"
+                  active={state.activePlayer === me}
+                  targetable={legalTargets.heroes.has(me)}
+                  onClick={() => onHeroClick(me)}
+                  onHeroAttack={onHeroAttack}
+                  onHeroPower={onHeroPower}
+                  heroPowerAvailable={canUseHeroPowerUi(mePlayer, state.ended)}
+                  flashKey={flashPlayer[me]}
+                />
               </div>
             </div>
-            <div className="relative pl-[200px] min-h-0">
-              <div className="absolute left-0 top-0 bottom-0 w-[186px] flex items-end"><HeroBar variant="corner" player={mePlayer} side="me" onClick={() => onHeroClick(me)} targetable={legalTargets.heroes.has(me)} onHeroAttack={onHeroAttack} onHeroPower={onHeroPower} heroPowerAvailable={!mePlayer.heroPowerUsed && mePlayer.mana >= 2 && !state.ended} flashKey={flashPlayer[me]} /></div>
-              <div className="h-full min-h-[148px]"><BoardRow minions={mePlayer.minions} owner={me} onClick={(m, e) => onMinionClick(me, m, e)} onHover={onMinionHover} legalMinions={legalTargets.minions} isSelecting={isSelecting} selectedId={pendingAttack?.attackerId} attackableSet={!isSelecting ? attackableMyMinions : undefined} /></div>
-            </div>
+
+            <HearthstoneEndTurnButton
+              ended={state.ended}
+              isHumanTurn={isHumanTurn}
+              onEndTurn={endTurn}
+            />
+
+            <button
+              onClick={() => setDesktopLogOpen((open) => !open)}
+              aria-expanded={desktopLogOpen}
+              className="absolute right-7 top-7 z-40 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/45 px-4 py-2 text-sm font-black text-white/82 shadow-[0_12px_30px_rgba(0,0,0,0.28)] backdrop-blur-md transition-colors hover:bg-white/10"
+            >
+              <Icons.LogIcon size={15} />
+              日志
+              <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] tabular-nums text-white/62">{state.log.length}</span>
+            </button>
+            {desktopLogOpen && (
+              <div className="absolute bottom-7 right-7 top-20 z-30 w-80">
+                <LogPanel state={state} />
+              </div>
+            )}
           </div>
-          <LogPanel state={state} />
+
+          <HandArea
+            hand={mePlayer.hand}
+            mana={mePlayer.mana}
+            ended={state.ended}
+            isSelecting={isSelecting}
+            isHumanTurn={isHumanTurn}
+            pendingPlayId={pendingPlay?.instanceId}
+            deckCount={mePlayer.deck.length}
+            showEndTurn={false}
+            onCardClick={onHandCardClick}
+            onCardHover={onHandHover}
+            onEndTurn={endTurn}
+          />
         </div>
 
         {/* 移动端日志（桌面端已并入上方 grid） */}
         <div className="lg:hidden"><LogPanel state={state} /></div>
 
-        {/* 手牌 + 结束回合（桌面 / 移动共用，位于底部全宽） */}
-        <HandArea hand={mePlayer.hand} mana={mePlayer.mana} ended={state.ended} isSelecting={isSelecting} isHumanTurn={isHumanTurn} pendingPlayId={pendingPlay?.instanceId} deckCount={mePlayer.deck.length} onCardClick={onHandCardClick} onCardHover={onHandHover} onEndTurn={endTurn} />
+        {/* 移动端手牌 + 结束回合；桌面端的结束回合已放到棋盘右侧 */}
+        <div className="lg:hidden">
+          <HandArea hand={mePlayer.hand} mana={mePlayer.mana} ended={state.ended} isSelecting={isSelecting} isHumanTurn={isHumanTurn} pendingPlayId={pendingPlay?.instanceId} deckCount={mePlayer.deck.length} onCardClick={onHandCardClick} onCardHover={onHandHover} onEndTurn={endTurn} />
+        </div>
       </div>
 
       {/* 攻击冲击线 + 爆发圆环（位于飘字之下） */}
@@ -688,6 +910,224 @@ export function Battle({ p1Deck, p2Deck, firstPlayer, onQuit, perspective, aiPla
         );
       })()}
       </div>
+    </div>
+  );
+}
+
+type BattleHeroMedallionProps = {
+  player: PlayerState;
+  side: 'me' | 'opp';
+  active: boolean;
+  targetable: boolean;
+  onClick: () => void;
+  onHeroAttack?: (e?: React.MouseEvent<HTMLElement>) => void;
+  onHeroPower?: () => void;
+  heroPowerAvailable?: boolean;
+  flashKey: number;
+};
+
+function HearthstoneEndTurnButton({
+  ended,
+  isHumanTurn,
+  onEndTurn,
+}: {
+  ended: boolean;
+  isHumanTurn: boolean;
+  onEndTurn: () => void;
+}) {
+  return (
+    <button
+      data-battle-end-turn="true"
+      onClick={onEndTurn}
+      disabled={ended || !isHumanTurn}
+      className={[
+        'absolute right-5 top-1/2 z-30 flex h-[118px] w-[118px] -translate-y-1/2 items-center justify-center rounded-full',
+        'border-[3px] border-amber-100/75 bg-gradient-to-br from-amber-200 via-yellow-400 to-orange-500',
+        'font-black text-slate-950 shadow-[0_0_34px_rgba(250,204,21,0.38),inset_0_2px_0_rgba(255,255,255,0.44)] transition-transform',
+        'hover:scale-105 hover:from-yellow-200 hover:to-orange-400 disabled:cursor-not-allowed disabled:grayscale disabled:opacity-45',
+      ].join(' ')}
+      title="结束当前回合"
+    >
+      <span className="absolute inset-2 rounded-full border border-slate-950/20" />
+      <span className="relative flex flex-col items-center leading-none">
+        <Icons.RestartIcon size={28} />
+        <span className="mt-2 text-lg">结束</span>
+        <span className="mt-1 text-[10px] tracking-[0.28em] opacity-70">TURN</span>
+      </span>
+    </button>
+  );
+}
+
+function BattleHeroMedallion({
+  player,
+  side,
+  active,
+  targetable,
+  onClick,
+  onHeroAttack,
+  onHeroPower,
+  heroPowerAvailable,
+  flashKey,
+}: BattleHeroMedallionProps) {
+  const hpMax = player.hpMax || 40;
+  const hpPct = Math.max(0, Math.min(100, (player.hp / hpMax) * 100));
+  const manaPct = player.manaMax > 0 ? Math.max(0, Math.min(100, (player.mana / player.manaMax) * 100)) : 0;
+  const heroPower = getHeroPowerDef(player.heroPowerId);
+  const isMe = side === 'me';
+  const accent = isMe
+    ? 'from-emerald-400 via-emerald-500 to-teal-700'
+    : 'from-rose-400 via-rose-500 to-red-800';
+
+  return (
+    <div
+      data-battle-hero-panel="true"
+      className={[
+        'relative flex h-[80px] min-w-[420px] items-center gap-3 rounded-[24px] border bg-[#08111f]/82 px-3 py-1.5 shadow-[0_18px_44px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-md',
+        targetable
+          ? 'border-emerald-300 shadow-[0_0_28px_rgba(52,211,153,0.42)]'
+          : active
+            ? 'border-amber-200/45'
+            : isMe
+              ? 'border-emerald-300/24'
+              : 'border-rose-300/24',
+        isMe ? '' : 'flex-row-reverse text-right',
+      ].join(' ')}
+    >
+      <button
+        onClick={onClick}
+        data-hero-id={player.id}
+        className={[
+          `relative flex h-[56px] w-[56px] shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${accent} text-white`,
+          'border-[3px] border-white/35 shadow-[0_10px_26px_rgba(0,0,0,0.35)] transition-transform hover:scale-105',
+          targetable ? 'scale-110 ring-4 ring-emerald-300/65' : '',
+        ].join(' ')}
+        title={`${player.id === 'P1' ? '玩家 1' : '玩家 2'}  HP ${player.hp}/${hpMax}`}
+      >
+        <span className="font-display text-xl font-black drop-shadow-[0_2px_5px_rgba(0,0,0,0.8)]">{player.id}</span>
+        <span
+          key={flashKey}
+          className="absolute -bottom-2 left-1/2 inline-flex -translate-x-1/2 items-center gap-1 rounded-full border border-white/80 bg-slate-950 px-2 py-0.5 text-xs font-black text-white shadow-lg animate-[hppulse_0.5s_ease]"
+        >
+          <Icons.HealthIcon size={11} className="text-rose-300" />
+          {player.hp}
+        </span>
+      </button>
+
+      <div className="min-w-0 flex-1">
+        <div className={['mb-1 flex items-center gap-1.5 overflow-hidden', isMe ? '' : 'justify-end'].join(' ')}>
+          <span className="text-lg font-black text-white">{player.id === 'P1' ? '玩家 1' : '玩家 2'}</span>
+          {active && (
+            <span className="rounded-full border border-amber-200/35 bg-amber-200/12 px-2 py-0.5 text-[10px] font-black tracking-[0.18em] text-amber-100">
+              行动中
+            </span>
+          )}
+          <span className="rounded-full border border-white/10 bg-white/[0.045] px-2 py-0.5 text-[10px] font-bold text-white/55">
+            牌库 {player.deck.length}
+          </span>
+          <span className="rounded-full border border-white/10 bg-white/[0.045] px-2 py-0.5 text-[10px] font-bold text-white/55">
+            手牌 {player.hand.length}
+          </span>
+          {isMe && player.equipped && (
+            <span className="inline-flex h-6 items-center gap-1 rounded-full border border-amber-200/35 bg-amber-200/12 px-2 text-[10px] font-bold text-amber-100">
+              <Icons.EquipmentIcon size={10} />
+              <Icons.AttackIcon size={9} className="text-rose-300" /> {player.equipped.attack}
+              <Icons.DurabilityIcon size={9} className="text-emerald-300" /> {player.equipped.durability}
+            </span>
+          )}
+          {isMe && player.equipped && player.heroAttacksLeftThisTurn > 0 && onHeroAttack && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onHeroAttack(e); }}
+              className="inline-flex h-6 items-center rounded-full bg-rose-500 px-2 text-[10px] font-black text-white hover:bg-rose-400"
+            >
+              挥击
+            </button>
+          )}
+          {isMe && onHeroPower && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onHeroPower(); }}
+              disabled={!heroPowerAvailable}
+              title={player.heroPowerUsed ? '本回合已用过' : player.mana < heroPower.cost ? `流量不足（${heroPower.cost}）` : `玩家技能：${heroPower.cost} 费 · ${heroPower.name}\n${heroPower.description}`}
+              className={[
+                'inline-flex h-6 items-center gap-1 rounded-full px-2 text-[10px] font-black transition-colors',
+                heroPowerAvailable
+                  ? 'bg-cyan-300 text-slate-950 hover:bg-cyan-200'
+                  : 'bg-white/8 text-white/35',
+              ].join(' ')}
+            >
+              <Icons.EffectIcon size={10} />
+              {heroPower.shortLabel}
+              <span className="inline-flex items-center gap-0.5 border-l border-current/25 pl-1">
+                <Icons.ManaIcon size={9} />
+                {heroPower.cost}
+              </span>
+            </button>
+          )}
+        </div>
+
+        <div className="grid gap-1">
+          <div className="flex items-center gap-2">
+            <Icons.HealthIcon size={13} className="text-rose-300" />
+            <div className="h-2 flex-1 overflow-hidden rounded-full border border-white/10 bg-black/45">
+              <div
+                className={`h-full rounded-full transition-all duration-300 ${
+                  hpPct > 50 ? 'bg-gradient-to-r from-emerald-400 to-emerald-500'
+                    : hpPct > 25 ? 'bg-gradient-to-r from-amber-400 to-orange-500'
+                      : 'bg-gradient-to-r from-rose-500 to-red-600'
+                }`}
+                style={{ width: `${hpPct}%` }}
+              />
+            </div>
+            <span className="w-14 text-xs font-black tabular-nums text-white/76">{player.hp}/{hpMax}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Icons.ManaIcon size={13} className="text-cyan-300" />
+            <div className="h-2 flex-1 overflow-hidden rounded-full border border-cyan-300/20 bg-black/45">
+              <div className="h-full rounded-full bg-gradient-to-r from-cyan-300 to-sky-500 transition-all duration-300" style={{ width: `${manaPct}%` }} />
+            </div>
+            <span className="w-14 text-xs font-black tabular-nums text-cyan-100">{player.mana}/{player.manaMax}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RoundStatusPill({
+  turn,
+  maxTurns,
+  activePlayer,
+  secondsLeft,
+  ended,
+  phase,
+}: {
+  turn: number;
+  maxTurns: number;
+  activePlayer: PlayerId;
+  secondsLeft: number;
+  ended: boolean;
+  phase: string;
+}) {
+  return (
+    <div className="relative flex items-center justify-center">
+      <div className="flex-1 h-px max-w-[360px] bg-gradient-to-r from-transparent via-cyan-300/50 to-transparent" />
+      <div className="mx-4 inline-flex min-w-[330px] items-center justify-center gap-4 rounded-full border border-[#b58b4a]/35 bg-black/45 px-5 py-2 shadow-[0_0_28px_rgba(245,158,11,0.12),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-md">
+        <span className="inline-flex items-baseline gap-1">
+          <span className="text-[10px] font-bold tracking-[0.24em] text-white/40">回合</span>
+          <b className={`text-lg tabular-nums ${turn >= maxTurns - 2 ? 'text-rose-300' : 'text-amber-200'}`}>{turn}</b>
+          <span className="text-xs text-white/28">/ {maxTurns}</span>
+        </span>
+        {phase === 'main' && !ended && (
+          <span className={`inline-flex items-center gap-1 text-sm font-black tabular-nums ${secondsLeft <= 10 ? 'text-rose-300 animate-pulse' : 'text-cyan-100'}`}>
+            <Icons.TimerIcon size={13} />
+            {String(Math.floor(secondsLeft / 60)).padStart(2, '0')}:{String(secondsLeft % 60).padStart(2, '0')}
+          </span>
+        )}
+        <span className="inline-flex items-baseline gap-1">
+          <span className="text-[10px] font-bold tracking-[0.24em] text-white/40">行动</span>
+          <b className="text-sm text-amber-200">{activePlayer}</b>
+        </span>
+      </div>
+      <div className="flex-1 h-px max-w-[360px] bg-gradient-to-r from-transparent via-rose-300/40 to-transparent" />
     </div>
   );
 }

@@ -1,4 +1,3 @@
-import ProjectGameModuleCards from './_ProjectGameModuleCards';
 import GameCenterEntryManager from './_GameCenterEntryManager';
 
 export default function TcgProjectGamesPage() {
@@ -8,13 +7,11 @@ export default function TcgProjectGamesPage() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-xl font-bold text-white">当前项目游戏管理</h2>
-            <p className="mt-1 text-sm text-white/50">这里是项目内游戏子模块总览页。各小游戏内容已拆成右侧导航中的独立子模块，本页只保留总览跳转与大厅入口管理。</p>
+            <p className="mt-1 text-sm text-white/50">这里保留当前项目的游戏大厅入口管理。已下线的小游戏入口不会再出现在玩家端或管理端。</p>
           </div>
-          <span className="rounded-full border border-[#7C3AED]/30 bg-[#7C3AED]/15 px-3 py-1 text-xs text-[#C4B5FD]">项目子类</span>
+          <span className="rounded-full border border-[#7C3AED]/30 bg-[#7C3AED]/15 px-3 py-1 text-xs text-[#C4B5FD]">入口管理</span>
         </div>
       </div>
-
-      <ProjectGameModuleCards />
 
       <GameCenterEntryManager />
     </div>

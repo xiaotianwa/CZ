@@ -218,7 +218,7 @@ export default function PlayPage() {
             有好的游戏创意？欢迎在社区提建议！
           </p>
           <Link
-            href="/community"
+            href="/feedback"
             className="inline-flex items-center justify-center mt-5 h-10 px-6 text-sm rounded-full bg-primary text-white font-semibold hover:bg-primary/90 transition-colors duration-150 active:scale-[0.98]"
           >
             去社区聊聊

@@ -7,7 +7,7 @@ import { prisma } from '@/lib/db';
 
 // ==================== 任务类型定义 ====================
 
-export type JobType = 'grant_points' | 'notify_comment' | 'update_hot_score' | 'video_moderation';
+export type JobType = 'grant_points' | 'video_moderation';
 
 export interface EnqueueOptions {
   type: JobType;

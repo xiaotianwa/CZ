@@ -28,17 +28,9 @@ model User {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  posts         Post[]
-  comments      Comment[]
   feedbacks     Feedback[]
   pointLogs     PointLog[]
   notifications Notification[]
-  reports       Report[]
-  bookmarks     Bookmark[]
-  postLikes     PostLike[]
-  fanWorks      FanWork[]
-  fanWorkVotes  FanWorkVote[]
 
   @@index([role])
   @@index([isActive])
@@ -63,138 +55,9 @@ model Admin {
 
 // ==================== 社区内容 ====================
 
-model Post {
-  id        String   @id @default(cuid())
-  content   String
-  images    String   @default("[]") // JSON array of COS URLs
-  isPinned  Boolean  @default(false)
-  likes     Int      @default(0)
-  hotScore  Float    @default(0) // 热门排序分数，定期刷新
-  status    String   @default("published") // draft | pending_review | published | hidden | rejected
-  authorId  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  author     User        @relation(fields: [authorId], references: [id])
-  comments   Comment[]
-  postTags   PostTag[]
-  bookmarks  Bookmark[]
-  postLikes  PostLike[]
-  postMedias PostMedia[]
-
-  @@index([authorId])
-  @@index([status])
-  @@index([isPinned])
-  @@index([createdAt])
-  @@index([status, hotScore])
-}
-
-model PostMedia {
-  id       String @id @default(cuid())
-  postId   String
-  mediaId  String?
-  url      String   // COS URL
-  mimeType String   @default("image/jpeg")
-  sortOrder Int     @default(0)
-  createdAt DateTime @default(now())
-
-  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
-
-  @@index([postId])
-  @@unique([postId, sortOrder])
-}
-
-model Comment {
-  id          String   @id @default(cuid())
-  content     String
-  likes       Int      @default(0)
-  status      String   @default("published") // pending_review | published | hidden | rejected
-  postId      String
-  authorId    String
-  parentId    String?  // 父评论ID，null表示顶级评论
-  replyToName String?  // 被回复人的名称（冗余存储，避免关联查询）
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  post     Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
-  author   User      @relation(fields: [authorId], references: [id])
-  parent   Comment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
-  replies  Comment[] @relation("CommentReplies")
-
-  @@index([postId])
-  @@index([authorId])
-  @@index([parentId])
-}
-
-model Tag {
-  id        String    @id @default(cuid())
-  name      String    @unique
-  color     String?
-  sortOrder Int       @default(0)
-  createdAt DateTime  @default(now())
-
-  postTags PostTag[]
-}
-
-model PostTag {
-  postId String
-  tagId  String
-
-  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
-  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
-
-  @@id([postId, tagId])
-}
-
 // ==================== 相册系统 ====================
 
-model Album {
-  id        String   @id @default(cuid())
-  title     String
-  category  String
-  cover     String
-  sortOrder Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  photos Photo[]
-
-  @@index([category])
-}
-
-model Photo {
-  id          String   @id @default(cuid())
-  url         String
-  thumbnail   String?
-  description String?
-  albumId     String
-  sortOrder   Int      @default(0)
-  createdAt   DateTime @default(now())
-
-  album Album @relation(fields: [albumId], references: [id], onDelete: Cascade)
-
-  @@index([albumId])
-}
-
 // ==================== 活动系统 ====================
-
-model Event {
-  id           String   @id @default(cuid())
-  title        String
-  description  String
-  cover        String
-  startTime    DateTime
-  endTime      DateTime
-  location     String
-  status       String   @default("upcoming") // upcoming | ongoing | ended
-  participants Int      @default(0)
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  @@index([status])
-  @@index([startTime])
-}
 
 // ==================== 游戏推荐 ====================
 
@@ -381,45 +244,6 @@ model QuizQuestion {
   @@index([isActive])
 }
 
-model GameQuizQuestion {
-  id        String   @id @default(cuid())
-  question  String
-  options   String
-  answer    Int
-  isActive  Boolean  @default(true)
-  sortOrder Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([isActive])
-}
-
-model GameEmojiPuzzle {
-  id        String   @id @default(cuid())
-  emoji     String   // 表情组合，如 "🎮🎙️📺"
-  answer    String   // 正确答案，如 "直播"
-  hints     String   // JSON array of hint strings
-  category  String   @default("日常")
-  isActive  Boolean  @default(true)
-  sortOrder Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([isActive])
-}
-
-model GameTypingSentence {
-  id        String   @id @default(cuid())
-  content   String   // 打字内容
-  category  String   @default("弹幕")
-  isActive  Boolean  @default(true)
-  sortOrder Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([isActive])
-}
-
 model ProjectGameProfile {
   id            String   @id @default(cuid())
   name          String
@@ -588,33 +412,7 @@ model PageView {
 
 // ==================== 收藏系统 ====================
 
-model Bookmark {
-  id        String   @id @default(cuid())
-  userId    String
-  postId    String
-  createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, postId])
-  @@index([userId, createdAt])
-}
-
 // ==================== 点赞记录（去重防刷） ====================
-
-model PostLike {
-  id        String   @id @default(cuid())
-  userId    String
-  postId    String
-  createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, postId])
-  @@index([postId])
-}
 
 // ==================== 违禁词管理 ====================
 
@@ -654,96 +452,9 @@ model Meme {
 
 // ==================== 二创作品 ====================
 
-model FanWork {
-  id           String   @id @default(cuid())
-  title        String
-  description  String?
-  type         String   @default("image") // image | video
-  cover        String   // 封面图 URL
-  contentUrl   String?  // 视频链接
-  images       String   @default("[]") // JSON array of image/video URLs
-  authorName   String   // 作者名（展示用）
-  authorAvatar String?  // 作者头像
-  userId       String?  // 上传用户ID（注册用户投稿时关联）
-  source       String?  // 来源平台（B站/微博/抖音等）
-  sourceUrl    String?  // 来源链接
-  likes        Int      @default(0)
-  status       String   @default("pending") // pending | approved | rejected
-  rejectReason String?  // 驳回原因
-  isActive     Boolean  @default(true)
-  isFeatured   Boolean  @default(false) // 精选推荐
-  sortOrder    Int      @default(0)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  user  User?          @relation(fields: [userId], references: [id])
-  votes FanWorkVote[]
-
-  @@index([type])
-  @@index([status])
-  @@index([isActive])
-  @@index([isFeatured])
-  @@index([sortOrder])
-  @@index([userId])
-}
-
 // ==================== 二创投票系统 ====================
 
-model FanWorkVotePeriod {
-  id        String   @id @default(cuid())
-  title     String   // 周期标题，如"2024年7月投票"
-  startAt   DateTime // 周期开始时间
-  endAt     DateTime // 周期结束时间
-  isActive  Boolean  @default(true) // 是否启用
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  votes FanWorkVote[]
-
-  @@index([isActive])
-  @@index([startAt, endAt])
-}
-
-model FanWorkVote {
-  id         String   @id @default(cuid())
-  periodId   String   // 投票周期
-  fanWorkId  String   // 被投票的作品
-  userId     String   // 投票用户
-  rating     String   // 评级: awesome | good | normal | bad | terrible
-  createdAt  DateTime @default(now())
-
-  period  FanWorkVotePeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
-  fanWork FanWork           @relation(fields: [fanWorkId], references: [id], onDelete: Cascade)
-  user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([periodId, fanWorkId])
-  @@index([userId, periodId])
-  @@index([userId, createdAt])
-  @@index([fanWorkId])
-  @@index([createdAt])
-}
-
 // ==================== 举报系统 ====================
-
-model Report {
-  id          String   @id @default(cuid())
-  reporterId  String
-  targetType  String   // post | comment | user
-  targetId    String
-  reason      String   // spam | abuse | inappropriate | other
-  description String?  // 补充描述
-  status      String   @default("pending") // pending | reviewed | resolved | dismissed
-  adminNote   String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  reporter User @relation(fields: [reporterId], references: [id])
-
-  @@index([status])
-  @@index([targetType, targetId])
-  @@index([reporterId])
-  @@index([createdAt])
-}
 
 // ============================================================
 // ==================== TCG 卡牌对战系统 ====================

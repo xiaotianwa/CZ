@@ -1,22 +1,16 @@
-// 40 张首发卡牌定义
+// 前台卡牌定义：基础卡池 + 可玩性扩展卡
 // 将卡名 / 数值 / 关键字 / 效果钩子 一并注册到引擎
 
 import type { CardDef } from './types';
 import { registerCards } from './engine';
 
 export const ALL_CARDS: CardDef[] = [
-  // ========== 🎤 人物 Character × 14 ==========
+  // ========== 🎤 人物 Character ==========
   {
     id: 'C01', name: '搭档小助理', type: 'character', rarity: 'N',
     cost: 1, attack: 1, health: 2,
     effects: [
       { trigger: 'battlecry', effectId: 'draw_cards', params: { amount: 1 } },
-      // 联动：若己方场上已有主播·陈泽（C14），触发默契开播 —— 双方 +2/+0 并抽 1 张
-      {
-        trigger: 'battlecry',
-        effectId: 'chenze_partner_combo',
-        params: { partnerId: 'C14', partnerName: '主播·陈泽', selfName: '搭档小助理', atk: 2, hp: 0, draw: 1 },
-      },
     ],
     flavor: '哥，你说的都安排好了',
   },
@@ -101,14 +95,75 @@ export const ALL_CARDS: CardDef[] = [
     cost: 9, attack: 8, health: 9,
     effects: [
       { trigger: 'battlecry', effectId: 'debuff_all_enemy_attack', params: { atk: 1 } },
-      // 联动：若己方场上已有搭档小助理（C01），触发默契开播 —— 双方 +2/+0 并抽 1 张
+    ],
+    synergies: [
       {
-        trigger: 'battlecry',
-        effectId: 'chenze_partner_combo',
-        params: { partnerId: 'C01', partnerName: '搭档小助理', selfName: '主播·陈泽', atk: 2, hp: 0, draw: 1 },
+        id: 'syn_c14_c01_live',
+        name: '默契开播',
+        description: '主播·陈泽与搭档小助理同时在场时，双方攻击 +2，并抽 1 张牌。',
+        partners: ['C01'],
+        trigger: 'both_in_play',
+        scope: 'both',
+        effects: [
+          { kind: 'attack_buff', amount: 2, duration: 'permanent' },
+          { kind: 'draw_card', amount: 1, duration: 'permanent' },
+        ],
       },
     ],
     flavor: '家人们谁懂啊，这波操作直接炸裂',
+  },
+  {
+    id: 'C15', name: '应援新人', type: 'character', rarity: 'N',
+    cost: 1, attack: 1, health: 1,
+    flavor: '第一次进直播间，先点个关注',
+  },
+  {
+    id: 'C16', name: '剪辑组长', type: 'character', rarity: 'R',
+    cost: 3, attack: 3, health: 4,
+    effects: [
+      { trigger: 'battlecry', effectId: 'draw_and_reduce_cost', params: { amount: 1, reduce: 1 } },
+    ],
+    flavor: '素材已经切好了，标题也想好了',
+  },
+  {
+    id: 'C17', name: '护场保安', type: 'character', rarity: 'R',
+    cost: 4, attack: 3, health: 6,
+    keywords: ['taunt', 'lifesteal'],
+    flavor: '场子我看着，你们安心输出',
+  },
+  {
+    id: 'C18', name: '节奏主持', type: 'character', rarity: 'SR',
+    cost: 5, attack: 4, health: 5,
+    keywords: ['rush'],
+    effects: [{ trigger: 'onAttack', effectId: 'draw_cards', params: { amount: 1 } }],
+    flavor: '先把局面控住，再把节目做满',
+  },
+  {
+    id: 'C19', name: '榜一守护者', type: 'character', rarity: 'SR',
+    cost: 6, attack: 5, health: 6,
+    keywords: ['taunt', 'divineShield'],
+    synergies: [
+      {
+        id: 'syn_c19_i07_guard',
+        name: '榜一护场',
+        description: '榜一守护者与直播打赏王座同时在场时，守护者生命 +2，并抽 1 张牌。',
+        partners: ['I07'],
+        trigger: 'partner_equipped',
+        scope: 'self',
+        effects: [
+          { kind: 'health_buff', amount: 2, duration: 'permanent' },
+          { kind: 'draw_card', amount: 1, duration: 'permanent' },
+        ],
+      },
+    ],
+    flavor: '榜一在，气势就在',
+  },
+  {
+    id: 'C20', name: '复盘老粉', type: 'character', rarity: 'R',
+    cost: 4, attack: 3, health: 3,
+    keywords: ['reborn'],
+    effects: [{ trigger: 'deathrattle', effectId: 'draw_cards', params: { amount: 1 } }],
+    flavor: '这局我看明白了，下回合该我说',
   },
 
   // ========== 🥤 道具 Item × 2（即时消耗品，不占装备槽） ==========
@@ -164,7 +219,7 @@ export const ALL_CARDS: CardDef[] = [
     flavor: '瓜保熟，爆裂新鲜',
   },
 
-  // ========== ✨ 特殊效果 Effect × 12 ==========
+  // ========== ✨ 特殊效果 Effect ==========
   {
     id: 'E01', name: '上热搜', type: 'effect', rarity: 'N',
     cost: 2,
@@ -239,8 +294,50 @@ export const ALL_CARDS: CardDef[] = [
     effects: [{ trigger: 'battlecry', effectId: 'draw_cards', params: { amount: 3 } }],
     flavor: '究极无敌，全场沸腾',
   },
+  {
+    id: 'E13', name: '打榜冲刺', type: 'effect', rarity: 'R',
+    cost: 0,
+    effects: [{ trigger: 'battlecry', effectId: 'restore_hero_mana_turn', params: { amount: 2 } }],
+    flavor: '家人们，加把劲冲榜！',
+  },
+  {
+    id: 'E14', name: '氪金大爆发', type: 'effect', rarity: 'SR',
+    cost: 2,
+    effects: [{ trigger: 'battlecry', effectId: 'restore_hero_mana_turn', params: { amount: 4 } }],
+    flavor: '一次到位，技能点满血复活',
+  },
+  {
+    id: 'E15', name: '节奏复盘', type: 'effect', rarity: 'R',
+    cost: 2,
+    effects: [{ trigger: 'battlecry', effectId: 'draw_and_reduce_cost', params: { amount: 1, reduce: 1 } }],
+    flavor: '上一波怎么输的，这次讲清楚',
+  },
+  {
+    id: 'E16', name: '控评降温', type: 'effect', rarity: 'R',
+    cost: 3,
+    effects: [{ trigger: 'battlecry', effectId: 'return_target_to_hand' }],
+    flavor: '先别急，回去重新组织语言',
+  },
+  {
+    id: 'E17', name: '护盾应援', type: 'effect', rarity: 'N',
+    cost: 2,
+    effects: [{ trigger: 'battlecry', effectId: 'give_target_divine_shield' }],
+    flavor: '这一票，先保你一回合',
+  },
+  {
+    id: 'E18', name: '精准点名', type: 'effect', rarity: 'R',
+    cost: 3,
+    effects: [{ trigger: 'battlecry', effectId: 'damage_full_health_target_bonus', params: { base: 3, bonus: 2 } }],
+    flavor: '满血上场？先吃一记重点关注',
+  },
+  {
+    id: 'E19', name: '全员补位', type: 'effect', rarity: 'SR',
+    cost: 4,
+    effects: [{ trigger: 'battlecry', effectId: 'resurrect_last_friendly_character' }],
+    flavor: '缺人就补位，节目不能断',
+  },
 
-  // ========== ⚡ 事件 Event × 6 ==========
+  // ========== ⚡ 事件 Event ==========
   {
     id: 'V01', name: '辣椒水', type: 'event', rarity: 'N',
     cost: 2, countdown: 3,
@@ -279,6 +376,34 @@ export const ALL_CARDS: CardDef[] = [
     cost: 5, secretTrigger: 'heroTakesDamageGte5',
     effects: [{ trigger: 'onSecretTrigger', effectId: 'crisis_pr' }],
     flavor: '回应来得又稳又狠',
+  },
+  {
+    id: 'V07', name: '律师函警告', type: 'event', rarity: 'SR',
+    cost: 2, secretTrigger: 'enemyPlaysEffectDamage',
+    effects: [
+      // 触发时 enemyPlaysEffectDamage 已在 dealDamage 里将本次效果伤害清零；
+      // 这里再额外给己方经纪人回 5 点流量 + 抽 1 张，作为"反黑反击"的正向收益。
+      { trigger: 'onSecretTrigger', effectId: 'heal_self_hero', params: { amount: 5 } },
+      { trigger: 'onSecretTrigger', effectId: 'draw_cards', params: { amount: 1 } },
+    ],
+    flavor: '已委托律师，追究到底',
+  },
+  {
+    id: 'V08', name: '直播间热场', type: 'event', rarity: 'N',
+    cost: 2, countdown: 2,
+    effects: [
+      { trigger: 'onCountdown0', effectId: 'draw_cards', params: { amount: 1 } },
+      { trigger: 'onCountdown0', effectId: 'heal_self_hero', params: { amount: 2 } },
+    ],
+    flavor: '灯光开好，弹幕预热',
+  },
+  {
+    id: 'V09', name: '粉丝团集结', type: 'event', rarity: 'R',
+    cost: 3, countdown: 2,
+    effects: [
+      { trigger: 'onCountdown0', effectId: 'buff_all_friendly', params: { atk: 1, hp: 1 } },
+    ],
+    flavor: '今晚一起把牌面撑起来',
   },
 ];
 

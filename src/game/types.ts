@@ -169,6 +169,8 @@ export interface EventCard {
 /** 玩家完整状态 */
 export interface PlayerState {
   id: PlayerId;
+  /** 玩家技能 id；从卡组继承，用于不同预设套牌的基础能力 */
+  heroPowerId: string;
   /** 经纪人生命（流量） */
   hp: number;
   hpMax: number;
@@ -213,6 +215,8 @@ export interface GameState {
   players: Record<PlayerId, PlayerState>;
   /** 战斗日志 */
   log: LogEntry[];
+  /** 已经由场上实例组合触发过的羁绊 key，用于防止同一对单位重复结算 */
+  triggeredSynergies: string[];
   /** 是否已结束 */
   ended: boolean;
   winner?: PlayerId | 'draw';

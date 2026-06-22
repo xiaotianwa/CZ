@@ -23,7 +23,7 @@ interface SiteLogItem {
   referrerHost: string | null;
   date: string;
   createdAt: string;
-  uaInfo: {
+  uaInfo?: {
     browser: string;
     os: string;
     device: string;
@@ -110,12 +110,12 @@ function DetailModal({ item, onClose }: { item: SiteLogItem | null; onClose: () 
 
           <div className="rounded-card border border-divider bg-gray-50/60 px-4 py-3">
             <p className="text-caption text-text-muted">浏览器</p>
-            <p className="mt-1 text-body font-medium text-text-title">{item.uaInfo.browser}</p>
+            <p className="mt-1 text-body font-medium text-text-title">{item.uaInfo?.browser ?? '未知'}</p>
           </div>
 
           <div className="rounded-card border border-divider bg-gray-50/60 px-4 py-3">
             <p className="text-caption text-text-muted">系统 / 设备</p>
-            <p className="mt-1 text-body font-medium text-text-title">{item.uaInfo.os} / {item.uaInfo.device}</p>
+            <p className="mt-1 text-body font-medium text-text-title">{item.uaInfo?.os ?? '未知'} / {item.uaInfo?.device ?? '未知'}</p>
           </div>
 
           <div className="rounded-card border border-divider bg-gray-50/60 px-4 py-3 md:col-span-2">
@@ -195,7 +195,7 @@ export default function AdminSiteLogsPage() {
   }, [logDays, page, keyword]);
 
   const trendMax = useMemo(() => {
-    const counts = siteLogs?.aggregations.trend.map((item) => item.count) ?? [];
+    const counts = siteLogs?.aggregations?.trend?.map((item) => item.count) ?? [];
     return counts.length > 0 ? Math.max(...counts, 1) : 1;
   }, [siteLogs]);
 
@@ -286,33 +286,33 @@ export default function AdminSiteLogsPage() {
           </button>
         </div>
 
-        {siteLogs?.summary.keyword ? (
+        {siteLogs?.summary?.keyword ? (
           <div className="mt-3 rounded-btn bg-primary-bg px-3 py-2 text-caption text-primary">
-            当前筛选关键词：{siteLogs.summary.keyword}
+            当前筛选关键词：{siteLogs?.summary?.keyword}
           </div>
         ) : null}
 
         <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
           <div className="rounded-card border border-divider bg-gray-50/70 px-4 py-3">
             <p className="text-caption text-text-muted">统计周期总访问</p>
-            <p className="mt-1 text-[22px] font-semibold text-text-title">{siteLogs?.summary.totalViews ?? 0}</p>
+            <p className="mt-1 text-[22px] font-semibold text-text-title">{siteLogs?.summary?.totalViews ?? 0}</p>
           </div>
           <div className="rounded-card border border-divider bg-gray-50/70 px-4 py-3">
             <p className="text-caption text-text-muted">今日访问</p>
-            <p className="mt-1 text-[22px] font-semibold text-text-title">{siteLogs?.summary.todayViews ?? 0}</p>
+            <p className="mt-1 text-[22px] font-semibold text-text-title">{siteLogs?.summary?.todayViews ?? 0}</p>
           </div>
           <div className="rounded-card border border-divider bg-gray-50/70 px-4 py-3">
             <p className="text-caption text-text-muted">访问路径数</p>
-            <p className="mt-1 text-[22px] font-semibold text-text-title">{siteLogs?.summary.uniquePaths ?? 0}</p>
+            <p className="mt-1 text-[22px] font-semibold text-text-title">{siteLogs?.summary?.uniquePaths ?? 0}</p>
           </div>
           <div className="rounded-card border border-divider bg-gray-50/70 px-4 py-3">
             <p className="text-caption text-text-muted">访问 IP 数</p>
-            <p className="mt-1 text-[22px] font-semibold text-text-title">{siteLogs?.summary.uniqueIps ?? 0}</p>
+            <p className="mt-1 text-[22px] font-semibold text-text-title">{siteLogs?.summary?.uniqueIps ?? 0}</p>
           </div>
           <div className="rounded-card border border-divider bg-gray-50/70 px-4 py-3">
             <p className="text-caption text-text-muted">最后访问时间</p>
             <p className="mt-1 text-body font-semibold text-text-title">
-              {siteLogs?.summary.lastVisitAt ? formatDateTime(siteLogs.summary.lastVisitAt) : '暂无记录'}
+              {siteLogs?.summary?.lastVisitAt ? formatDateTime(siteLogs.summary.lastVisitAt) : '暂无记录'}
             </p>
           </div>
         </div>
@@ -323,7 +323,7 @@ export default function AdminSiteLogsPage() {
           </div>
           <div className="px-4 py-4">
             <div className="flex h-48 items-end gap-2">
-              {(siteLogs?.aggregations.trend ?? []).map((item) => (
+              {(siteLogs?.aggregations?.trend ?? []).map((item) => (
                 <div key={item.date} className="flex min-w-0 flex-1 flex-col items-center gap-2">
                   <div className="flex h-36 w-full items-end justify-center rounded-btn bg-gray-50/80 px-1">
                     <div
@@ -341,18 +341,18 @@ export default function AdminSiteLogsPage() {
         </div>
 
         <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-3">
-          <RankingCard title="热门路径" icon={BarChart3} items={siteLogs?.aggregations.topPaths ?? []} emptyText="暂无路径统计" />
-          <RankingCard title="来源站点" icon={Globe2} items={siteLogs?.aggregations.topReferrers ?? []} emptyText="暂无来源统计" />
-          <RankingCard title="活跃 IP" icon={MapPin} items={siteLogs?.aggregations.topIps ?? []} emptyText="暂无 IP 统计" />
+          <RankingCard title="热门路径" icon={BarChart3} items={siteLogs?.aggregations?.topPaths ?? []} emptyText="暂无路径统计" />
+          <RankingCard title="来源站点" icon={Globe2} items={siteLogs?.aggregations?.topReferrers ?? []} emptyText="暂无来源统计" />
+          <RankingCard title="活跃 IP" icon={MapPin} items={siteLogs?.aggregations?.topIps ?? []} emptyText="暂无 IP 统计" />
         </div>
 
         <div className="mt-4 overflow-hidden rounded-card border border-divider bg-white">
           <div className="flex items-center justify-between gap-3 border-b border-divider px-4 py-3">
             <div>
               <h3 className="text-body font-medium text-text-title">访问记录</h3>
-              <p className="mt-1 text-caption text-text-muted">近 {siteLogs?.summary.rangeDays ?? logDays} 天，共 {siteLogs?.pagination.total ?? 0} 条</p>
+              <p className="mt-1 text-caption text-text-muted">近 {siteLogs?.summary?.rangeDays ?? logDays} 天，共 {siteLogs?.pagination?.total ?? 0} 条</p>
             </div>
-            <span className="text-caption text-text-muted">第 {siteLogs?.pagination.page ?? 1} / {siteLogs?.pagination.totalPages ?? 1} 页</span>
+            <span className="text-caption text-text-muted">第 {siteLogs?.pagination?.page ?? 1} / {siteLogs?.pagination?.totalPages ?? 1} 页</span>
           </div>
             <div className="overflow-x-auto">
               <table className="w-full text-body">
@@ -372,7 +372,7 @@ export default function AdminSiteLogsPage() {
                       <td colSpan={6} className="px-4 py-8 text-center text-text-muted">加载中...</td>
                     </tr>
                   ) : (siteLogs?.list ?? []).length > 0 ? (
-                    siteLogs?.list.map((item) => (
+                    siteLogs?.list?.map((item) => (
                       <tr key={item.id} className="border-b border-divider last:border-0 align-top">
                         <td className="px-4 py-3 text-text-title">
                           <div className="max-w-[260px] truncate" title={item.path}>{item.path}</div>
@@ -380,7 +380,7 @@ export default function AdminSiteLogsPage() {
                         </td>
                         <td className="px-4 py-3 text-text-muted">
                           <div className="whitespace-nowrap">{item.ip || '未知'}</div>
-                          <div className="mt-1 text-[11px] text-text-muted">{item.uaInfo.device}</div>
+                          <div className="mt-1 text-[11px] text-text-muted">{item.uaInfo?.device ?? '未知设备'}</div>
                         </td>
                         <td className="px-4 py-3 text-text-muted">
                           <div className="max-w-[220px] truncate" title={item.referrerHost || item.referrer || ''}>{item.referrerHost || '直接访问'}</div>
@@ -389,9 +389,9 @@ export default function AdminSiteLogsPage() {
                         <td className="px-4 py-3 text-text-muted">
                           <div className="inline-flex items-center gap-1 text-text-body">
                             <Monitor className="h-3.5 w-3.5 text-primary" />
-                            {item.uaInfo.browser}
+                            {item.uaInfo?.browser ?? '未知浏览器'}
                           </div>
-                          <div className="mt-1 text-[11px] text-text-muted">{item.uaInfo.os}</div>
+                          <div className="mt-1 text-[11px] text-text-muted">{item.uaInfo?.os ?? '未知系统'}</div>
                         </td>
                         <td className="whitespace-nowrap px-4 py-3 text-text-muted">{formatDateTime(item.createdAt)}</td>
                         <td className="px-4 py-3 text-text-muted">
@@ -415,7 +415,7 @@ export default function AdminSiteLogsPage() {
               </table>
             </div>
           <div className="flex items-center justify-between border-t border-divider px-4 py-3">
-            <span className="text-caption text-text-muted">共 {siteLogs?.pagination.total ?? 0} 条访问记录</span>
+            <span className="text-caption text-text-muted">共 {siteLogs?.pagination?.total ?? 0} 条访问记录</span>
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -428,8 +428,8 @@ export default function AdminSiteLogsPage() {
               </button>
               <button
                 type="button"
-                onClick={() => setPage((prev) => Math.min(siteLogs?.pagination.totalPages || 1, prev + 1))}
-                disabled={logsLoading || page >= (siteLogs?.pagination.totalPages || 1)}
+                onClick={() => setPage((prev) => Math.min(siteLogs?.pagination?.totalPages || 1, prev + 1))}
+                disabled={logsLoading || page >= (siteLogs?.pagination?.totalPages || 1)}
                 className="inline-flex h-8 items-center gap-1 rounded-btn border border-border px-3 text-caption text-text-body transition-colors hover:border-primary hover:text-primary disabled:opacity-50"
               >
                 下一页

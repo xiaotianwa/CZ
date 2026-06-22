@@ -6,7 +6,61 @@ import { getCityDisplayName, getCityLngLat } from '@/data/city-coords';
 export const dynamic = 'force-dynamic';
 
 const CACHE_KEY = 'public:fan-map';
-const CACHE_TTL = 120_000; // 2分钟缓存
+const CACHE_TTL = 120_000;
+
+interface CityUserPreview {
+  name: string;
+  avatar: string | null;
+}
+
+interface CityAggregate {
+  city: string;
+  count: number;
+  users: CityUserPreview[];
+  coord: [number, number] | null;
+}
+
+const MUNICIPALITIES = new Set(['北京', '上海', '天津', '重庆']);
+
+function getRegionName(city: string): string {
+  const normalized = city.trim();
+  const [firstPart] = normalized.split(/\s*[·/,-]\s*/).filter(Boolean);
+
+  if (firstPart && firstPart.length >= 2 && firstPart.length <= 8 && !MUNICIPALITIES.has(normalized)) {
+    return firstPart;
+  }
+
+  const municipality = Array.from(MUNICIPALITIES).find((name) => normalized.includes(name));
+  if (municipality) return municipality;
+
+  return '其他地区';
+}
+
+function buildRegions(cities: CityAggregate[]) {
+  const regionMap = new Map<string, { name: string; count: number; cityCount: number; topCities: Array<{ city: string; count: number }> }>();
+
+  cities.forEach((city) => {
+    const regionName = getRegionName(city.city);
+    const current = regionMap.get(regionName) ?? {
+      name: regionName,
+      count: 0,
+      cityCount: 0,
+      topCities: [],
+    };
+
+    current.count += city.count;
+    current.cityCount += 1;
+    current.topCities.push({ city: city.city, count: city.count });
+    regionMap.set(regionName, current);
+  });
+
+  return Array.from(regionMap.values())
+    .map((region) => ({
+      ...region,
+      topCities: region.topCities.sort((a, b) => b.count - a.count).slice(0, 4),
+    }))
+    .sort((a, b) => b.count - a.count);
+}
 
 export async function GET() {
   try {
@@ -18,21 +72,19 @@ export async function GET() {
       select: { city: true, name: true, avatar: true },
     });
 
-    // 按城市聚合统计，同时收集用户名
-    const cityMap: Record<string, Array<{ name: string; avatar: string | null }>> = {};
-    for (const u of users) {
-      if (u.city) {
-        const city = getCityDisplayName(u.city.trim());
-        if (city) {
-          if (!cityMap[city]) cityMap[city] = [];
-          cityMap[city].push({ name: u.name, avatar: u.avatar ?? null });
-        }
-      }
+    const cityMap: Record<string, CityUserPreview[]> = {};
+    for (const user of users) {
+      if (!user.city) continue;
+
+      const city = getCityDisplayName(user.city.trim());
+      if (!city) continue;
+
+      cityMap[city] ??= [];
+      cityMap[city].push({ name: user.name, avatar: user.avatar ?? null });
     }
 
-    // 转为数组，附带坐标，按人数降序
     const cities = Object.entries(cityMap)
-      .map(([city, cityUsers]) => ({
+      .map<CityAggregate>(([city, cityUsers]) => ({
         city,
         count: cityUsers.length,
         users: cityUsers.slice(0, 20),
@@ -41,9 +93,7 @@ export async function GET() {
       .sort((a, b) => b.count - a.count);
 
     const mappedCities = cities.filter((item) => item.coord !== null);
-
     const mappedCount = mappedCities.reduce((sum, item) => sum + item.count, 0);
-
     const unmappedCities = cities
       .filter((item) => item.coord === null)
       .map(({ city, count }) => ({ city, count }))
@@ -54,6 +104,7 @@ export async function GET() {
 
     const data = {
       cities,
+      regions: buildRegions(mappedCities),
       totalFans,
       filledCount,
       mappedCount,
@@ -61,7 +112,9 @@ export async function GET() {
       unmappedCount: filledCount - mappedCount,
       unmappedCities,
       coverageRate: filledCount > 0 ? Math.round((mappedCount / filledCount) * 100) : 0,
+      updatedAt: new Date().toISOString(),
     };
+
     setCache(CACHE_KEY, data, CACHE_TTL);
     return ok(data);
   } catch (err) {

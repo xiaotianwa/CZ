@@ -13,13 +13,13 @@ const MAX_IMAGE_SIZE = 5 * 1024 * 1024;   // 5MB
 const MAX_VIDEO_SIZE = 50 * 1024 * 1024;   // 50MB
 const MAX_AUDIO_SIZE = 20 * 1024 * 1024;   // 20MB
 
-const ALLOWED_CATEGORIES = ['avatar', 'post-image', 'post-video', 'album', 'cover', 'game', 'event', 'fan-work'];
+const ALLOWED_CATEGORIES = ['avatar', 'cover', 'game', 'media'];
 
 const schema = z.object({
   filename: z.string().min(1, '文件名不能为空'),
   mimeType: z.string().min(1, 'MIME 类型不能为空'),
   size: z.number().positive('文件大小无效'),
-  category: z.string().default('post-image'),
+  category: z.string().default('media'),
 });
 
 export async function POST(req: NextRequest) {

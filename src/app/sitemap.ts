@@ -17,9 +17,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const routes = [
     '/',
     '/profile',
-    '/gallery',
-    '/community',
-    '/events',
     '/search',
     '/fan-map',
     '/games',
@@ -34,6 +31,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     url: `${siteUrl}${route}`,
     lastModified: now,
     changeFrequency: route === '/' ? 'daily' : 'weekly',
-    priority: route === '/' ? 1 : route === '/community' || route === '/events' ? 0.9 : 0.7,
+    priority: route === '/' ? 1 : 0.7,
   }));
 }

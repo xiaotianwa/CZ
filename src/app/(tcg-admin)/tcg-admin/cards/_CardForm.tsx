@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Save, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Save, AlertCircle, BookOpen, ListChecks } from 'lucide-react';
 import SynergyEditor from './_SynergyEditor';
 import ImageUploader from './_ImageUploader';
 import EffectHookEditor from './_EffectHookEditor';
@@ -169,6 +169,19 @@ export default function CardForm({
         </div>
       )}
 
+      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+        <div className="flex items-center gap-2 text-sm font-semibold text-white">
+          <BookOpen className="w-4 h-4 text-[#A78BFA]" />
+          新手填写顺序
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-3">
+          <QuickStep index="1" title="基础信息" text="先填 ID、名称、类型和费用。" />
+          <QuickStep index="2" title="数值" text="角色和装备再填攻击、生命或耐久。" />
+          <QuickStep index="3" title="普通效果" text="这张卡自己什么时候做什么。" />
+          <QuickStep index="4" title="卡牌联动" text="和指定搭档同时上场才触发的组合技。" />
+        </div>
+      </div>
+
       {/* 基础信息 */}
       <Section title="基础信息">
         <Field label="卡牌 ID" required hint="字母+数字，如 C01 / I08 / E12 / V06，创建后不可修改">
@@ -309,11 +322,11 @@ export default function CardForm({
       </Section>
 
       {/* 卡牌联动 */}
-      <Section title="卡牌联动 · Synergy" cols={1}>
+      <Section title="卡牌联动：和谁一起上场会触发" cols={1}>
         <div className="mb-3 px-3 py-2 rounded-md bg-[#7C3AED]/[0.06] border border-[#7C3AED]/15 text-[11px] text-white/60 leading-relaxed">
-          <div className="text-[#A78BFA] font-semibold mb-0.5">配置说明</div>
-          组合规则会在前台对战时自动触发：该卡 + 搭档卡满足触发条件时自动生效效果。建议只在“主调卡”（如人物卡）上配置，避免重复维护。
-          经典例：陈泽 <span className="font-mono text-[#A78BFA]">C01</span> + 高级话筒 <span className="font-mono text-[#A78BFA]">I03</span> 同时在场 → 陈泽攻击 +2 / 联动期间。
+          <div className="text-[#A78BFA] font-semibold mb-0.5">直白规则</div>
+          联动不是普通效果。它只在“本卡 + 搭档卡”满足条件时触发。小白只需要按顺序填：搭档卡、触发条件、谁吃效果、触发后做什么。
+          建议同一组联动只配置在一张主卡上，避免重复触发。
         </div>
         <SynergyEditor
           selfId={form.id}
@@ -346,11 +359,10 @@ export default function CardForm({
       </Section>
 
       {/* 效果钩子 */}
-      <Section title="效果钩子 · EffectHook" cols={1}>
+      <Section title="普通效果：这张卡什么时候做什么" cols={1}>
         <div className="mb-3 px-3 py-2 rounded-md bg-[#7C3AED]/[0.06] border border-[#7C3AED]/15 text-[11px] text-white/60 leading-relaxed">
-          <div className="text-[#A78BFA] font-semibold mb-0.5">规则</div>
-          每个效果代表一条「触发时机 + 技能 + 参数」钩子。例：陈泽小助理的「登场 + 抽 1 张牌」。
-          前台 Battle 引擎会在对应时机（如卡牌出场）自动执行。
+          <div className="text-[#A78BFA] font-semibold mb-0.5">直白规则</div>
+          “钩子”就是触发时机。比如：登场时抽 1 张、死亡时打敌方 2 点、装备时回血。先选技能，再确认什么时候触发。
         </div>
         <EffectHookEditor
           value={form.effectHooks}
@@ -379,6 +391,23 @@ export default function CardForm({
     <aside className="lg:sticky lg:top-[4.5rem] lg:self-start">
       <CardPreview form={form} />
     </aside>
+    </div>
+  );
+}
+
+function QuickStep({ index, title, text }: { index: string; title: string; text: string }) {
+  return (
+    <div className="rounded-lg border border-white/10 bg-[#0f0f23]/50 p-3">
+      <div className="flex items-center gap-2">
+        <span className="h-5 w-5 rounded-full bg-[#7C3AED]/25 border border-[#7C3AED]/40 text-[#C4B5FD] text-[11px] font-semibold flex items-center justify-center">
+          {index}
+        </span>
+        <span className="text-xs font-semibold text-white/85 flex items-center gap-1.5">
+          {index === '3' && <ListChecks className="w-3 h-3 text-[#A78BFA]" />}
+          {title}
+        </span>
+      </div>
+      <p className="text-[11px] leading-relaxed text-white/45 mt-1.5">{text}</p>
     </div>
   );
 }

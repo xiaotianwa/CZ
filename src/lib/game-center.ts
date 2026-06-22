@@ -1,4 +1,8 @@
-import { DEFAULT_GAME_CENTER_ENTRIES, GAME_CENTER_FALLBACK_META } from '@/data/gameCenterEntries';
+import {
+  DEFAULT_GAME_CENTER_ENTRIES,
+  GAME_CENTER_FALLBACK_META,
+  REMOVED_GAME_CENTER_ENTRY_KEYS,
+} from '@/data/gameCenterEntries';
 
 export interface GameCenterEntryRecord {
   id: string;
@@ -15,9 +19,16 @@ export interface GameCenterEntryRecord {
   sortOrder: number;
 }
 
+export function isRemovedGameCenterEntryKey(entryKey: string) {
+  return REMOVED_GAME_CENTER_ENTRY_KEYS.some((key) => key === entryKey);
+}
+
 export function mergeGameCenterEntries(records: GameCenterEntryRecord[]) {
   const defaultMap = new Map(DEFAULT_GAME_CENTER_ENTRIES.map((item) => [item.entryKey, item]));
-  const merged = records.map((record) => {
+  const removedKeys = new Set<string>(REMOVED_GAME_CENTER_ENTRY_KEYS);
+  const activeRecords = records.filter((record) => !removedKeys.has(record.entryKey));
+
+  const merged = activeRecords.map((record) => {
     const fallback = defaultMap.get(record.entryKey);
 
     return {

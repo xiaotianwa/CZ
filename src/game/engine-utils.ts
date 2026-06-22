@@ -13,6 +13,8 @@ import type {
 } from './types';
 // 循环依赖：effects 也 import engine-utils。ESM 允许，运行时 Effects.runEffect 在首次调用时已定义。
 import * as Effects from './effects';
+// 循环引用：engine.ts 也 import 本模块；仅在函数体内读取 CARD_DB，运行时已初始化。
+import { CARD_DB } from './engine';
 
 // ============ PlayerId ============
 
@@ -152,6 +154,34 @@ function drawOne(state: GameState, owner: PlayerId): GameState {
   return next;
 }
 
+// ============ 暗箱（旧称「奥秘」）内部工具 ============
+
+/** 运行一张 secret 自身的 onSecretTrigger 钩子（按 CARD_DB 查询 def 上挂的 effect）。 */
+function runSecretHooks(state: GameState, sec: EventCard, owner: PlayerId): GameState {
+  const def = CARD_DB.get(sec.defId);
+  const hooks = (def?.effects ?? []).filter((e) => e.trigger === 'onSecretTrigger');
+  let s = state;
+  for (const h of hooks) {
+    s = Effects.runEffect(s, h.effectId, {
+      source: { kind: 'event', id: sec.instanceId, owner },
+      params: h.params,
+    });
+  }
+  return s;
+}
+
+/** 把触发过的 secret 从事件槽移到墓地（带 triggered 标记避免同回合重入）。 */
+function consumeSecret(state: GameState, sec: EventCard, owner: PlayerId): GameState {
+  return updatePlayer(state, owner, (p) => ({
+    ...p,
+    events: p.events.filter((e) => e.instanceId !== sec.instanceId),
+    graveyard: [
+      ...p.graveyard,
+      { instanceId: sec.instanceId, defId: sec.defId, owner, currentCost: 0 },
+    ],
+  }));
+}
+
 // ============ 伤害结算 ============
 
 export function dealDamage(
@@ -165,13 +195,43 @@ export function dealDamage(
   if (target.kind === 'hero') {
     let finalAmount = amount;
     let s = state;
-    // 暗箱（旧称「奥秘」）：heroTakesDamageGte5（如 V06 危机公关）
-    if (finalAmount >= 5 && source.owner !== target.player) {
+    // 暗箱 1：enemyPlaysEffectDamage（来源是效果/道具卡 + 敌方英雄）→ 取消伤害
+    if (
+      source.kind === 'card' &&
+      source.owner !== target.player &&
+      finalAmount > 0
+    ) {
       const secrets = s.players[target.player].events.filter(
-        (e) => e.kind === 'secret' && e.secretTrigger === 'heroTakesDamageGte5',
+        (e) =>
+          e.kind === 'secret' &&
+          !e.triggered &&
+          e.secretTrigger === 'enemyPlaysEffectDamage',
       );
       if (secrets.length > 0) {
-        // 只触发首个符合条件的暗箱
+        const sec = secrets[0];
+        s = addLog(s, {
+          turn: s.turn,
+          player: target.player,
+          kind: 'secret',
+          text: `暗箱触发: ${sec.defId}（效果伤害被无效）`,
+        });
+        s = runSecretHooks(s, sec, target.player);
+        s = consumeSecret(s, sec, target.player);
+        finalAmount = 0;
+      }
+    }
+    // 暗箱 2：heroTakesDamageGte5（任意来源 ≥5 伤害）→ 减为 1，再执行暗箱自身 hooks
+    if (
+      finalAmount >= 5 &&
+      source.owner !== target.player
+    ) {
+      const secrets = s.players[target.player].events.filter(
+        (e) =>
+          e.kind === 'secret' &&
+          !e.triggered &&
+          e.secretTrigger === 'heroTakesDamageGte5',
+      );
+      if (secrets.length > 0) {
         const sec = secrets[0];
         s = addLog(s, {
           turn: s.turn,
@@ -180,24 +240,11 @@ export function dealDamage(
           text: `暗箱触发: ${sec.defId}（伤害改为 1）`,
         });
         finalAmount = 1;
-        // 运行该暗箱的 onSecretTrigger 效果
-        const mod = Effects;
-        // 在 registered effects 中找 hooks
-        // 这里简化：直接按 defId 硬编码 crisis_pr
-        s = mod.runEffect(s, 'crisis_pr', {
-          source: { kind: 'event', id: sec.instanceId, owner: target.player },
-        });
-        // 移除该暗箱
-        s = updatePlayer(s, target.player, (p) => ({
-          ...p,
-          events: p.events.filter((e) => e.instanceId !== sec.instanceId),
-          graveyard: [
-            ...p.graveyard,
-            { instanceId: sec.instanceId, defId: sec.defId, owner: target.player, currentCost: 0 },
-          ],
-        }));
+        s = runSecretHooks(s, sec, target.player);
+        s = consumeSecret(s, sec, target.player);
       }
     }
+    if (finalAmount <= 0) return checkGameOver(s);
     const logged = addLog(s, {
       turn: s.turn,
       player: target.player,

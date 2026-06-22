@@ -215,7 +215,7 @@ export default function JoinPage() {
               {nickname}，你已成为社区的第 {formatNum(communityStats.totalFans + 1)} 位成员
             </p>
             <div className="flex flex-col gap-3 mt-8">
-              <a href="/community" className="btn-primary inline-flex items-center justify-center gap-1.5 h-11 text-base">
+              <a href="/feedback" className="btn-primary inline-flex items-center justify-center gap-1.5 h-11 text-base">
                 进入社区 <ArrowRight className="w-4 h-4" />
               </a>
               <a href="/" className="btn-outline inline-flex items-center justify-center h-11 text-base">

@@ -15,17 +15,17 @@ const KIND_COLOR: Record<string, string> = {
   death: 'text-slate-400',
   play: 'text-sky-300',
   attack: 'text-amber-200',
-  battlecry: 'text-fuchsia-300',
+  battlecry: 'text-cyan-200',
   deathrattle: 'text-rose-400',
   secret: 'text-amber-400 font-bold',
-  countdown: 'text-indigo-300',
+  countdown: 'text-sky-300',
   invalid: 'text-red-500',
   gameOver: 'text-lime-400 font-bold',
   draw: 'text-white/40',
   fatigue: 'text-red-400',
   turnStart: 'text-white/90 font-semibold',
   turnEnd: 'text-white/30',
-  combo: 'text-pink-300 font-bold',
+  combo: 'text-amber-200 font-bold',
 };
 
 export function LogPanel({ state }: { state: GameState }) {
@@ -36,7 +36,7 @@ export function LogPanel({ state }: { state: GameState }) {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [state.log.length]);
   return (
-    <div className="lg:w-72 shrink-0 flex flex-col min-h-0 max-h-full">
+    <div className="lg:w-80 shrink-0 flex flex-col min-h-0 max-h-full">
       <button onClick={() => setOpen(!open)}
               className="lg:hidden mb-2 px-3 py-1.5 bg-white/10 hover:bg-white/15 rounded text-white text-sm font-bold flex items-center justify-between cursor-pointer shrink-0">
         <span className="inline-flex items-center gap-1.5">
@@ -45,23 +45,28 @@ export function LogPanel({ state }: { state: GameState }) {
         <Icons.ChevronIcon size={14} className={`transition-transform ${open ? 'rotate-90' : ''}`} />
       </button>
       <div ref={scrollRef}
-           className={`bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-white/70 overflow-y-auto flex-1 min-h-0 ${
+           className={`overflow-y-auto flex-1 min-h-0 rounded-[24px] border border-[#b58b4a]/20 bg-[linear-gradient(180deg,rgba(15,23,42,0.86),rgba(8,12,24,0.90))] p-4 text-xs text-white/70 shadow-[0_18px_44px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.06)] ${
              open ? 'max-h-[240px] lg:max-h-none' : 'hidden lg:block'
            }`}>
-        <div className="hidden lg:flex sticky top-0 bg-slate-900/80 pb-2 font-bold text-white items-center gap-1.5">
-          <Icons.LogIcon size={14} /> 战斗日志
+        <div className="hidden lg:flex sticky top-0 z-10 -mx-1 mb-2 items-center justify-between bg-[#0b1220]/95 px-1 pb-2 font-bold text-white">
+          <span className="inline-flex items-center gap-1.5">
+            <Icons.LogIcon size={14} /> 战斗日志
+          </span>
+          <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-black text-white/55 tabular-nums">
+            {state.log.length}
+          </span>
         </div>
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           {state.log.slice(-100).map((l, i) => {
             const isTurnStart = l.kind === 'turnStart';
             return (
               <div
                 key={i}
                 className={[
-                  'flex items-start gap-2 rounded-md px-2 py-1 leading-snug border text-[12px]',
+                  'flex items-start gap-2 rounded-lg px-2.5 py-1.5 leading-snug border text-[12px]',
                   isTurnStart
-                    ? 'bg-white/[0.08] border-white/15 mt-1'
-                    : 'bg-white/[0.03] border-white/[0.06]',
+                    ? 'bg-[#b58b4a]/10 border-[#b58b4a]/20 mt-1'
+                    : 'bg-white/[0.035] border-white/[0.06]',
                   KIND_COLOR[l.kind] ?? 'text-white/70',
                 ].join(' ')}
               >

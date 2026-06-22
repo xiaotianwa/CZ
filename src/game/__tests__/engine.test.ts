@@ -4,7 +4,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { initGame, applyAction, getCardDef } from '../engine';
 import { registerAllCards } from '../cards';
-import type { Deck, GameState, PlayerId, TargetRef } from '../types';
+import type { Deck, GameState, Minion, PlayerId, TargetRef } from '../types';
 
 // 仅注册一次
 beforeAll(() => {
@@ -52,6 +52,23 @@ function setMana(s: GameState, player: PlayerId, mana: number, max = mana): Game
       [player]: { ...s.players[player], mana, manaMax: Math.max(s.players[player].manaMax, max) },
     },
   };
+}
+
+function fillBoard(owner: PlayerId): Minion[] {
+  return Array.from({ length: 6 }, (_, index) => ({
+    instanceId: `full_board_${index}`,
+    defId: 'C02',
+    owner,
+    attack: 2,
+    maxHealth: 3,
+    health: 3,
+    attacksLeftThisTurn: 0,
+    summoningSickness: true,
+    keywords: new Set(),
+    silenced: false,
+    deathrattles: [],
+    divineShieldActive: false,
+  }));
 }
 
 // ============ 用例 ============
@@ -232,6 +249,102 @@ describe('特殊效果', () => {
   });
 });
 
+describe('玩家技能', () => {
+  it('治疗技能消耗 2 费并恢复 2 点流量', () => {
+    let s = initGame({
+      seed: 31,
+      firstPlayer: 'P1',
+      p1Deck: { ...buildDeck([]), heroPowerId: 'hp_heal2' },
+      p2Deck: buildDeck([]),
+    });
+    s = setMana({ ...s, players: { ...s.players, P1: { ...s.players.P1, hp: 30 } } }, 'P1', 2, 2);
+
+    s = applyAction(s, { type: 'HERO_POWER', player: 'P1' });
+
+    expect(s.players.P1.hp).toBe(32);
+    expect(s.players.P1.mana).toBe(0);
+    expect(s.players.P1.heroPowerUsed).toBe(true);
+  });
+
+  it('召唤技能生成应援新人，战场满时不扣费', () => {
+    let s = initGame({
+      seed: 32,
+      firstPlayer: 'P1',
+      p1Deck: { ...buildDeck([]), heroPowerId: 'hp_recruit' },
+      p2Deck: buildDeck([]),
+    });
+    s = setMana(s, 'P1', 2, 2);
+
+    s = applyAction(s, { type: 'HERO_POWER', player: 'P1' });
+
+    expect(s.players.P1.minions).toHaveLength(1);
+    expect(s.players.P1.minions[0].defId).toBe('C15');
+    expect(s.players.P1.minions[0].attack).toBe(1);
+    expect(s.players.P1.minions[0].health).toBe(1);
+
+    let full = initGame({
+      seed: 33,
+      firstPlayer: 'P1',
+      p1Deck: { ...buildDeck([]), heroPowerId: 'hp_recruit' },
+      p2Deck: buildDeck([]),
+    });
+    full = setMana({
+      ...full,
+      players: {
+        ...full.players,
+        P1: { ...full.players.P1, minions: fillBoard('P1') },
+      },
+    }, 'P1', 2, 2);
+    const next = applyAction(full, { type: 'HERO_POWER', player: 'P1' });
+
+    expect(next.players.P1.minions).toHaveLength(6);
+    expect(next.players.P1.mana).toBe(2);
+    expect(next.players.P1.heroPowerUsed).toBe(false);
+    expect(next.log.at(-1)?.kind).toBe('invalid');
+  });
+});
+
+describe('扩展卡牌效果', () => {
+  it('控评降温会把目标角色弹回其主人手牌', () => {
+    let s = initGame({ seed: 34, firstPlayer: 'P2', p1Deck: buildDeck([]), p2Deck: buildDeck([]) });
+    s = forceCardIntoHand(s, 'P2', 'C03');
+    s = setMana(s, 'P2', 3, 3);
+    s = applyAction(s, { type: 'PLAY_CARD', player: 'P2', instanceId: findCardInHand(s, 'P2', 'C03')! });
+    const target = findMinionByDef(s, 'P2', 'C03')!;
+    s = applyAction(s, { type: 'END_TURN', player: 'P2' });
+    s = forceCardIntoHand(s, 'P1', 'E16');
+    s = setMana(s, 'P1', 3, 3);
+
+    s = applyAction(s, {
+      type: 'PLAY_CARD',
+      player: 'P1',
+      instanceId: findCardInHand(s, 'P1', 'E16')!,
+      target: { kind: 'minion', player: 'P2', instanceId: target },
+    });
+
+    expect(s.players.P2.minions).toHaveLength(0);
+    expect(s.players.P2.hand.some((card) => card.defId === 'C03')).toBe(true);
+  });
+
+  it('护盾应援能给目标角色粉丝盾', () => {
+    let s = initGame({ seed: 35, firstPlayer: 'P1', p1Deck: buildDeck([]), p2Deck: buildDeck([]) });
+    s = forceCardIntoHand(s, 'P1', 'C02');
+    s = setMana(s, 'P1', 5, 5);
+    s = applyAction(s, { type: 'PLAY_CARD', player: 'P1', instanceId: findCardInHand(s, 'P1', 'C02')! });
+    const target = findMinionByDef(s, 'P1', 'C02')!;
+    s = forceCardIntoHand(s, 'P1', 'E17');
+
+    s = applyAction(s, {
+      type: 'PLAY_CARD',
+      player: 'P1',
+      instanceId: findCardInHand(s, 'P1', 'E17')!,
+      target: { kind: 'minion', player: 'P1', instanceId: target },
+    });
+
+    expect(s.players.P1.minions.find((m) => m.instanceId === target)?.divineShieldActive).toBe(true);
+  });
+});
+
 describe('回合流程', () => {
   it('结束回合，交给对方', () => {
     let s = initGame({ seed: 11, firstPlayer: 'P1', p1Deck: buildDeck([]), p2Deck: buildDeck([]) });
@@ -277,5 +390,74 @@ describe('游戏结束', () => {
     });
     expect(s.ended).toBe(true);
     expect(s.winner).toBe('P1');
+  });
+});
+
+describe('出牌前置校验', () => {
+  it('战场已满时不会扣费或丢失手牌', () => {
+    let s = initGame({ seed: 15, firstPlayer: 'P1', p1Deck: buildDeck([]), p2Deck: buildDeck([]) });
+    s = {
+      ...s,
+      players: {
+        ...s.players,
+        P1: {
+          ...s.players.P1,
+          minions: Array.from({ length: 6 }, (_, index) => ({
+            instanceId: `full_board_${index}`,
+            defId: 'C02',
+            owner: 'P1' as const,
+            attack: 2,
+            maxHealth: 3,
+            health: 3,
+            attacksLeftThisTurn: 0,
+            summoningSickness: true,
+            keywords: new Set(),
+            silenced: false,
+            deathrattles: [],
+            divineShieldActive: false,
+          })),
+        },
+      },
+    };
+    s = forceCardIntoHand(s, 'P1', 'C02');
+    s = setMana(s, 'P1', 5, 5);
+    const id = findCardInHand(s, 'P1', 'C02')!;
+    const manaBefore = s.players.P1.mana;
+
+    const next = applyAction(s, { type: 'PLAY_CARD', player: 'P1', instanceId: id });
+
+    expect(next.players.P1.minions).toHaveLength(6);
+    expect(next.players.P1.mana).toBe(manaBefore);
+    expect(next.players.P1.hand.some((card) => card.instanceId === id)).toBe(true);
+    expect(next.log.at(-1)?.kind).toBe('invalid');
+  });
+
+  it('事件槽已满时不会扣费或丢失手牌', () => {
+    let s = initGame({ seed: 16, firstPlayer: 'P1', p1Deck: buildDeck([]), p2Deck: buildDeck([]) });
+    s = {
+      ...s,
+      players: {
+        ...s.players,
+        P1: {
+          ...s.players.P1,
+          events: [
+            { instanceId: 'event_1', defId: 'V01', owner: 'P1' as const, kind: 'location' as const, countdownRemaining: 3 },
+            { instanceId: 'event_2', defId: 'V03', owner: 'P1' as const, kind: 'location' as const, countdownRemaining: 2 },
+            { instanceId: 'event_3', defId: 'V02', owner: 'P1' as const, kind: 'secret' as const, secretTrigger: 'enemyPlaysMinion' as const },
+          ],
+        },
+      },
+    };
+    s = forceCardIntoHand(s, 'P1', 'V04');
+    s = setMana(s, 'P1', 5, 5);
+    const id = findCardInHand(s, 'P1', 'V04')!;
+    const manaBefore = s.players.P1.mana;
+
+    const next = applyAction(s, { type: 'PLAY_CARD', player: 'P1', instanceId: id });
+
+    expect(next.players.P1.events).toHaveLength(3);
+    expect(next.players.P1.mana).toBe(manaBefore);
+    expect(next.players.P1.hand.some((card) => card.instanceId === id)).toBe(true);
+    expect(next.log.at(-1)?.kind).toBe('invalid');
   });
 });

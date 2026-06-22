@@ -8,10 +8,37 @@ import { moderateText } from '@/lib/content-moderation';
 import { checkRateLimit, getClientIp } from '@/lib/rate-limit';
 
 const feedbackSchema = z.object({
-  type: z.enum(['suggestion', 'bug', 'other']).default('suggestion'),
+  type: z.enum(['suggestion', 'question', 'bug', 'other']).default('suggestion'),
   content: z.string().min(5, '内容至少5个字').max(1000, '内容最多1000字'),
   contact: z.string().max(100, '联系方式最多100字').optional().default(''),
 });
+
+export async function GET() {
+  try {
+    const list = await prisma.feedback.findMany({
+      where: {
+        status: 'resolved',
+        reply: { not: null },
+        type: { in: ['suggestion', 'question'] },
+      },
+      select: {
+        id: true,
+        type: true,
+        content: true,
+        reply: true,
+        createdAt: true,
+        updatedAt: true,
+        user: { select: { name: true, avatar: true } },
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: 20,
+    });
+
+    return ok(list);
+  } catch (err) {
+    return handleError(err);
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {

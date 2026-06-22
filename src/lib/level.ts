@@ -4,10 +4,6 @@ export const SPECIAL_BADGE_LEVEL = 100;
 
 export const POINT_RULE_POINTS = {
   daily_login: 50,
-  post: 50,
-  comment: 10,
-  be_liked: 10,
-  event: 20,
 } as const;
 
 export function calcLevelFromPoints(points: number): number {

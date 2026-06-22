@@ -60,6 +60,7 @@ export const KW_ICON: Record<string, KwIconInfo> = {
 
 export const TARGETED_EFFECTS = new Set([
   'damage_target', 'silence_target', 'transform_target_1_1', 'combo_damage_with_chenze',
+  'return_target_to_hand', 'give_target_divine_shield', 'damage_full_health_target_bonus',
 ]);
 
 // ============ 坐标点 ============

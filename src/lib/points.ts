@@ -4,11 +4,7 @@ import { POINT_RULE_POINTS, calcLevelFromPoints, getBadgeByLevel } from '@/lib/l
 // ===== 积分规则配置 =====
 
 export const POINT_RULES = {
-  daily_login: { points: POINT_RULE_POINTS.daily_login, label: '每日登录' },
-  post: { points: POINT_RULE_POINTS.post, label: '发布帖子' },
-  comment: { points: POINT_RULE_POINTS.comment, label: '发表评论' },
-  be_liked: { points: POINT_RULE_POINTS.be_liked, label: '被点赞' },
-  event: { points: POINT_RULE_POINTS.event, label: '参与活动' },
+  daily_login: { points: POINT_RULE_POINTS.daily_login, label: '????' },
 } as const;
 
 export type PointAction = keyof typeof POINT_RULES;

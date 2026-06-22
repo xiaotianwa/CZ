@@ -155,13 +155,13 @@ export default function AdminAnnouncementsPage() {
     return `${days}天前`;
   }
 
-  const activeCount = data?.list.filter((a) => a.isActive).length ?? 0;
+  const activeCount = data?.list?.filter((a) => a.isActive).length ?? 0;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <span className="text-body text-text-muted">共 {data?.pagination.total ?? 0} 条公告</span>
+          <span className="text-body text-text-muted">共 {data?.pagination?.total ?? 0} 条公告</span>
           <span className="tag-success text-caption">{activeCount} 条启用中</span>
         </div>
         <button onClick={openCreate} className="btn-primary h-9 px-4 flex items-center gap-1.5 text-caption">

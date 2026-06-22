@@ -39,7 +39,6 @@ export async function GET(req: NextRequest) {
           points: true,
           isActive: true,
           createdAt: true,
-          _count: { select: { posts: true, comments: true } },
         },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * pageSize,

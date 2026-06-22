@@ -21,6 +21,9 @@ import {
   updateMinion,
   updatePlayer,
 } from './engine-utils';
+// 循环引用：engine.ts 也 import 本模块；仅在运行时（函数体内）读取 CARD_DB，
+// 运行时 Map 已初始化，不会出问题。
+import { CARD_DB } from './engine';
 
 // ============ Registry ============
 
@@ -253,10 +256,45 @@ registerEffect('chenze_partner_combo', (s, ctx) => {
   return next;
 });
 
-// discover_effect_placeholder: 发现类（简化为抽 1 张特殊效果）
+// discover_effect: 挖掘。
+// 正式实现应弹三选一 UI；此处简化为：从全池随机挑 1 张效果卡直接入手牌（currentCost=0），
+// 避免阻塞引擎同步性；比单纯 draw 更具"发现"语义（可抽到牌库外的卡）。
 registerEffect('discover_effect', (s, ctx) => {
-  // TODO: 正式实现应从全局池随机抽 3 张 effect 让玩家选 1
-  return drawCards(s, ctx.source.owner, 1);
+  const owner = ctx.source.owner;
+  const p = s.players[owner];
+  if (p.hand.length >= 10) {
+    return addLog(s, {
+      turn: s.turn,
+      player: owner,
+      kind: 'invalid',
+      text: '挖掘失败：手牌已满',
+    });
+  }
+  // 全池效果卡候选（排除正在结算的自身 defId 以避免无限抽自己）
+  const selfDefId = typeof ctx.source.id === 'string' ? ctx.source.id : '';
+  const candidates: string[] = [];
+  CARD_DB.forEach((def, id) => {
+    if (def.type === 'effect' && id !== selfDefId) candidates.push(id);
+  });
+  if (candidates.length === 0) return drawCards(s, owner, 1);
+  const [r, ns] = nextRandom(s);
+  const pickDefId = candidates[Math.floor(r * candidates.length)];
+  const pickDef = CARD_DB.get(pickDefId)!;
+  const instanceId = `disc_${pickDefId}_${Math.random().toString(36).slice(2, 8)}`;
+  let next = updatePlayer(ns, owner, (pl) => ({
+    ...pl,
+    hand: [
+      ...pl.hand,
+      { instanceId, defId: pickDefId, owner, currentCost: 0 },
+    ],
+  }));
+  next = addLog(next, {
+    turn: next.turn,
+    player: owner,
+    kind: 'draw',
+    text: `挖掘出 ${pickDef.name}（cost 0 入手牌）`,
+  });
+  return next;
 });
 
 // destroy_random_enemy_event: 随机摧毁对方 1 张事件
@@ -356,5 +394,250 @@ registerEffect('silence_trigger_minion', (s, ctx) => {
 registerEffect('crisis_pr', (s, ctx) => {
   let next = healHero(s, ctx.source.owner, 5);
   next = drawCards(next, ctx.source.owner, 2);
+  return next;
+});
+
+// ============ 新增：治疗系扩充 ============
+
+// heal_target_minion: 治疗目标人物 N 点（仅己方/全场皆可，由 UI 选目标）
+registerEffect('heal_target_minion', (s, ctx) => {
+  const amt = paramNum(ctx, 'amount', 0);
+  if (!ctx.target || ctx.target.kind !== 'minion' || amt <= 0) return s;
+  const { player, instanceId } = ctx.target;
+  const m = findMinion(s, player, instanceId);
+  if (!m) return s;
+  const healed = Math.min(m.maxHealth, m.health + amt);
+  const delta = healed - m.health;
+  if (delta <= 0) return s;
+  const next = updateMinion(s, player, instanceId, (x) => ({ ...x, health: healed }));
+  return addLog(next, {
+    turn: next.turn,
+    player: ctx.source.owner,
+    kind: 'heal',
+    text: `${m.defId} +${delta}`,
+  });
+});
+
+// heal_all_friendly_minions: 回己方全体人物 N 点流量
+registerEffect('heal_all_friendly_minions', (s, ctx) => {
+  const amt = paramNum(ctx, 'amount', 0);
+  if (amt <= 0) return s;
+  const owner = ctx.source.owner;
+  let next = s;
+  for (const m of [...next.players[owner].minions]) {
+    const target = Math.min(m.maxHealth, m.health + amt);
+    if (target > m.health) {
+      next = updateMinion(next, owner, m.instanceId, (x) => ({ ...x, health: target }));
+    }
+  }
+  return addLog(next, {
+    turn: next.turn,
+    player: owner,
+    kind: 'heal',
+    text: `己方全体人物 +${amt}`,
+  });
+});
+
+// heal_self_hero_and_minions: 同时回己方经纪人与所有己方人物 N 点
+registerEffect('heal_self_hero_and_minions', (s, ctx) => {
+  const amt = paramNum(ctx, 'amount', 0);
+  if (amt <= 0) return s;
+  const owner = ctx.source.owner;
+  let next = healHero(s, owner, amt);
+  for (const m of [...next.players[owner].minions]) {
+    const target = Math.min(m.maxHealth, m.health + amt);
+    if (target > m.health) {
+      next = updateMinion(next, owner, m.instanceId, (x) => ({ ...x, health: target }));
+    }
+  }
+  return next;
+});
+
+// ============ 新增：抽牌/所憨露扩充 ============
+
+// draw_and_reduce_cost: 抽 N 张，并对新抽到的这 N 张手牌 currentCost -X（下限 0）
+registerEffect('draw_and_reduce_cost', (s, ctx) => {
+  const n = paramNum(ctx, 'amount', 1);
+  const reduce = paramNum(ctx, 'reduce', 1);
+  if (n <= 0) return s;
+  const owner = ctx.source.owner;
+  const before = s.players[owner].hand.length;
+  let next = drawCards(s, owner, n);
+  if (reduce <= 0) return next;
+  const after = next.players[owner].hand.length;
+  const drawnCount = after - before;
+  if (drawnCount <= 0) return next;
+  next = updatePlayer(next, owner, (p) => ({
+    ...p,
+    hand: p.hand.map((c, i) =>
+      i >= before && i < before + drawnCount
+        ? { ...c, currentCost: Math.max(0, c.currentCost - reduce) }
+        : c,
+    ),
+  }));
+  return addLog(next, {
+    turn: next.turn,
+    player: owner,
+    kind: 'draw',
+    text: `新抽 ${drawnCount} 张 cost -${reduce}`,
+  });
+});
+
+// both_draw_cards: 双方各抽 N 张
+registerEffect('both_draw_cards', (s, ctx) => {
+  const n = paramNum(ctx, 'amount', 1);
+  if (n <= 0) return s;
+  let next = drawCards(s, ctx.source.owner, n);
+  next = drawCards(next, enemyOf(ctx.source.owner), n);
+  return next;
+});
+
+// discard_random_enemy_hand: 随机弃对方 N 张手牌
+registerEffect('discard_random_enemy_hand', (s, ctx) => {
+  const n = paramNum(ctx, 'amount', 1);
+  if (n <= 0) return s;
+  const enemy = enemyOf(ctx.source.owner);
+  let next = s;
+  for (let i = 0; i < n; i++) {
+    const hand = next.players[enemy].hand;
+    if (hand.length === 0) break;
+    const [r, ns] = nextRandom(next);
+    next = ns;
+    const idx = Math.floor(r * hand.length);
+    const victim = hand[idx];
+    next = updatePlayer(next, enemy, (p) => ({
+      ...p,
+      hand: p.hand.filter((c) => c.instanceId !== victim.instanceId),
+      graveyard: [...p.graveyard, victim],
+    }));
+    next = addLog(next, {
+      turn: next.turn,
+      player: ctx.source.owner,
+      kind: 'burn',
+      text: `对方弃牌 ${victim.defId}`,
+    });
+  }
+  return next;
+});
+
+// ============ 新增：控场扩充 ============
+
+// return_target_to_hand: 弹回目标人物到其主人手牌（手满则直接消失入墓地）
+registerEffect('return_target_to_hand', (s, ctx) => {
+  if (!ctx.target || ctx.target.kind !== 'minion') return s;
+  const { player, instanceId } = ctx.target;
+  const m = findMinion(s, player, instanceId);
+  if (!m) return s;
+  const baseDef = s.players[player].minions.find((x) => x.instanceId === instanceId);
+  if (!baseDef) return s;
+  const handFull = s.players[player].hand.length >= 10;
+  let next = updatePlayer(s, player, (p) => ({
+    ...p,
+    minions: p.minions.filter((x) => x.instanceId !== instanceId),
+    hand: handFull
+      ? p.hand
+      : [
+          ...p.hand,
+          { instanceId: m.instanceId, defId: m.defId, owner: player, currentCost: 0 },
+        ],
+    graveyard: handFull
+      ? [
+          ...p.graveyard,
+          { instanceId: m.instanceId, defId: m.defId, owner: player, currentCost: 0 },
+        ]
+      : p.graveyard,
+  }));
+  next = addLog(next, {
+    turn: next.turn,
+    player: ctx.source.owner,
+    kind: 'play',
+    text: handFull
+      ? `${m.defId} 被弹回但手牌已满，销毁`
+      : `${m.defId} 被弹回 ${player} 手牌`,
+  });
+  return next;
+});
+
+// give_target_divine_shield: 给目标人物粉丝盾
+registerEffect('give_target_divine_shield', (s, ctx) => {
+  if (!ctx.target || ctx.target.kind !== 'minion') return s;
+  const { player, instanceId } = ctx.target;
+  const next = updateMinion(s, player, instanceId, (m) => ({
+    ...m,
+    divineShieldActive: true,
+  }));
+  return addLog(next, {
+    turn: next.turn,
+    player: ctx.source.owner,
+    kind: 'play',
+    text: `目标获得粉丝盾`,
+  });
+});
+
+// damage_full_health_target_bonus: 对目标造成 base 伤害；若目标满血则额外 +bonus
+registerEffect('damage_full_health_target_bonus', (s, ctx) => {
+  const base = paramNum(ctx, 'base', 3);
+  const bonus = paramNum(ctx, 'bonus', 3);
+  if (!ctx.target || ctx.target.kind === 'none') return s;
+  let extra = 0;
+  if (ctx.target.kind === 'minion') {
+    const m = findMinion(s, ctx.target.player, ctx.target.instanceId);
+    if (m && m.health >= m.maxHealth) extra = bonus;
+  } else if (ctx.target.kind === 'hero') {
+    const p = s.players[ctx.target.player];
+    if (p.hp >= p.hpMax) extra = bonus;
+  }
+  return dealDamage(s, ctx.target, base + extra, ctx.source);
+});
+
+// ============ 新增：环境/双方系 ============
+
+// both_heroes_heal: 双方英雄各回 N 血
+registerEffect('both_heroes_heal', (s, ctx) => {
+  const amt = paramNum(ctx, 'amount', 0);
+  if (amt <= 0) return s;
+  let next = healHero(s, ctx.source.owner, amt);
+  next = healHero(next, enemyOf(ctx.source.owner), amt);
+  return next;
+});
+
+// resurrect_last_friendly_character: 复活己方墓地最近一张角色为 1/1（1 血、无关键字、被沉默）
+registerEffect('resurrect_last_friendly_character', (s, ctx) => {
+  const owner = ctx.source.owner;
+  const mins = s.players[owner].minions;
+  if (mins.length >= 6) return s;
+  // 从后向前找墓地里的角色（依赖 CARD_DB，已 top-level 导入）
+  const grave = s.players[owner].graveyard;
+  let targetDefId: string | null = null;
+  for (let i = grave.length - 1; i >= 0; i--) {
+    const def = CARD_DB.get(grave[i].defId);
+    if (def && def.type === 'character') {
+      targetDefId = grave[i].defId;
+      break;
+    }
+  }
+  if (!targetDefId) return s;
+  const copy: Minion = {
+    instanceId: `rez_${targetDefId}_${Math.random().toString(36).slice(2, 8)}`,
+    defId: targetDefId,
+    owner,
+    attack: 1,
+    maxHealth: 1,
+    health: 1,
+    attacksLeftThisTurn: 0,
+    summoningSickness: true,
+    keywords: new Set<Keyword>(),
+    silenced: true,
+    deathrattles: [],
+    divineShieldActive: false,
+    justSummoned: true,
+  };
+  let next = updatePlayer(s, owner, (p) => ({ ...p, minions: [...p.minions, copy] }));
+  next = addLog(next, {
+    turn: next.turn,
+    player: owner,
+    kind: 'play',
+    text: `复活 ${targetDefId}（1/1）`,
+  });
   return next;
 });

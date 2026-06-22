@@ -371,7 +371,7 @@ export default function AdminGamesPage() {
       )}
 
       <div className="flex items-center justify-between">
-        <span className="text-body text-text-muted">共 {data?.pagination.total ?? 0} 款游戏</span>
+        <span className="text-body text-text-muted">共 {data?.pagination?.total ?? 0} 款游戏</span>
         <button onClick={openCreate} className="btn-primary h-9 px-4 flex items-center gap-1.5 text-caption">
           <Plus className="w-4 h-4" /> 添加游戏
         </button>
@@ -572,7 +572,7 @@ export default function AdminGamesPage() {
       )}
 
       <div className="grid gap-3">
-        {data?.list.map((game) => (
+        {data?.list?.map((game) => (
           <div key={game.id} className="card flex items-center gap-4">
             <div className="w-12 h-16 rounded bg-gray-100 flex-shrink-0 overflow-hidden">
               {game.cover && <img src={game.cover} alt={game.name} className="w-full h-full object-cover" />}

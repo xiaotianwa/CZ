@@ -6,11 +6,206 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { initGame, applyAction, getCardDef, registerCard } from '../engine';
 import { registerAllCards } from '../cards';
+import { triggerSynergiesOnEntry } from '../synergyRuntime';
 import type { CardDef, Deck, GameState, PlayerId } from '../types';
 import type { CardSynergy } from '@/lib/tcg/synergy';
 
 beforeAll(() => {
   try { registerAllCards(); } catch { /* already */ }
+});
+
+describe('Synergy runtime hardening', () => {
+  it('resolves shield effect for both paired minions', () => {
+    registerTestCard({
+      id: 'X08',
+      name: 'Test Shield Host',
+      type: 'character',
+      rarity: 'R',
+      cost: 1,
+      attack: 1,
+      health: 2,
+      synergies: [
+        {
+          id: 'syn_x08_shield',
+          name: 'Shared Shield',
+          description: '',
+          partners: ['C02'],
+          trigger: 'both_in_play',
+          scope: 'both',
+          effects: [{ kind: 'shield', duration: 'permanent' }],
+        },
+      ],
+    });
+
+    let s = initGame({
+      seed: 1006,
+      firstPlayer: 'P1',
+      p1Deck: buildDeck([]),
+      p2Deck: buildDeck([]),
+    });
+    s = forceIntoHand(s, 'P1', 'C02');
+    s = forceIntoHand(s, 'P1', 'X08');
+    s = setMana(s, 'P1', 3);
+    s = applyAction(s, { type: 'PLAY_CARD', player: 'P1', instanceId: findId(s, 'P1', 'C02') });
+    s = applyAction(s, { type: 'PLAY_CARD', player: 'P1', instanceId: findId(s, 'P1', 'X08') });
+
+    const c02 = s.players.P1.minions.find((m) => m.defId === 'C02')!;
+    const x08 = s.players.P1.minions.find((m) => m.defId === 'X08')!;
+    expect(c02.divineShieldActive).toBe(true);
+    expect(x08.divineShieldActive).toBe(true);
+    expect(c02.keywords.has('divineShield')).toBe(true);
+    expect(x08.keywords.has('divineShield')).toBe(true);
+  });
+
+  it('resolves cost_reduce effect against matching cards in hand', () => {
+    registerTestCard({
+      id: 'X09',
+      name: 'Test Discount Host',
+      type: 'character',
+      rarity: 'R',
+      cost: 1,
+      attack: 1,
+      health: 2,
+      synergies: [
+        {
+          id: 'syn_x09_discount',
+          name: 'Team Discount',
+          description: '',
+          partners: ['C02'],
+          trigger: 'both_in_play',
+          scope: 'all_allies',
+          effects: [{ kind: 'cost_reduce', amount: 1, duration: 'permanent' }],
+        },
+      ],
+    });
+
+    let s = initGame({
+      seed: 1007,
+      firstPlayer: 'P1',
+      p1Deck: buildDeck([]),
+      p2Deck: buildDeck([]),
+    });
+    s = forceIntoHand(s, 'P1', 'C02');
+    s = forceIntoHand(s, 'P1', 'X09');
+    s = forceIntoHand(s, 'P1', 'C03');
+    s = setMana(s, 'P1', 3);
+    s = applyAction(s, { type: 'PLAY_CARD', player: 'P1', instanceId: findId(s, 'P1', 'C02') });
+    s = applyAction(s, { type: 'PLAY_CARD', player: 'P1', instanceId: findId(s, 'P1', 'X09') });
+
+    const discounted = s.players.P1.hand.find((card) => card.defId === 'C03')!;
+    expect(discounted.currentCost).toBe(2);
+  });
+
+  it('does not resolve the same live host-partner pair twice', () => {
+    registerTestCard({
+      id: 'X10',
+      name: 'Test Idempotent Host',
+      type: 'character',
+      rarity: 'R',
+      cost: 1,
+      attack: 1,
+      health: 2,
+      synergies: [
+        {
+          id: 'syn_x10_once',
+          name: 'Only Once',
+          description: '',
+          partners: ['C02'],
+          trigger: 'both_in_play',
+          scope: 'both',
+          effects: [{ kind: 'attack_buff', amount: 1, duration: 'permanent' }],
+        },
+      ],
+    });
+
+    let s = initGame({
+      seed: 1008,
+      firstPlayer: 'P1',
+      p1Deck: buildDeck([]),
+      p2Deck: buildDeck([]),
+    });
+    s = forceIntoHand(s, 'P1', 'X10');
+    s = forceIntoHand(s, 'P1', 'C02');
+    s = setMana(s, 'P1', 3);
+    s = applyAction(s, { type: 'PLAY_CARD', player: 'P1', instanceId: findId(s, 'P1', 'X10') });
+    s = applyAction(s, { type: 'PLAY_CARD', player: 'P1', instanceId: findId(s, 'P1', 'C02') });
+
+    const c02Before = s.players.P1.minions.find((m) => m.defId === 'C02')!;
+    const x10Before = s.players.P1.minions.find((m) => m.defId === 'X10')!;
+
+    s = triggerSynergiesOnEntry(s, 'P1', {
+      kind: 'minion',
+      defId: 'C02',
+      instanceId: c02Before.instanceId,
+    });
+
+    const c02After = s.players.P1.minions.find((m) => m.defId === 'C02')!;
+    const x10After = s.players.P1.minions.find((m) => m.defId === 'X10')!;
+    expect(c02After.attack).toBe(c02Before.attack);
+    expect(x10After.attack).toBe(x10Before.attack);
+    expect(s.log.filter((entry) => entry.kind === 'combo' && entry.text.includes('Only Once'))).toHaveLength(1);
+  });
+
+  it('deduplicates the same synergy id when both cards configure it', () => {
+    registerTestCard({
+      id: 'X11',
+      name: 'Test Pair A',
+      type: 'character',
+      rarity: 'R',
+      cost: 1,
+      attack: 1,
+      health: 2,
+      synergies: [
+        {
+          id: 'syn_x11_x12_shared',
+          name: 'Shared Pair',
+          description: '',
+          partners: ['X12'],
+          trigger: 'both_in_play',
+          scope: 'both',
+          effects: [{ kind: 'attack_buff', amount: 1, duration: 'permanent' }],
+        },
+      ],
+    });
+    registerTestCard({
+      id: 'X12',
+      name: 'Test Pair B',
+      type: 'character',
+      rarity: 'R',
+      cost: 1,
+      attack: 1,
+      health: 2,
+      synergies: [
+        {
+          id: 'syn_x11_x12_shared',
+          name: 'Shared Pair',
+          description: '',
+          partners: ['X11'],
+          trigger: 'both_in_play',
+          scope: 'both',
+          effects: [{ kind: 'attack_buff', amount: 1, duration: 'permanent' }],
+        },
+      ],
+    });
+
+    let s = initGame({
+      seed: 1009,
+      firstPlayer: 'P1',
+      p1Deck: buildDeck([]),
+      p2Deck: buildDeck([]),
+    });
+    s = forceIntoHand(s, 'P1', 'X11');
+    s = forceIntoHand(s, 'P1', 'X12');
+    s = setMana(s, 'P1', 2);
+    s = applyAction(s, { type: 'PLAY_CARD', player: 'P1', instanceId: findId(s, 'P1', 'X11') });
+    s = applyAction(s, { type: 'PLAY_CARD', player: 'P1', instanceId: findId(s, 'P1', 'X12') });
+
+    const x11 = s.players.P1.minions.find((m) => m.defId === 'X11')!;
+    const x12 = s.players.P1.minions.find((m) => m.defId === 'X12')!;
+    expect(x11.attack).toBe(2);
+    expect(x12.attack).toBe(2);
+    expect(s.log.filter((entry) => entry.kind === 'combo' && entry.text.includes('Shared Pair'))).toHaveLength(1);
+  });
 });
 
 // ============ 工具 ============
