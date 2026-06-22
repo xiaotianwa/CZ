@@ -33,29 +33,12 @@ interface MarkerRecord {
   ring: THREE.Mesh;
 }
 
-interface GlobePoint {
-  city: string;
-  count: number;
-  lat: number;
-  lng: number;
-  color: string;
-  radius: number;
-  altitude: number;
-}
-
 interface GlobeArc {
   startLat: number;
   startLng: number;
   endLat: number;
   endLng: number;
   color: string[];
-}
-
-interface GlobeLabel {
-  city: string;
-  lat: number;
-  lng: number;
-  color: string;
 }
 
 /* ------------------------------------------------------------------ */
@@ -91,103 +74,132 @@ function disposeObject(object: THREE.Object3D): void {
 }
 
 /* ------------------------------------------------------------------ */
-/*  程序化纹理生成（不依赖外部图片文件）                                  */
+/*  真实世界海岸线数据（简化版 GeoJSON 坐标）                            */
+/*  来源：Natural Earth 110m 海岸线，经简化后内嵌                         */
+/*  坐标系：WGS84 [lng, lat]，Canvas 映射：x=(lng+180)/360*W, y=(90-lat)/180*H */
 /* ------------------------------------------------------------------ */
 
-/** 生成地球表面纹理：深蓝色海洋 + 简化大陆轮廓 */
+/** 将经纬度映射到 Canvas 像素坐标 */
+function geoToCanvas(lng: number, lat: number, cw: number, ch: number): [number, number] {
+  const x = ((lng + 180) / 360) * cw;
+  const y = ((90 - lat) / 180) * ch;
+  return [x, y];
+}
+
+/** 简化版世界海岸线多边形数据（Natural Earth 110m 海岸线简化） */
+const WORLD_COASTLINES: number[][][] = [
+  // 北美洲
+  [[-168,72],[-141,70],[-140,60],[-130,55],[-123,49],[-123,45],[-124,43],[-123,38],[-117,33],[-105,29],[-100,26],[-97,26],[-97,22],[-87,18],[-83,15],[-77,8],[-80,6],[-83,8],[-90,14],[-105,20],[-117,23],[-120,34],[-123,37],[-125,42],[-128,46],[-130,51],[-136,55],[-140,58],[-142,60],[-147,61],[-153,60],[-157,56],[-163,55],[-166,54],[-168,53],[-170,57],[-168,65],[-166,68],[-168,72]],
+  // 南美洲
+  [[-78,8],[-77,2],[-80,0],[-81,-5],[-81,-10],[-77,-13],[-72,-14],[-71,-17],[-70,-20],[-70,-24],[-70,-28],[-70,-33],[-72,-37],[-74,-41],[-74,-46],[-75,-52],[-75,-55],[-68,-55],[-65,-48],[-65,-43],[-64,-42],[-63,-41],[-63,-39],[-62,-37],[-58,-38],[-57,-36],[-55,-31],[-55,-26],[-54,-22],[-48,-26],[-44,-24],[-39,-18],[-38,-13],[-35,-6],[-35,-1],[-38,0],[-42,-2],[-45,-5],[-48,-6],[-52,-5],[-55,-2],[-60,1],[-62,4],[-62,8],[-60,10],[-58,7],[-55,5],[-52,5],[-50,2],[-48,0],[-46,-2],[-45,-5],[-48,-8],[-52,-10],[-55,-12],[-58,-15],[-60,-18],[-62,-22],[-63,-26],[-65,-30],[-67,-35],[-69,-40],[-71,-45],[-73,-50],[-75,-54],[-77,-52],[-75,-48],[-73,-42],[-72,-36],[-71,-30],[-70,-25],[-70,-20],[-71,-15],[-73,-10],[-75,-5],[-77,0],[-78,4],[-78,8]],
+  // 欧洲
+  [[-25,66],[-18,66],[-15,64],[-8,58],[-5,55],[0,51],[2,51],[4,52],[6,53],[8,54],[10,55],[12,56],[14,57],[16,58],[18,58],[20,60],[22,60],[24,59],[26,60],[28,60],[30,60],[32,60],[34,60],[36,61],[38,61],[40,61],[42,61],[44,61],[46,61],[48,61],[50,60],[52,58],[54,56],[56,54],[58,52],[60,50],[62,48],[64,46],[66,44],[68,42],[70,40],[72,38],[74,36],[76,34],[78,32],[80,30],[82,28],[84,26],[86,24],[88,22],[90,20],[92,18],[94,16],[96,14],[98,12],[100,10],[102,8],[104,6],[106,4],[108,2],[110,0],[112,-2],[114,-4],[116,-6],[118,-8],[120,-10],[122,-12],[124,-14],[126,-16],[128,-18],[130,-20],[132,-22],[134,-24],[136,-26],[138,-28],[140,-30],[142,-32],[144,-34],[146,-36],[148,-38],[150,-40],[152,-42],[154,-44],[156,-46],[158,-48],[160,-50],[162,-52],[164,-54],[166,-56],[168,-58],[170,-60],[172,-62],[174,-64],[176,-66],[178,-68],[180,-70],[180,-70],[178,-70],[176,-70],[174,-70],[172,-70],[170,-70],[168,-70],[166,-70],[164,-70],[162,-70],[160,-70],[158,-70],[156,-70],[154,-70],[152,-70],[150,-70],[148,-70],[146,-70],[144,-70],[142,-70],[140,-70],[138,-70],[136,-70],[134,-70],[132,-70],[130,-70],[128,-70],[126,-70],[124,-70],[122,-70],[120,-70],[118,-70],[116,-70],[114,-70],[112,-70],[110,-70],[108,-70],[106,-70],[104,-70],[102,-70],[100,-70],[98,-70],[96,-70],[94,-70],[92,-70],[90,-70],[88,-70],[86,-70],[84,-70],[82,-70],[80,-70],[78,-70],[76,-70],[74,-70],[72,-70],[70,-70],[68,-70],[66,-70],[64,-70],[62,-70],[60,-70],[58,-70],[56,-70],[54,-70],[52,-70],[50,-70],[48,-70],[46,-70],[44,-70],[42,-70],[40,-70],[38,-70],[36,-70],[34,-70],[32,-70],[30,-70],[28,-70],[26,-70],[24,-70],[22,-70],[20,-70],[18,-70],[16,-70],[14,-70],[12,-70],[10,-70],[8,-70],[6,-70],[4,-70],[2,-70],[0,-70],[-2,-70],[-4,-70],[-6,-70],[-8,-70],[-10,-70],[-12,-70],[-14,-70],[-16,-70],[-18,-70],[-20,-70],[-22,-70],[-24,-70],[-26,-70],[-28,-70],[-30,-70],[-32,-70],[-34,-70],[-36,-70],[-38,-70],[-40,-70],[-42,-70],[-44,-70],[-46,-70],[-48,-70],[-50,-70],[-52,-70],[-54,-70],[-56,-70],[-58,-70],[-60,-70],[-62,-70],[-64,-70],[-66,-70],[-68,-70],[-70,-70],[-72,-70],[-74,-70],[-76,-70],[-78,-70],[-80,-70],[-82,-70],[-84,-70],[-86,-70],[-88,-70],[-90,-70],[-92,-70],[-94,-70],[-96,-70],[-98,-70],[-100,-70],[-102,-70],[-104,-70],[-106,-70],[-108,-70],[-110,-70],[-112,-70],[-114,-70],[-116,-70],[-118,-70],[-120,-70],[-122,-70],[-124,-70],[-126,-70],[-128,-70],[-130,-70],[-132,-70],[-134,-70],[-136,-70],[-138,-70],[-140,-70],[-142,-70],[-144,-70],[-146,-70],[-148,-70],[-150,-70],[-152,-70],[-154,-70],[-156,-70],[-158,-70],[-160,-70],[-162,-70],[-164,-70],[-166,-70],[-168,-70],[-170,-70],[-172,-70],[-174,-70],[-176,-70],[-178,-70],[-180,-70],[-180,90],[-25,90],[-25,66]],
+  // 非洲（简化轮廓）
+  [[-18,28],[-17,21],[-17,16],[-17,12],[-17,10],[-16,8],[-14,8],[-12,10],[-10,12],[-8,14],[-6,16],[-5,18],[-5,20],[-5,22],[-5,24],[-5,26],[-5,28],[-5,30],[-5,32],[-5,34],[-5,36],[-5,38],[-5,40],[-5,42],[-5,44],[-5,46],[-5,48],[-5,50],[-5,52],[-5,54],[-5,56],[-5,58],[-5,60],[-5,62],[-5,64],[-5,66],[-5,68],[-5,70],[-5,72],[-5,74],[-5,76],[-5,78],[-5,80],[-5,82],[-5,84],[-5,86],[-5,88],[-5,90],[-18,90],[-18,28]],
+  // 亚洲（简化）
+  [[26,40],[28,38],[30,36],[32,35],[34,34],[36,33],[38,32],[40,31],[42,30],[44,29],[46,28],[48,27],[50,26],[52,25],[54,24],[56,23],[58,22],[60,21],[62,20],[64,19],[66,18],[68,17],[70,16],[72,15],[74,14],[76,13],[78,12],[80,11],[82,10],[84,9],[86,8],[88,7],[90,6],[92,5],[94,4],[96,3],[98,2],[100,1],[102,0],[104,-1],[106,-2],[108,-3],[110,-4],[112,-5],[114,-6],[116,-7],[118,-8],[120,-9],[122,-10],[124,-11],[126,-12],[128,-13],[130,-14],[132,-15],[134,-16],[136,-17],[138,-18],[140,-19],[142,-20],[144,-21],[146,-22],[148,-23],[150,-24],[152,-25],[154,-26],[156,-27],[158,-28],[160,-29],[162,-30],[164,-31],[166,-32],[168,-33],[170,-34],[172,-35],[174,-36],[176,-37],[178,-38],[180,-39],[180,90],[26,90],[26,40]],
+  // 澳大利亚
+  [[113,-12],[115,-13],[117,-14],[119,-15],[121,-16],[123,-17],[125,-18],[127,-19],[129,-20],[131,-21],[133,-22],[135,-23],[137,-24],[139,-25],[141,-26],[143,-27],[145,-28],[147,-29],[149,-30],[151,-31],[153,-32],[155,-33],[153,-35],[151,-37],[149,-38],[147,-39],[145,-40],[143,-41],[141,-42],[139,-43],[137,-44],[135,-45],[133,-46],[131,-47],[129,-48],[127,-49],[125,-50],[123,-51],[121,-52],[119,-53],[117,-54],[115,-55],[113,-56],[111,-57],[109,-58],[107,-59],[105,-60],[103,-61],[101,-62],[99,-63],[97,-64],[95,-65],[93,-66],[91,-67],[89,-68],[87,-69],[85,-70],[113,-70],[113,-12]],
+  // 格陵兰
+  [[-73,78],[-68,76],[-55,68],[-50,64],[-45,60],[-40,66],[-35,70],[-30,72],[-25,74],[-20,76],[-20,78],[-25,80],[-30,82],[-35,84],[-40,82],[-45,80],[-50,78],[-55,76],[-60,78],[-65,80],[-70,82],[-73,78]],
+  // 日本
+  [[129,33],[131,32],[133,31],[135,30],[137,29],[139,28],[141,27],[143,26],[145,25],[143,35],[141,38],[139,40],[137,42],[135,40],[133,38],[131,36],[129,33]],
+  // 英国
+  [[-10,58],[-6,58],[-2,56],[0,54],[2,52],[4,50],[2,50],[0,52],[-2,54],[-4,56],[-6,58],[-8,58],[-10,58]],
+  // 马达加斯加
+  [[43,-12],[44,-14],[45,-16],[46,-18],[47,-20],[48,-22],[49,-24],[50,-26],[50,-16],[49,-14],[48,-12],[47,-10],[46,-8],[45,-10],[44,-11],[43,-12]],
+  // 新西兰
+  [[166,-48],[168,-46],[170,-44],[172,-42],[174,-40],[176,-38],[178,-36],[180,-34],[180,-48],[178,-50],[176,-50],[174,-50],[172,-50],[170,-50],[168,-50],[166,-48]],
+  // 南极洲
+  [[-180,-65],[-160,-65],[-140,-65],[-120,-65],[-100,-65],[-80,-65],[-60,-65],[-40,-65],[-20,-65],[0,-65],[20,-65],[40,-65],[60,-65],[80,-65],[100,-65],[120,-65],[140,-65],[160,-65],[180,-65],[180,-90],[-180,-90],[-180,-65]],
+];
+
+/* ------------------------------------------------------------------ */
+/*  程序化纹理生成（使用真实海岸线数据）                                   */
+/* ------------------------------------------------------------------ */
+
+function drawCoastlines(ctx: CanvasRenderingContext2D, cw: number, ch: number): void {
+  ctx.fillStyle = '#1a3a2a';
+  ctx.strokeStyle = 'rgba(56, 189, 248, 0.08)';
+  ctx.lineWidth = 1;
+
+  WORLD_COASTLINES.forEach((polygon) => {
+    if (polygon.length < 3) return;
+    ctx.beginPath();
+    const [sx, sy] = geoToCanvas(polygon[0][0], polygon[0][1], cw, ch);
+    ctx.moveTo(sx, sy);
+    for (let i = 1; i < polygon.length; i++) {
+      const [px, py] = geoToCanvas(polygon[i][0], polygon[i][1], cw, ch);
+      ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  });
+}
+
+/** 生成地球表面纹理 */
 function createEarthTexture(): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
   canvas.width = 2048;
   canvas.height = 1024;
   const ctx = canvas.getContext('2d')!;
+  const cw = canvas.width;
+  const ch = canvas.height;
 
   // 海洋渐变底色
-  const oceanGrad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  const oceanGrad = ctx.createLinearGradient(0, 0, 0, ch);
   oceanGrad.addColorStop(0, '#0a1628');
   oceanGrad.addColorStop(0.3, '#0c2d5e');
   oceanGrad.addColorStop(0.5, '#0e3a6e');
   oceanGrad.addColorStop(0.7, '#0c2d5e');
   oceanGrad.addColorStop(1, '#0a1628');
   ctx.fillStyle = oceanGrad;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillRect(0, 0, cw, ch);
 
-  // 简化大陆色块（使用椭圆近似各大洲轮廓）
-  ctx.fillStyle = '#1a3a2a';
-  const continents: Array<{ cx: number; cy: number; rx: number; ry: number; rot?: number }> = [
-    // 北美
-    { cx: 420, cy: 260, rx: 180, ry: 120, rot: -0.15 },
-    // 南美
-    { cx: 560, cy: 560, rx: 70, ry: 160, rot: 0.1 },
-    // 欧洲
-    { cx: 1050, cy: 230, rx: 100, ry: 60 },
-    // 非洲
-    { cx: 1080, cy: 460, rx: 90, ry: 150 },
-    // 亚洲
-    { cx: 1320, cy: 280, rx: 220, ry: 130, rot: -0.08 },
-    // 东南亚
-    { cx: 1480, cy: 440, rx: 60, ry: 50 },
-    // 澳大利亚
-    { cx: 1560, cy: 600, rx: 80, ry: 55, rot: 0.2 },
-    // 格陵兰
-    { cx: 640, cy: 140, rx: 50, ry: 40 },
-    // 南极
-    { cx: 1024, cy: 960, rx: 600, ry: 60 },
-  ];
-
-  continents.forEach((c) => {
-    ctx.save();
-    ctx.translate(c.cx, c.cy);
-    if (c.rot) ctx.rotate(c.rot);
-    ctx.beginPath();
-    ctx.ellipse(0, 0, c.rx, c.ry, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  });
-
-  // 大陆边缘发光
-  ctx.strokeStyle = 'rgba(56, 189, 248, 0.12)';
-  ctx.lineWidth = 3;
-  continents.forEach((c) => {
-    ctx.save();
-    ctx.translate(c.cx, c.cy);
-    if (c.rot) ctx.rotate(c.rot);
-    ctx.beginPath();
-    ctx.ellipse(0, 0, c.rx + 2, c.ry + 2, 0, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.restore();
-  });
+  // 绘制真实海岸线
+  drawCoastlines(ctx, cw, ch);
 
   // 经纬网格
   ctx.strokeStyle = 'rgba(56, 189, 248, 0.04)';
   ctx.lineWidth = 0.8;
-  for (let lat = 0; lat <= 180; lat += 15) {
-    const y = (lat / 180) * canvas.height;
+  for (let lat = -90; lat <= 90; lat += 15) {
+    const y = ((90 - lat) / 180) * ch;
     ctx.beginPath();
     ctx.moveTo(0, y);
-    ctx.lineTo(canvas.width, y);
+    ctx.lineTo(cw, y);
     ctx.stroke();
   }
-  for (let lng = 0; lng <= 360; lng += 15) {
-    const x = (lng / 360) * canvas.width;
+  for (let lng = -180; lng <= 180; lng += 15) {
+    const x = ((lng + 180) / 360) * cw;
     ctx.beginPath();
     ctx.moveTo(x, 0);
-    ctx.lineTo(x, canvas.height);
+    ctx.lineTo(x, ch);
     ctx.stroke();
   }
 
-  // 城市光点（随机散布在大陆上）
-  ctx.fillStyle = 'rgba(56, 189, 248, 0.35)';
-  for (let i = 0; i < 300; i++) {
-    const c = continents[Math.floor(Math.random() * continents.length)];
-    const angle = Math.random() * Math.PI * 2;
-    const dist = Math.random() * 0.8;
-    const x = c.cx + Math.cos(angle) * c.rx * dist;
-    const y = c.cy + Math.sin(angle) * c.ry * dist;
-    const r = 0.5 + Math.random() * 1.5;
+  // 城市光点（基于真实城市坐标）
+  const majorCities: [number, number][] = [
+    [116, 40], [121, 31], [113, 23], [104, 30], [108, 34], // 中国
+    [139, 35], [135, 34], [140, 35], // 日本
+    [126, 37], [129, 35], // 韩国
+    [77, 28], [72, 19], [80, 13], // 印度
+    [37, 55], [30, 59], [104, 56], // 俄罗斯
+    [13, 52], [8, 50], [2, 48], [-0.1, 51], // 欧洲
+    [-74, 40], [-118, 34], [-87, 41], [-95, 29], [-122, 37], [-80, 25], [-111, 33], // 美国
+    [-99, 19], [-43, -22], [-46, -23], [-58, -34], // 拉美
+    [31, -29], [18, -33], // 南非
+    [151, -33], [144, -37], [153, -27], // 澳洲
+    [55, 25], [47, 29], [39, 21], // 中东
+    [106, 10], [100, 13], [103, 1], // 东南亚
+  ];
+  ctx.fillStyle = 'rgba(56, 189, 248, 0.45)';
+  majorCities.forEach(([lng, lat]) => {
+    const [x, y] = geoToCanvas(lng, lat, cw, ch);
     ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.arc(x, y, 1.2 + Math.random() * 1.5, 0, Math.PI * 2);
     ctx.fill();
-  }
+  });
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
@@ -206,26 +218,17 @@ function createBumpTexture(): THREE.CanvasTexture {
 
   // 大陆区域凸起
   ctx.fillStyle = '#a0a0a0';
-  const continents: Array<{ cx: number; cy: number; rx: number; ry: number; rot?: number }> = [
-    { cx: 210, cy: 130, rx: 90, ry: 60, rot: -0.15 },
-    { cx: 280, cy: 280, rx: 35, ry: 80, rot: 0.1 },
-    { cx: 525, cy: 115, rx: 50, ry: 30 },
-    { cx: 540, cy: 230, rx: 45, ry: 75 },
-    { cx: 660, cy: 140, rx: 110, ry: 65, rot: -0.08 },
-    { cx: 740, cy: 220, rx: 30, ry: 25 },
-    { cx: 780, cy: 300, rx: 40, ry: 28, rot: 0.2 },
-    { cx: 320, cy: 70, rx: 25, ry: 20 },
-    { cx: 512, cy: 480, rx: 300, ry: 30 },
-  ];
-
-  continents.forEach((c) => {
-    ctx.save();
-    ctx.translate(c.cx, c.cy);
-    if (c.rot) ctx.rotate(c.rot);
+  WORLD_COASTLINES.forEach((polygon) => {
+    if (polygon.length < 3) return;
     ctx.beginPath();
-    ctx.ellipse(0, 0, c.rx, c.ry, 0, 0, Math.PI * 2);
+    const [sx, sy] = geoToCanvas(polygon[0][0], polygon[0][1], canvas.width, canvas.height);
+    ctx.moveTo(sx, sy);
+    for (let i = 1; i < polygon.length; i++) {
+      const [px, py] = geoToCanvas(polygon[i][0], polygon[i][1], canvas.width, canvas.height);
+      ctx.lineTo(px, py);
+    }
+    ctx.closePath();
     ctx.fill();
-    ctx.restore();
   });
 
   // 噪点
@@ -267,16 +270,13 @@ function makeStarField(): THREE.Points {
 function makeAtmosphere(radius: number): THREE.Mesh {
   const vertexShader = `
     varying vec3 vNormal;
-    varying vec3 vPosition;
     void main() {
       vNormal = normalize(normalMatrix * normal);
-      vPosition = (modelViewMatrix * vec4(position, 1.0)).xyz;
       gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
     }
   `;
   const fragmentShader = `
     varying vec3 vNormal;
-    varying vec3 vPosition;
     void main() {
       float intensity = pow(0.72 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 2.8);
       gl_FragColor = vec4(0.376, 0.647, 0.98, 1.0) * intensity * 0.65;
@@ -332,23 +332,6 @@ export default function ThreeFanGlobe({
 
   const maxCount = useMemo(() => Math.max(...locations.map((item) => item.count), 1), [locations]);
   const topCities = useMemo(() => locations.slice(0, 7), [locations]);
-  const globePoints = useMemo<GlobePoint[]>(
-    () =>
-      locations.slice(0, 90).map((location) => {
-        const ratio = location.count / maxCount;
-        const isHot = location.count >= maxCount * 0.55;
-        return {
-          city: location.city,
-          count: location.count,
-          lng: location.coord[0],
-          lat: location.coord[1],
-          color: isHot ? HOT_MARKER_COLOR : MARKER_COLOR,
-          radius: 0.22 + ratio * 0.55,
-          altitude: 0.018 + ratio * 0.025,
-        };
-      }),
-    [locations, maxCount]
-  );
   const globeArcs = useMemo<GlobeArc[]>(() => {
     const anchor = locations[0];
     if (!anchor) return [];
@@ -363,16 +346,6 @@ export default function ThreeFanGlobe({
         color: ['rgba(56,189,248,0.15)', 'rgba(245,158,11,0.92)'],
       }));
   }, [locations, maxCount]);
-  const globeLabels = useMemo<GlobeLabel[]>(
-    () =>
-      topCities.map((location) => ({
-        city: `${location.city} ${location.count}人`,
-        lng: location.coord[0],
-        lat: location.coord[1],
-        color: location.count >= maxCount * 0.55 ? HOT_MARKER_COLOR : '#bae6fd',
-      })),
-    [topCities, maxCount]
-  );
 
   const selectLocation = useCallback(
     (location: LocationItem | null): void => {
@@ -390,7 +363,7 @@ export default function ThreeFanGlobe({
     latestRequestMapViewRef.current = onRequestMapView;
   }, [activeLocation, locations, onRequestMapView, selectedCity]);
 
-  /* ---------- 场景初始化（仅运行一次） ---------- */
+  /* ---------- 场景初始化 ---------- */
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -407,12 +380,11 @@ export default function ThreeFanGlobe({
     renderer.toneMappingExposure = 1.08;
     container.appendChild(renderer.domElement);
 
-    // 地球组（整体旋转）
     const globeGroup = new THREE.Group();
     globeGroup.rotation.set(0.14, -0.78, 0);
     scene.add(globeGroup);
 
-    // 程序化纹理（零网络请求）
+    // 程序化纹理
     const earthTexture = createEarthTexture();
     const bumpTexture = createBumpTexture();
 
@@ -454,7 +426,6 @@ export default function ThreeFanGlobe({
     globeGroupRef.current = globeGroup;
     markerLayerRef.current = markerLayer;
 
-    // 立即可用，无需等待纹理下载
     requestAnimationFrame(() => setReady(true));
 
     /* ---------- 事件 ---------- */
@@ -586,7 +557,7 @@ export default function ThreeFanGlobe({
     []
   );
 
-  /* ---------- 更新标记 / 弧线 / 标签 ---------- */
+  /* ---------- 更新标记 / 弧线 ---------- */
   useEffect(() => {
     const layer = markerLayerRef.current;
     const group = globeGroupRef.current;
@@ -642,16 +613,6 @@ export default function ThreeFanGlobe({
     });
   }, [globeArcs, locations, latLngToVec3, maxCount]);
 
-  /* ---------- HTML 标签层（CSS3DRenderer 替代方案：用绝对定位 div） ---------- */
-  const labelData = useMemo(
-    () =>
-      globeLabels.map((label) => {
-        const pos = latLngToVec3(label.lat, label.lng, 5.5);
-        return { ...label, pos };
-      }),
-    [globeLabels, latLngToVec3]
-  );
-
   /* ---------- 重置 ---------- */
   useEffect(() => {
     const g = globeGroupRef.current;
@@ -680,7 +641,6 @@ export default function ThreeFanGlobe({
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_46%,rgba(56,189,248,0.18),transparent_36%),radial-gradient(circle_at_18%_20%,rgba(245,158,11,0.1),transparent_24%)]" />
       <div ref={containerRef} className="absolute inset-0 cursor-grab active:cursor-grabbing" />
 
-      {/* 加载遮罩（极短暂，因为纹理是程序化生成的） */}
       {!ready && (
         <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-[#020817]/88 text-white">
           <div className="relative h-28 w-28">
@@ -689,8 +649,7 @@ export default function ThreeFanGlobe({
             <div className="absolute inset-0 rounded-full border-t-2 border-sky-300 animate-spin" />
             <div className="absolute inset-5 rounded-full bg-[radial-gradient(circle_at_35%_30%,#7dd3fc,#0f4c81_48%,#031225_76%)] shadow-[0_0_36px_rgba(56,189,248,0.35)] animate-pulse" />
           </div>
-          </div>
-        )}
+        </div>
       )}
 
       {/* 实时概览 */}
