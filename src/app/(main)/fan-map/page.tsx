@@ -398,7 +398,7 @@ export default function FanMapPage() {
           </div>
           <h1 className="mt-3 text-heading-lg text-white">泽小将分布雷达</h1>
           <p className="hidden">
-            使用 three-globe 真实 3D 地球模型展示城市点亮、飞线和地区热力。数据只展示城市级别。
+            使用 Three.js 程序化 3D 地球模型展示城市点亮、飞线和地区热力。数据只展示城市级别。
           </p>
           <div className="mt-4 grid grid-cols-4 gap-2">
             <div className="rounded-2xl bg-white/8 p-3">
