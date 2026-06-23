@@ -3,6 +3,9 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Eye, EyeOff, Mail, Lock, ArrowRight, Gamepad2, X } from 'lucide-react';
+import dynamic from 'next/dynamic';
+
+const WelcomeVideo = dynamic(() => import('@/components/WelcomeVideo'), { ssr: false });
 
 const termsContent = {
   title: '用户协议',
@@ -73,6 +76,7 @@ export default function LoginPage() {
   const [modalType, setModalType] = useState<'terms' | 'privacy' | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showWelcomeVideo, setShowWelcomeVideo] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
@@ -109,7 +113,7 @@ export default function LoginPage() {
         return;
       }
       localStorage.setItem('user', JSON.stringify(json.data?.user ?? null));
-      window.location.href = '/';
+      setShowWelcomeVideo(true);
     } catch (err) {
       // 典型情况：TLS 握手失败、DNS 解析失败、网络断开、浏览器拦截
       const msg = err instanceof Error ? err.message : '';
@@ -120,7 +124,16 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative min-h-screen flex flex-col items-center justify-center px-4 py-12 overflow-hidden animate-fade-in-up">
+    <>
+      {showWelcomeVideo && (
+        <WelcomeVideo
+          onFinished={() => {
+            setShowWelcomeVideo(false);
+            window.location.href = '/';
+          }}
+        />
+      )}
+      <div className="relative min-h-screen flex flex-col items-center justify-center px-4 py-12 overflow-hidden animate-fade-in-up">
       {/* 1103 背景水印 */}
       <div className="absolute inset-0 pointer-events-none select-none" aria-hidden="true">
         <span className="font-waterbrush absolute top-16 -left-8 text-[200px] text-gray-900/[0.07] dark:text-white/[0.04] leading-none">1103</span>
@@ -291,5 +304,6 @@ export default function LoginPage() {
         </div>
       )}
     </div>
+    </>
   );
 }
