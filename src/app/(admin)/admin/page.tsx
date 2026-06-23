@@ -13,7 +13,6 @@ import {
   AlertTriangle,
   ChevronRight,
 } from 'lucide-react';
-import { useAdminAuth } from '@/components/AdminAuthProvider';
 import { api } from '@/lib/api';
 
 interface Stats {
@@ -27,19 +26,34 @@ interface Stats {
   pendingFeedback: number;
 }
 
+interface AdminInfo {
+  id: string;
+  name: string;
+  role: string;
+}
+
 export default function AdminDashboardPage() {
-  const { admin, isLoggedIn } = useAdminAuth();
   const router = useRouter();
   const [stats, setStats] = useState<Stats | null>(null);
+  const [admin, setAdmin] = useState<AdminInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!isLoggedIn) {
-      router.push('/admin/login');
-      return;
-    }
+    // 检查管理员登录状态
+    fetch('/api/admin/auth/me', { credentials: 'same-origin' })
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.code === 0 && json.data) {
+          setAdmin(json.data);
+        } else {
+          router.push('/admin/login');
+        }
+      })
+      .catch(() => router.push('/admin/login'));
+
+    // 加载统计数据
     loadStats();
-  }, [isLoggedIn, router]);
+  }, [router]);
 
   const loadStats = async () => {
     try {
@@ -61,7 +75,7 @@ export default function AdminDashboardPage() {
     { key: 'announcements', label: '公告', icon: Megaphone, href: '/admin/announcements', color: 'text-green-500' },
   ];
 
-  if (!isLoggedIn || !admin) {
+  if (!admin) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">

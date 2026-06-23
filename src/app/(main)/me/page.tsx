@@ -14,13 +14,23 @@ import {
   ImageUp,
 } from 'lucide-react';
 import { useToast } from '@/components/ToastProvider';
-import { useAuth } from '@/components/AuthProvider';
 import { api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 import { UserProfileForm } from '@/components/UserProfileForm';
 import { UserAvatarUpload } from '@/components/UserAvatarUpload';
 import { UserMediaGallery } from '@/components/UserMediaGallery';
+
+interface UserInfo {
+  id: string;
+  name: string;
+  email: string;
+  avatar?: string;
+  bio?: string;
+  city?: string;
+  province?: string;
+  createdAt: string;
+}
 
 interface FeedbackItem {
   id: string;
@@ -33,20 +43,31 @@ interface FeedbackItem {
 }
 
 export default function MePage() {
-  const { user, isLoggedIn, logout, refreshUser } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('profile');
   const [isLoading, setIsLoading] = useState(false);
   const [feedbackList, setFeedbackList] = useState<FeedbackItem[]>([]);
   const [isFeedbackLoading, setIsFeedbackLoading] = useState(false);
+  const [user, setUser] = useState<UserInfo | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
+  // 获取用户信息
   useEffect(() => {
-    if (!isLoggedIn && !isLoading) {
-      router.push('/login');
-    }
-  }, [isLoggedIn, isLoading, router]);
+    fetch('/api/auth/me', { credentials: 'same-origin' })
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.code === 0 && json.data?.user) {
+          setUser(json.data.user);
+          setIsLoggedIn(true);
+        } else {
+          router.push('/login');
+        }
+      })
+      .catch(() => router.push('/login'));
+  }, [router]);
 
+  // 加载反馈列表
   const loadFeedback = useCallback(async () => {
     if (!isLoggedIn) return;
     setIsFeedbackLoading(true);
@@ -68,9 +89,21 @@ export default function MePage() {
     }
   }, [activeTab, loadFeedback]);
 
+  const refreshUser = async () => {
+    try {
+      const res = await fetch('/api/auth/me', { credentials: 'same-origin' });
+      const json = await res.json();
+      if (json.code === 0 && json.data?.user) {
+        setUser(json.data.user);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
   const handleLogout = async () => {
     setIsLoading(true);
-    await logout();
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
     setIsLoading(false);
     router.push('/');
   };
@@ -86,7 +119,7 @@ export default function MePage() {
       const res = await api.delete('/api/auth/me');
       if (res.ok) {
         toast({ title: '账号已注销', description: '您的账号和所有数据已被删除' });
-        await logout();
+        await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
         router.push('/');
       } else {
         toast({

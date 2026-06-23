@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -18,8 +18,13 @@ import {
   FileText,
   Ban,
 } from 'lucide-react';
-import { useAdminAuth } from '@/components/AdminAuthProvider';
 import { cn } from '@/lib/utils';
+
+interface AdminInfo {
+  id: string;
+  name: string;
+  role: string;
+}
 
 const sidebarGroups = [
   {
@@ -33,8 +38,8 @@ const sidebarGroups = [
   {
     title: '用户互动',
     items: [
-      { href: '/admin/feedback', label: '反馈管理', icon: MessageSquare },
       { href: '/admin/users', label: '用户管理', icon: Users },
+      { href: '/admin/feedback', label: '反馈处理', icon: MessageSquare },
     ],
   },
   {
@@ -47,15 +52,43 @@ const sidebarGroups = [
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { admin, logout } = useAdminAuth();
   const pathname = usePathname();
   const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [admin, setAdmin] = useState<AdminInfo | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/admin/auth/me', { credentials: 'same-origin' })
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.code === 0 && json.data) {
+          setAdmin(json.data);
+        } else {
+          router.push('/admin/login');
+        }
+      })
+      .catch(() => router.push('/admin/login'))
+      .finally(() => setLoading(false));
+  }, [router]);
 
   const handleLogout = async () => {
-    await logout();
+    await fetch('/api/admin/auth/logout', { method: 'POST', credentials: 'same-origin' });
     router.push('/admin/login');
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">加载中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!admin) return null;
 
   return (
     <div className="min-h-screen bg-background">
@@ -89,18 +122,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
 
           {/* 管理员信息 */}
-          {admin && (
-            <div className="p-4 border-b">
-              <p className="font-medium text-sm">{admin.name}</p>
-              <p className="text-xs text-muted-foreground">
-                {admin.role === 'super_admin'
-                  ? '超级管理员'
-                  : admin.role === 'admin'
-                    ? '管理员'
-                    : '编辑'}
-              </p>
-            </div>
-          )}
+          <div className="p-4 border-b">
+            <p className="font-medium text-sm">{admin.name}</p>
+            <p className="text-xs text-muted-foreground">
+              {admin.role === 'super_admin'
+                ? '超级管理员'
+                : admin.role === 'admin'
+                  ? '管理员'
+                  : '编辑'}
+            </p>
+          </div>
 
           {/* 导航 */}
           <nav className="p-2 space-y-4 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 140px)' }}>
@@ -169,25 +200,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         )}
 
         {/* 主内容 */}
-        <main className="flex-1 p-4 lg:p-6 min-w-0">
-          {/* 面包屑 */}
-          <div className="flex items-center gap-1 text-sm text-muted-foreground mb-4">
-            <Link href="/admin" className="hover:text-foreground transition-colors">
-              管理后台
-            </Link>
-            {pathname !== '/admin' && (
-              <>
-                <ChevronRight className="w-3 h-3" />
-                <span className="text-foreground">
-                  {sidebarGroups
-                    .flatMap((g) => g.items)
-                    .find((i) => pathname === i.href || pathname.startsWith(`${i.href}/`))?.label ||
-                    '当前页面'}
-                </span>
-              </>
-            )}
-          </div>
-
+        <main className="flex-1 p-4 lg:p-8 min-h-screen">
           {children}
         </main>
       </div>
