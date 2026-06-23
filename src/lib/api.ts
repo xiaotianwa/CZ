@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { AuthError } from './auth';
 
+/* ------------------------------------------------------------------ */
+/*  服务端响应辅助                                                      */
+/* ------------------------------------------------------------------ */
+
 export function ok<T>(data: T, message: string = 'success') {
   return NextResponse.json({ code: 0, message, data });
 }
@@ -45,3 +49,41 @@ export function getSearchParams(url: string) {
 
   return { page, pageSize, keyword, status, category, sort, order };
 }
+
+/* ------------------------------------------------------------------ */
+/*  客户端 API 封装                                                     */
+/* ------------------------------------------------------------------ */
+
+interface ApiResult {
+  ok: boolean;
+  data: unknown;
+  message: string;
+  code: number;
+}
+
+async function request(method: string, url: string, body?: unknown): Promise<ApiResult> {
+  const opts: RequestInit = {
+    method,
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+  };
+  if (body !== undefined) {
+    opts.body = JSON.stringify(body);
+  }
+  const res = await fetch(url, opts);
+  const json = await res.json();
+  return {
+    ok: json.code === 0 || json.code === 200,
+    data: json.data ?? null,
+    message: json.message ?? '',
+    code: json.code ?? res.status,
+  };
+}
+
+export const api = {
+  get: (url: string) => request('GET', url),
+  post: (url: string, body?: unknown) => request('POST', url, body),
+  put: (url: string, body?: unknown) => request('PUT', url, body),
+  patch: (url: string, body?: unknown) => request('PATCH', url, body),
+  delete: (url: string) => request('DELETE', url),
+};
