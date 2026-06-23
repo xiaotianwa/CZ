@@ -18,7 +18,6 @@ import {
   FileText,
   Ban,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { useAdminAuth } from '@/components/AdminAuthProvider';
 import { cn } from '@/lib/utils';
 
@@ -66,13 +65,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <ShieldCheck className="w-5 h-5 text-primary" />
           <span className="font-semibold">管理后台</span>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
+        <button
+          type="button"
+          className="rounded-md p-2 text-text-muted hover:bg-muted transition-colors"
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         >
           {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-        </Button>
+        </button>
       </div>
 
       <div className="flex">
@@ -150,14 +149,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
           {/* 退出登录 */}
           <div className="absolute bottom-0 left-0 right-0 p-2 border-t bg-card">
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-muted-foreground"
+            <button
+              type="button"
+              className="w-full flex items-center gap-2 rounded-md px-3 py-2 text-sm text-text-muted hover:bg-muted transition-colors"
               onClick={handleLogout}
             >
-              <LogOut className="w-4 h-4 mr-2" />
+              <LogOut className="w-4 h-4" />
               退出登录
-            </Button>
+            </button>
           </div>
         </aside>
 
