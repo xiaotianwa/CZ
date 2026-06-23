@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
-import { verifyToken } from '@/lib/auth';
+import { verifyUserToken } from '@/lib/auth';
 import { prisma } from '@/lib/db';
 
 export async function GET(req: NextRequest) {
@@ -15,7 +14,7 @@ export async function GET(req: NextRequest) {
     }
 
     // 验证 token
-    const payload = await verifyToken(token);
+    const payload = await verifyUserToken(token);
     if (!payload) {
       return NextResponse.json(
         { code: 401, message: '登录已过期', data: null },
@@ -25,7 +24,7 @@ export async function GET(req: NextRequest) {
 
     // 获取用户信息
     const user = await prisma.user.findUnique({
-      where: { id: payload.userId },
+      where: { id: payload.id },
       select: {
         id: true,
         name: true,

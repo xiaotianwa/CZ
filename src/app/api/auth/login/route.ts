@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { verifyPassword, signToken, requireEnv } from '@/lib/auth';
+import { verifyPassword, signUserToken } from '@/lib/auth';
 import { prisma } from '@/lib/db';
-import { loginRateLimiter } from '@/lib/registration-security';
-import { timingSafeEqualStr } from '@/lib/timing-safe';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 const loginSchema = z.object({
   email: z.string().email('请输入有效的邮箱地址'),
@@ -35,10 +34,10 @@ export async function POST(req: NextRequest) {
   const ip = req.headers.get('x-real-ip') || req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || '127.0.0.1';
 
   // 登录频率限制（IP 级别）
-  const rateLimit = await loginRateLimiter.check(ip);
-  if (!rateLimit.allowed) {
+  const retryAfter = await checkRateLimit(ip, { namespace: 'login', windowMs: 60_000, max: 10 });
+  if (retryAfter !== null) {
     return NextResponse.json(
-      { code: 429, message: `登录过于频繁，请 ${rateLimit.retryAfter} 秒后再试`, data: null },
+      { code: 429, message: `登录过于频繁，请 ${retryAfter} 秒后再试`, data: null },
       { status: 429 }
     );
   }
@@ -66,7 +65,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 生成 JWT
-    const token = await signToken({ userId: user.id, email: user.email });
+    const token = signUserToken({ id: user.id, email: user.email, role: user.role ?? 'user' });
 
     // 设置 cookie
     const isProduction = process.env.NODE_ENV === 'production';
